@@ -1,18 +1,18 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { Scan, X, Plus, Download, Check, Camera, Keyboard, AlertCircle } from "lucide-react";
-import * as XLSX from "xlsx";
+import { Scan, X, Plus, Download, Check, Camera, Keyboard, AlertCircle, Mail } from "lucide-react";
+import ExcelJS from "exceljs";
 import { supabase } from "./supabaseClient";
 
-const FONT_SANS = "'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
-const FONT_MONO = "'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace";
+export const FONT_SANS = "'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+export const FONT_MONO = "'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace";
 
-const PAPER = "#FAF7F0";
-const INK = "#1F1B16";
-const RED = "#C1443C";
-const GREEN = "#5B7A6A";
-const MUTE = "#8A8073";
-const BORDER = "#DED7C6";
-const CARD = "#FFFFFF";
+export const PAPER = "#FAF7F0";
+export const INK = "#1F1B16";
+export const RED = "#C1443C";
+export const GREEN = "#5B7A6A";
+export const MUTE = "#8A8073";
+export const BORDER = "#DED7C6";
+export const CARD = "#FFFFFF";
 
 export default function PriceScanner() {
   const [queue, setQueue] = useState([]); // [{barcode, name, price, id}]
@@ -26,6 +26,9 @@ export default function PriceScanner() {
   const [cameraError, setCameraError] = useState(null);
   const [savedFlash, setSavedFlash] = useState(false);
   const [saveError, setSaveError] = useState(null);
+  const [emailSending, setEmailSending] = useState(false);
+  const [emailError, setEmailError] = useState(null);
+  const [emailSent, setEmailSent] = useState(false);
 
   const videoRef = useRef(null);
   const streamRef = useRef(null);
@@ -61,6 +64,27 @@ export default function PriceScanner() {
 
   useEffect(() => stopCamera, [stopCamera]);
 
+  // Some imported rows store EAN-13 barcodes without their trailing check
+  // digit (only 12 digits), so a live 13-digit scan won't string-match them.
+  // Fall back to the 12-digit prefix when the full barcode isn't found.
+  const lookupProduct = async (barcode) => {
+    let { data, error } = await supabase
+      .from("products")
+      .select("name, price")
+      .eq("barcode", barcode)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data && /^\d{13}$/.test(barcode)) {
+      ({ data, error } = await supabase
+        .from("products")
+        .select("name, price")
+        .eq("barcode", barcode.slice(0, 12))
+        .maybeSingle());
+      if (error) throw error;
+    }
+    return data;
+  };
+
   const openProduct = async (barcode) => {
     setScannedBarcode(barcode);
     setEditName("");
@@ -70,12 +94,7 @@ export default function PriceScanner() {
     setMode("editing");
     setLookupLoading(true);
     try {
-      const { data, error } = await supabase
-        .from("products")
-        .select("name, price")
-        .eq("barcode", barcode)
-        .maybeSingle();
-      if (error) throw error;
+      const data = await lookupProduct(barcode);
       if (data) {
         setEditName(data.name || "");
         setEditPrice(data.price != null ? String(data.price) : "");
@@ -179,37 +198,106 @@ export default function PriceScanner() {
     await persistQueue([]);
   };
 
-  const exportSheet = () => {
-    if (queue.length === 0) return;
-    const rows = [];
-    const merges = [];
-    let r = 0;
-    queue.forEach((item) => {
-      rows[r] = [item.name];
-      merges.push({ s: { r, c: 0 }, e: { r, c: 2 } });
-      r += 1;
-      rows[r] = [
-        item.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-      ];
-      merges.push({ s: { r, c: 0 }, e: { r, c: 2 } });
-      r += 1;
+  const buildWorkbookBuffer = async () => {
+    const thinBorder = {
+      top: { style: "thin" },
+      bottom: { style: "thin" },
+      left: { style: "thin" },
+      right: { style: "thin" },
+    };
+    const nameFont = { name: "Bahnschrift SemiBold", bold: true, size: 12 };
+    const priceFont = { name: "Bahnschrift Light Condensed", bold: true, size: 50 };
+    const centerWrap = { horizontal: "center", vertical: "middle", wrapText: true };
+
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet("Cenovnici");
+    sheet.columns = [{ width: 26.75 }, { width: 26.75 }, { width: 26.75 }];
+    sheet.pageSetup = { paperSize: 9, orientation: "portrait" }; // 9 = A4
+
+    queue.forEach((item, i) => {
+      const col = (i % 3) + 1;
+      const nameRow = sheet.getRow(Math.floor(i / 3) * 2 + 1);
+      const priceRow = sheet.getRow(Math.floor(i / 3) * 2 + 2);
+      nameRow.height = 28.5;
+      priceRow.height = 77.25;
+
+      const nameCell = nameRow.getCell(col);
+      nameCell.value = item.name;
+      nameCell.font = nameFont;
+      nameCell.alignment = centerWrap;
+      nameCell.border = thinBorder;
+
+      const priceCell = priceRow.getCell(col);
+      priceCell.value = item.price.toLocaleString("sr-RS", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      priceCell.font = priceFont;
+      priceCell.alignment = centerWrap;
+      priceCell.border = thinBorder;
     });
 
-    const ws = XLSX.utils.aoa_to_sheet(rows);
-    ws["!merges"] = merges;
-    ws["!cols"] = [{ wch: 14 }, { wch: 14 }, { wch: 14 }];
-    const rowInfo = [];
-    for (let i = 0; i < rows.length; i += 2) {
-      rowInfo[i] = { hpt: 34 }; // name row ~ smaller
-      rowInfo[i + 1] = { hpt: 82 }; // price row ~ bigger, total approximates 4cm
-    }
-    ws["!rows"] = rowInfo;
-    ws["!pageSetup"] = { paperSize: 9, orientation: "portrait" }; // 9 = A4
+    return workbook.xlsx.writeBuffer();
+  };
 
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Price Tags");
+  const exportSheet = async () => {
+    if (queue.length === 0) return;
+    const buffer = await buildWorkbookBuffer();
+    const blob = new Blob([buffer], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
     const dateStr = new Date().toISOString().slice(0, 10);
-    XLSX.writeFile(wb, `price-tags-${dateStr}.xlsx`);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `price-tags-${dateStr}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const blobToBase64 = (blob) =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result.split(",")[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+
+  const sendSheetByEmail = async () => {
+    if (queue.length === 0) return;
+    setEmailSending(true);
+    setEmailError(null);
+    setEmailSent(false);
+    try {
+      const buffer = await buildWorkbookBuffer();
+      const blob = new Blob([buffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      const base64 = await blobToBase64(blob);
+      const dateStr = new Date().toISOString().slice(0, 10);
+      const filename = `price-tags-${dateStr}.xlsx`;
+
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) throw new Error("no-session");
+
+      const res = await fetch("/api/send-email", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ filename, base64 }),
+      });
+      if (!res.ok) throw new Error("send-failed");
+
+      setEmailSent(true);
+      setTimeout(() => setEmailSent(false), 3000);
+    } catch (e) {
+      console.error("send email failed", e);
+      setEmailError("Slanje mejla nije uspelo. Proveri internet konekciju i probaj ponovo.");
+    }
+    setEmailSending(false);
   };
 
   const total = queue.length;
@@ -546,6 +634,41 @@ export default function PriceScanner() {
         >
           <Download size={18} /> Download price sheet (.xlsx)
         </button>
+
+        <button
+          onClick={sendSheetByEmail}
+          disabled={queue.length === 0 || emailSending}
+          style={{
+            width: "100%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
+            marginTop: 8,
+            background: "transparent",
+            color: INK,
+            border: `1px solid ${BORDER}`,
+            borderRadius: 10,
+            padding: "13px",
+            fontSize: 14,
+            fontWeight: 500,
+            cursor: queue.length === 0 || emailSending ? "not-allowed" : "pointer",
+            opacity: queue.length === 0 || emailSending ? 0.6 : 1,
+          }}
+        >
+          <Mail size={16} /> {emailSending ? "Slanje…" : "Send by email"}
+        </button>
+
+        {emailError && (
+          <div style={{ display: "flex", gap: 8, fontSize: 13, color: RED, background: "#FBEAE8", padding: 10, borderRadius: 8, marginTop: 10 }}>
+            <AlertCircle size={16} style={{ flexShrink: 0, marginTop: 1 }} />
+            <span>{emailError}</span>
+          </div>
+        )}
+        {emailSent && (
+          <div style={{ fontSize: 13, color: GREEN, marginTop: 10, fontWeight: 500 }}>E-mail poslat.</div>
+        )}
+
         <p style={{ fontSize: 11.5, color: MUTE, marginTop: 8, lineHeight: 1.5 }}>
           Downloads straight to this device — share it to email or print from there. Layout is a placeholder until your real template is added.
         </p>
