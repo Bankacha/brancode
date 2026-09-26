@@ -14,6 +14,35 @@ export const MUTE = "#8A8073";
 export const BORDER = "#DED7C6";
 export const CARD = "#FFFFFF";
 
+// Fridge price holders cover the top and bottom of the printed strip, so only a
+// middle band is visible — the fridge preset adds blank space above the name
+// (pushed out of view) and pulls both lines snug against the divider between
+// them (the part that stays visible), instead of centering them.
+const MM_TO_PT = 2.834645669;
+const FRIDGE_TOP_BUFFER_MM = 1; // blank space above the name, hidden behind the holder's top edge
+const FRIDGE_BOTTOM_BUFFER_MM = 5; // blank space below the price digit, hidden behind the holder's bottom edge
+// Always give the fridge name row the extra headroom a wrapped 2-line name
+// would need — simpler and more consistent than only adding it for long names.
+const FRIDGE_EXTRA_TOP_MM = 4;
+const FRIDGE_PRICE_FONT_SIZE = 42; // always the "over 1000 din" size, for a consistent look
+
+const PRICE_TAG_STYLES = {
+  shelf: {
+    label: "Cene za rafove",
+    nameRowHeight: 28.5,
+    priceRowHeight: 77.25,
+    nameAlignment: { horizontal: "center", vertical: "middle", wrapText: true },
+    priceAlignment: { horizontal: "center", vertical: "middle", shrinkToFit: true },
+  },
+  fridge: {
+    label: "Cene za frižider",
+    nameRowHeight: 28.5 + (FRIDGE_TOP_BUFFER_MM + FRIDGE_EXTRA_TOP_MM) * MM_TO_PT,
+    priceRowHeight: 77.25 + FRIDGE_BOTTOM_BUFFER_MM * MM_TO_PT - FRIDGE_EXTRA_TOP_MM * MM_TO_PT,
+    nameAlignment: { horizontal: "center", vertical: "bottom", wrapText: true },
+    priceAlignment: { horizontal: "center", vertical: "top", shrinkToFit: true },
+  },
+};
+
 export default function PriceScanner() {
   const [queue, setQueue] = useState([]); // [{barcode, name, price, id}]
   const [mode, setMode] = useState("idle"); // idle | scanning | editing | manualEntry
@@ -29,6 +58,7 @@ export default function PriceScanner() {
   const [emailSending, setEmailSending] = useState(false);
   const [emailError, setEmailError] = useState(null);
   const [emailSent, setEmailSent] = useState(false);
+  const [exportFormat, setExportFormat] = useState("shelf");
 
   const videoRef = useRef(null);
   const streamRef = useRef(null);
@@ -198,7 +228,8 @@ export default function PriceScanner() {
     await persistQueue([]);
   };
 
-  const buildWorkbookBuffer = async () => {
+  const buildWorkbookBuffer = async (format) => {
+    const style = PRICE_TAG_STYLES[format];
     const thinBorder = {
       top: { style: "thin" },
       bottom: { style: "thin" },
@@ -206,8 +237,14 @@ export default function PriceScanner() {
       right: { style: "thin" },
     };
     const nameFont = { name: "Bahnschrift SemiBold", bold: true, size: 12 };
-    const priceFont = { name: "Bahnschrift Light Condensed", bold: true, size: 50 };
-    const centerWrap = { horizontal: "center", vertical: "middle", wrapText: true };
+    // shrinkToFit alone isn't reliable across renderers (clips edges instead of
+    // shrinking cleanly for longer prices), so pick the font size ourselves
+    // based on how many characters the formatted price actually has.
+    const priceFontSize = (priceText) => {
+      if (priceText.length <= 6) return 50; // e.g. "219,00"
+      if (priceText.length <= 8) return 42; // e.g. "1.249,99"
+      return 34; // e.g. "12.499,99" or longer
+    };
 
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet("Cenovnici");
@@ -218,28 +255,33 @@ export default function PriceScanner() {
       const col = (i % 3) + 1;
       const nameRow = sheet.getRow(Math.floor(i / 3) * 2 + 1);
       const priceRow = sheet.getRow(Math.floor(i / 3) * 2 + 2);
-      nameRow.height = 28.5;
-      priceRow.height = 77.25;
+      nameRow.height = style.nameRowHeight;
+      priceRow.height = style.priceRowHeight;
 
       const nameCell = nameRow.getCell(col);
       nameCell.value = item.name;
       nameCell.font = nameFont;
-      nameCell.alignment = centerWrap;
+      nameCell.alignment = style.nameAlignment;
       nameCell.border = thinBorder;
 
+      const priceText = item.price.toLocaleString("sr-RS", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
       const priceCell = priceRow.getCell(col);
-      priceCell.value = item.price.toLocaleString("sr-RS", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-      priceCell.font = priceFont;
-      priceCell.alignment = centerWrap;
+      priceCell.value = priceText;
+      priceCell.font = {
+        name: "Oswald",
+        bold: false,
+        size: format === "fridge" ? FRIDGE_PRICE_FONT_SIZE : priceFontSize(priceText),
+      };
+      priceCell.alignment = style.priceAlignment;
       priceCell.border = thinBorder;
     });
 
     return workbook.xlsx.writeBuffer();
   };
 
-  const exportSheet = async () => {
+  const exportSheet = async (format) => {
     if (queue.length === 0) return;
-    const buffer = await buildWorkbookBuffer();
+    const buffer = await buildWorkbookBuffer(format);
     const blob = new Blob([buffer], {
       type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     });
@@ -247,7 +289,7 @@ export default function PriceScanner() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `price-tags-${dateStr}.xlsx`;
+    a.download = `price-tags-${format}-${dateStr}.xlsx`;
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -262,19 +304,19 @@ export default function PriceScanner() {
       reader.readAsDataURL(blob);
     });
 
-  const sendSheetByEmail = async () => {
+  const sendSheetByEmail = async (format) => {
     if (queue.length === 0) return;
     setEmailSending(true);
     setEmailError(null);
     setEmailSent(false);
     try {
-      const buffer = await buildWorkbookBuffer();
+      const buffer = await buildWorkbookBuffer(format);
       const blob = new Blob([buffer], {
         type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       });
       const base64 = await blobToBase64(blob);
       const dateStr = new Date().toISOString().slice(0, 10);
-      const filename = `price-tags-${dateStr}.xlsx`;
+      const filename = `price-tags-${format}-${dateStr}.xlsx`;
 
       const {
         data: { session },
@@ -612,8 +654,40 @@ export default function PriceScanner() {
           </div>
         )}
 
+        <div
+          style={{
+            display: "flex",
+            gap: 6,
+            marginTop: 14,
+            background: CARD,
+            border: `1px solid ${BORDER}`,
+            borderRadius: 10,
+            padding: 4,
+          }}
+        >
+          {Object.entries(PRICE_TAG_STYLES).map(([key, { label }]) => (
+            <button
+              key={key}
+              onClick={() => setExportFormat(key)}
+              style={{
+                flex: 1,
+                background: exportFormat === key ? INK : "transparent",
+                color: exportFormat === key ? PAPER : INK,
+                border: "none",
+                borderRadius: 7,
+                padding: "9px 8px",
+                fontSize: 13,
+                fontWeight: 500,
+                cursor: "pointer",
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
         <button
-          onClick={exportSheet}
+          onClick={() => exportSheet(exportFormat)}
           disabled={queue.length === 0}
           style={{
             width: "100%",
@@ -621,7 +695,7 @@ export default function PriceScanner() {
             alignItems: "center",
             justifyContent: "center",
             gap: 8,
-            marginTop: 14,
+            marginTop: 8,
             background: queue.length === 0 ? BORDER : INK,
             color: PAPER,
             border: "none",
@@ -636,7 +710,7 @@ export default function PriceScanner() {
         </button>
 
         <button
-          onClick={sendSheetByEmail}
+          onClick={() => sendSheetByEmail(exportFormat)}
           disabled={queue.length === 0 || emailSending}
           style={{
             width: "100%",
