@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { Scan, X, Plus, Download, Check, Camera, Keyboard, AlertCircle, Mail } from "lucide-react";
 import ExcelJS from "exceljs";
+import JsBarcode from "jsbarcode";
 import { supabase } from "./supabaseClient";
 
 export const FONT_SANS = "'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
@@ -26,20 +27,56 @@ const FRIDGE_BOTTOM_BUFFER_MM = 5; // blank space below the price digit, hidden 
 const FRIDGE_EXTRA_TOP_MM = 4;
 const FRIDGE_PRICE_FONT_SIZE = 42; // always the "over 1000 din" size, for a consistent look
 
+// Fruit tags are much bigger (~6cm total) and print 2 per row instead of 3,
+// with a scannable barcode image in a 3rd row below the price.
+const FRUIT_NAME_HEIGHT_MM = 18;
+const FRUIT_PRICE_HEIGHT_MM = 29;
+const FRUIT_BARCODE_HEIGHT_MM = 13;
+const FRUIT_NAME_FONT_SIZE = 22;
+const FRUIT_PRICE_FONT_SIZE = () => 62; // always the "over 1000 din" size, for a consistent look
+const FRUIT_BARCODE_WIDTH_FRACTION = 0.83; // fraction of the column width the barcode image uses, centered
+
 const PRICE_TAG_STYLES = {
   shelf: {
     label: "Cene za rafove",
+    columns: 3,
+    columnWidth: 26.75,
     nameRowHeight: 28.5,
     priceRowHeight: 77.25,
+    nameFontSize: 12,
     nameAlignment: { horizontal: "center", vertical: "middle", wrapText: true },
     priceAlignment: { horizontal: "center", vertical: "middle", shrinkToFit: true },
+    priceFontSize: (priceText) => {
+      if (priceText.length <= 6) return 50; // e.g. "219,00"
+      if (priceText.length <= 8) return 42; // e.g. "1.249,99"
+      return 34; // e.g. "12.499,99" or longer
+    },
+    hasBarcode: false,
   },
   fridge: {
     label: "Cene za frižider",
+    columns: 3,
+    columnWidth: 26.75,
     nameRowHeight: 28.5 + (FRIDGE_TOP_BUFFER_MM + FRIDGE_EXTRA_TOP_MM) * MM_TO_PT,
     priceRowHeight: 77.25 + FRIDGE_BOTTOM_BUFFER_MM * MM_TO_PT - FRIDGE_EXTRA_TOP_MM * MM_TO_PT,
+    nameFontSize: 12,
     nameAlignment: { horizontal: "center", vertical: "bottom", wrapText: true },
     priceAlignment: { horizontal: "center", vertical: "top", shrinkToFit: true },
+    priceFontSize: () => FRIDGE_PRICE_FONT_SIZE,
+    hasBarcode: false,
+  },
+  fruit: {
+    label: "Cene za voće",
+    columns: 2,
+    columnWidth: 40,
+    nameRowHeight: FRUIT_NAME_HEIGHT_MM * MM_TO_PT,
+    priceRowHeight: FRUIT_PRICE_HEIGHT_MM * MM_TO_PT,
+    barcodeRowHeight: FRUIT_BARCODE_HEIGHT_MM * MM_TO_PT,
+    nameFontSize: FRUIT_NAME_FONT_SIZE,
+    nameAlignment: { horizontal: "center", vertical: "middle", wrapText: true },
+    priceAlignment: { horizontal: "center", vertical: "middle", shrinkToFit: true },
+    priceFontSize: FRUIT_PRICE_FONT_SIZE,
+    hasBarcode: true,
   },
 };
 
@@ -58,7 +95,7 @@ export default function PriceScanner() {
   const [emailSending, setEmailSending] = useState(false);
   const [emailError, setEmailError] = useState(null);
   const [emailSent, setEmailSent] = useState(false);
-  const [exportFormat, setExportFormat] = useState("shelf");
+  const [pendingAction, setPendingAction] = useState(null); // null | "download" | "email"
 
   const videoRef = useRef(null);
   const streamRef = useRef(null);
@@ -228,6 +265,28 @@ export default function PriceScanner() {
     await persistQueue([]);
   };
 
+  const makeBarcodeDataUrl = (value) => {
+    const canvas = document.createElement("canvas");
+    JsBarcode(canvas, value, {
+      format: "CODE128",
+      displayValue: false,
+      margin: 4,
+      width: 2.5,
+      height: 50,
+    });
+    return canvas.toDataURL("image/png");
+  };
+
+  // Rough Excel-width-unit -> pixel and point -> pixel conversions, good enough
+  // for sizing a placed image (doesn't need to be exact).
+  const colWidthToPx = (w) => Math.round(w * 7 + 5);
+  const ptToPx = (pt) => Math.round(pt * (96 / 72));
+  // exceljs's fractional `{ col: 1.05 }` image-anchor offset is computed with the
+  // wrong units internally (it ends up a few px at most, regardless of the
+  // fraction requested), so real centering needs the native EMU offset form
+  // instead — same EMU-per-pixel constant exceljs itself uses for image `ext`.
+  const EMU_PER_PX = 9525;
+
   const buildWorkbookBuffer = async (format) => {
     const style = PRICE_TAG_STYLES[format];
     const thinBorder = {
@@ -236,44 +295,62 @@ export default function PriceScanner() {
       left: { style: "thin" },
       right: { style: "thin" },
     };
-    const nameFont = { name: "Bahnschrift SemiBold", bold: true, size: 12 };
-    // shrinkToFit alone isn't reliable across renderers (clips edges instead of
-    // shrinking cleanly for longer prices), so pick the font size ourselves
-    // based on how many characters the formatted price actually has.
-    const priceFontSize = (priceText) => {
-      if (priceText.length <= 6) return 50; // e.g. "219,00"
-      if (priceText.length <= 8) return 42; // e.g. "1.249,99"
-      return 34; // e.g. "12.499,99" or longer
-    };
+    const rowsPerItem = style.hasBarcode ? 3 : 2;
 
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet("Cenovnici");
-    sheet.columns = [{ width: 26.75 }, { width: 26.75 }, { width: 26.75 }];
+    sheet.columns = Array.from({ length: style.columns }, () => ({ width: style.columnWidth }));
     sheet.pageSetup = { paperSize: 9, orientation: "portrait" }; // 9 = A4
 
     queue.forEach((item, i) => {
-      const col = (i % 3) + 1;
-      const nameRow = sheet.getRow(Math.floor(i / 3) * 2 + 1);
-      const priceRow = sheet.getRow(Math.floor(i / 3) * 2 + 2);
+      const col = (i % style.columns) + 1;
+      const groupIndex = Math.floor(i / style.columns);
+      const nameRow = sheet.getRow(groupIndex * rowsPerItem + 1);
+      const priceRow = sheet.getRow(groupIndex * rowsPerItem + 2);
       nameRow.height = style.nameRowHeight;
       priceRow.height = style.priceRowHeight;
 
       const nameCell = nameRow.getCell(col);
       nameCell.value = item.name;
-      nameCell.font = nameFont;
+      nameCell.font = { name: "Bahnschrift SemiBold", bold: true, size: style.nameFontSize };
       nameCell.alignment = style.nameAlignment;
       nameCell.border = thinBorder;
 
       const priceText = item.price.toLocaleString("sr-RS", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
       const priceCell = priceRow.getCell(col);
       priceCell.value = priceText;
-      priceCell.font = {
-        name: "Oswald",
-        bold: false,
-        size: format === "fridge" ? FRIDGE_PRICE_FONT_SIZE : priceFontSize(priceText),
-      };
+      priceCell.font = { name: "Oswald", bold: false, size: style.priceFontSize(priceText) };
       priceCell.alignment = style.priceAlignment;
       priceCell.border = thinBorder;
+
+      if (style.hasBarcode) {
+        const barcodeRow = sheet.getRow(groupIndex * rowsPerItem + 3);
+        barcodeRow.height = style.barcodeRowHeight;
+        // still draw the border on an (empty) cell so the tag outline stays closed
+        barcodeRow.getCell(col).border = thinBorder;
+
+        const imageId = workbook.addImage({
+          base64: makeBarcodeDataUrl(item.barcode),
+          extension: "png",
+        });
+        const rowIdx = groupIndex * rowsPerItem + 2; // 0-indexed row number of the barcode row
+        const colIdx = col - 1; // 0-indexed
+        const colPx = colWidthToPx(style.columnWidth);
+        const rowPx = ptToPx(style.barcodeRowHeight);
+        const imageWidthPx = colPx * FRUIT_BARCODE_WIDTH_FRACTION;
+        const imageHeightPx = rowPx * 0.8;
+        const horizontalMarginPx = (colPx - imageWidthPx) / 2; // centers the image in the column
+        const verticalMarginPx = (rowPx - imageHeightPx) / 2;
+        sheet.addImage(imageId, {
+          tl: {
+            nativeCol: colIdx,
+            nativeColOff: Math.round(horizontalMarginPx * EMU_PER_PX),
+            nativeRow: rowIdx,
+            nativeRowOff: Math.round(verticalMarginPx * EMU_PER_PX),
+          },
+          ext: { width: imageWidthPx, height: imageHeightPx },
+        });
+      }
     });
 
     return workbook.xlsx.writeBuffer();
@@ -340,6 +417,13 @@ export default function PriceScanner() {
       setEmailError("Slanje mejla nije uspelo. Proveri internet konekciju i probaj ponovo.");
     }
     setEmailSending(false);
+  };
+
+  const chooseFormatAndRun = (formatKey) => {
+    const action = pendingAction;
+    setPendingAction(null);
+    if (action === "download") exportSheet(formatKey);
+    else if (action === "email") sendSheetByEmail(formatKey);
   };
 
   const total = queue.length;
@@ -654,40 +738,8 @@ export default function PriceScanner() {
           </div>
         )}
 
-        <div
-          style={{
-            display: "flex",
-            gap: 6,
-            marginTop: 14,
-            background: CARD,
-            border: `1px solid ${BORDER}`,
-            borderRadius: 10,
-            padding: 4,
-          }}
-        >
-          {Object.entries(PRICE_TAG_STYLES).map(([key, { label }]) => (
-            <button
-              key={key}
-              onClick={() => setExportFormat(key)}
-              style={{
-                flex: 1,
-                background: exportFormat === key ? INK : "transparent",
-                color: exportFormat === key ? PAPER : INK,
-                border: "none",
-                borderRadius: 7,
-                padding: "9px 8px",
-                fontSize: 13,
-                fontWeight: 500,
-                cursor: "pointer",
-              }}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-
         <button
-          onClick={() => exportSheet(exportFormat)}
+          onClick={() => setPendingAction("download")}
           disabled={queue.length === 0}
           style={{
             width: "100%",
@@ -695,7 +747,7 @@ export default function PriceScanner() {
             alignItems: "center",
             justifyContent: "center",
             gap: 8,
-            marginTop: 8,
+            marginTop: 14,
             background: queue.length === 0 ? BORDER : INK,
             color: PAPER,
             border: "none",
@@ -710,7 +762,7 @@ export default function PriceScanner() {
         </button>
 
         <button
-          onClick={() => sendSheetByEmail(exportFormat)}
+          onClick={() => setPendingAction("email")}
           disabled={queue.length === 0 || emailSending}
           style={{
             width: "100%",
@@ -747,6 +799,71 @@ export default function PriceScanner() {
           Downloads straight to this device — share it to email or print from there. Layout is a placeholder until your real template is added.
         </p>
       </section>
+
+      {pendingAction && (
+        <div
+          onClick={() => setPendingAction(null)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(31,27,22,0.4)",
+            display: "flex",
+            alignItems: "flex-end",
+            justifyContent: "center",
+            zIndex: 50,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "100%",
+              maxWidth: 480,
+              background: CARD,
+              borderRadius: "16px 16px 0 0",
+              padding: "10px 16px 24px",
+            }}
+          >
+            <div style={{ width: 36, height: 4, background: BORDER, borderRadius: 2, margin: "4px auto 16px" }} />
+            <p style={{ fontSize: 13, color: MUTE, margin: "0 0 12px", textAlign: "center" }}>
+              {pendingAction === "download" ? "Preuzmi cenovnik za:" : "Pošalji cenovnik za:"}
+            </p>
+            {Object.entries(PRICE_TAG_STYLES).map(([key, { label }]) => (
+              <button
+                key={key}
+                onClick={() => chooseFormatAndRun(key)}
+                style={{
+                  width: "100%",
+                  background: "transparent",
+                  color: INK,
+                  border: `1px solid ${BORDER}`,
+                  borderRadius: 10,
+                  padding: "14px",
+                  fontSize: 15,
+                  fontWeight: 500,
+                  cursor: "pointer",
+                  marginBottom: 8,
+                }}
+              >
+                {label}
+              </button>
+            ))}
+            <button
+              onClick={() => setPendingAction(null)}
+              style={{
+                width: "100%",
+                background: "none",
+                border: "none",
+                color: MUTE,
+                fontSize: 14,
+                padding: "10px",
+                cursor: "pointer",
+              }}
+            >
+              Otkaži
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
