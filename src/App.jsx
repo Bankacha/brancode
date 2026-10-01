@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { Scan, X, Plus, Download, Check, Camera, Keyboard, AlertCircle, Mail } from "lucide-react";
+import { Scan, X, Plus, Download, Check, Camera, Keyboard, AlertCircle, Mail, FileUp } from "lucide-react";
 import ExcelJS from "exceljs";
 import JsBarcode from "jsbarcode";
 import { supabase } from "./supabaseClient";
+import { barcodeCandidates, parseLeafletPdf, matchLeafletRows, saveLeafletPrices } from "./promoLeaflet.js";
 
 export const FONT_SANS = "'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
 export const FONT_MONO = "'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace";
@@ -39,6 +40,7 @@ const FRUIT_BARCODE_WIDTH_FRACTION = 0.83; // fraction of the column width the b
 const PRICE_TAG_STYLES = {
   shelf: {
     label: "Cene za rafove",
+    fileSlug: "raf",
     columns: 3,
     columnWidth: 26.75,
     nameRowHeight: 28.5,
@@ -55,6 +57,7 @@ const PRICE_TAG_STYLES = {
   },
   fridge: {
     label: "Cene za frižider",
+    fileSlug: "frizider",
     columns: 3,
     columnWidth: 26.75,
     nameRowHeight: 28.5 + (FRIDGE_TOP_BUFFER_MM + FRIDGE_EXTRA_TOP_MM) * MM_TO_PT,
@@ -67,6 +70,7 @@ const PRICE_TAG_STYLES = {
   },
   fruit: {
     label: "Cene za voće",
+    fileSlug: "voce",
     columns: 2,
     columnWidth: 40,
     nameRowHeight: FRUIT_NAME_HEIGHT_MM * MM_TO_PT,
@@ -79,6 +83,91 @@ const PRICE_TAG_STYLES = {
     hasBarcode: true,
   },
 };
+
+const A4_HEIGHT_PT = 841.89;
+const PAGE_MARGINS_IN = { left: 0.7, right: 0.7, top: 0.75, bottom: 0.75, header: 0.3, footer: 0.3 }; // Excel's defaults
+const PAGE_FIT_SAFETY_PT = 4; // slack for printer/renderer rounding
+
+const secondaryHalfButton = {
+  flex: 1,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 8,
+  background: "transparent",
+  color: INK,
+  border: `1px solid ${BORDER}`,
+  borderRadius: 10,
+  padding: "13px 12px",
+  fontSize: 14,
+  fontWeight: 500,
+  cursor: "pointer",
+};
+
+const sheetOptionButton = {
+  width: "100%",
+  background: "transparent",
+  color: INK,
+  border: `1px solid ${BORDER}`,
+  borderRadius: 10,
+  padding: "14px",
+  fontSize: 15,
+  fontWeight: 500,
+  cursor: "pointer",
+  marginBottom: 8,
+};
+
+const sheetPrimaryButton = {
+  ...sheetOptionButton,
+  background: INK,
+  color: PAPER,
+  border: "none",
+  fontWeight: 600,
+};
+
+const sheetCancelButton = {
+  width: "100%",
+  background: "none",
+  border: "none",
+  color: MUTE,
+  fontSize: 14,
+  padding: "10px",
+  cursor: "pointer",
+};
+
+const sheetMessage = { fontSize: 14, color: INK, margin: "0 0 16px", textAlign: "center", lineHeight: 1.5 };
+
+// Without onClose (e.g. while work is in flight) tapping the backdrop does nothing.
+function BottomSheet({ onClose, children }) {
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(31,27,22,0.4)",
+        display: "flex",
+        alignItems: "flex-end",
+        justifyContent: "center",
+        zIndex: 50,
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: "100%",
+          maxWidth: 480,
+          background: CARD,
+          borderRadius: "16px 16px 0 0",
+          padding: "10px 16px 24px",
+        }}
+      >
+        <div style={{ width: 36, height: 4, background: BORDER, borderRadius: 2, margin: "4px auto 16px" }} />
+        {children}
+      </div>
+    </div>
+  );
+}
 
 export default function PriceScanner() {
   const [queue, setQueue] = useState([]); // [{barcode, name, price, id}]
@@ -96,8 +185,14 @@ export default function PriceScanner() {
   const [emailError, setEmailError] = useState(null);
   const [emailSent, setEmailSent] = useState(false);
   const [pendingAction, setPendingAction] = useState(null); // null | "download" | "email"
+  const [importStep, setImportStep] = useState(null); // null | "confirmClear" | "reading" | "confirm" | "saving"
+  const [importMatches, setImportMatches] = useState(null);
+  const [importError, setImportError] = useState(null);
+  const [importNotice, setImportNotice] = useState(null);
+  const [confirmClearAll, setConfirmClearAll] = useState(false);
 
   const videoRef = useRef(null);
+  const leafletInputRef = useRef(null);
   const streamRef = useRef(null);
   const detectRef = useRef(null);
 
@@ -131,25 +226,17 @@ export default function PriceScanner() {
 
   useEffect(() => stopCamera, [stopCamera]);
 
-  // Some imported rows store EAN-13 barcodes without their trailing check
-  // digit (only 12 digits), so a live 13-digit scan won't string-match them.
-  // Fall back to the 12-digit prefix when the full barcode isn't found.
   const lookupProduct = async (barcode) => {
-    let { data, error } = await supabase
-      .from("products")
-      .select("name, price")
-      .eq("barcode", barcode)
-      .maybeSingle();
-    if (error) throw error;
-    if (!data && /^\d{13}$/.test(barcode)) {
-      ({ data, error } = await supabase
+    for (const candidate of barcodeCandidates(barcode)) {
+      const { data, error } = await supabase
         .from("products")
         .select("name, price")
-        .eq("barcode", barcode.slice(0, 12))
-        .maybeSingle());
+        .eq("barcode", candidate)
+        .maybeSingle();
       if (error) throw error;
+      if (data) return data;
     }
-    return data;
+    return null;
   };
 
   const openProduct = async (barcode) => {
@@ -180,7 +267,7 @@ export default function PriceScanner() {
     setCameraError(null);
     setMode("scanning");
     if (!("BarcodeDetector" in window)) {
-      setCameraError("Camera barcode scanning isn't supported in this browser/preview. Use manual entry below, or open this app on a phone with Chrome for live scanning.");
+      setCameraError("Skeniranje kamerom nije podržano u ovom browseru. Koristi ručni unos ili otvori aplikaciju na telefonu u Chrome-u.");
       return;
     }
     try {
@@ -212,7 +299,7 @@ export default function PriceScanner() {
       };
       loop();
     } catch (e) {
-      setCameraError("Couldn't access the camera (permission denied or unavailable). Use manual entry instead.");
+      setCameraError("Nema pristupa kameri (dozvola je odbijena ili kamera nije dostupna). Koristi ručni unos.");
     }
   };
 
@@ -300,11 +387,23 @@ export default function PriceScanner() {
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet("Cenovnici");
     sheet.columns = Array.from({ length: style.columns }, () => ({ width: style.columnWidth }));
-    sheet.pageSetup = { paperSize: 9, orientation: "portrait" }; // 9 = A4
+    sheet.pageSetup = { paperSize: 9, orientation: "portrait", margins: PAGE_MARGINS_IN }; // 9 = A4
+
+    // Excel paginates purely by height, so a tag's name row can land on one
+    // sheet and its price on the next — force a page break before any tag row
+    // that wouldn't fit whole on the current page.
+    const tagHeightPt = style.nameRowHeight + style.priceRowHeight + (style.barcodeRowHeight ?? 0);
+    const usableHeightPt = A4_HEIGHT_PT - (PAGE_MARGINS_IN.top + PAGE_MARGINS_IN.bottom) * 72 - PAGE_FIT_SAFETY_PT;
+    const tagRowsPerPage = Math.max(1, Math.floor(usableHeightPt / tagHeightPt));
 
     queue.forEach((item, i) => {
       const col = (i % style.columns) + 1;
       const groupIndex = Math.floor(i / style.columns);
+      if (col === 1 && groupIndex > 0 && groupIndex % tagRowsPerPage === 0) {
+        // break after the previous tag row; (1, 16384) makes exceljs write max="16383",
+        // the same full-width break Excel itself writes (its default would be 16838)
+        sheet.getRow(groupIndex * rowsPerItem).addPageBreak(1, 16384);
+      }
       const nameRow = sheet.getRow(groupIndex * rowsPerItem + 1);
       const priceRow = sheet.getRow(groupIndex * rowsPerItem + 2);
       nameRow.height = style.nameRowHeight;
@@ -366,7 +465,7 @@ export default function PriceScanner() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `price-tags-${format}-${dateStr}.xlsx`;
+    a.download = `cenovnik-${PRICE_TAG_STYLES[format].fileSlug}-${dateStr}.xlsx`;
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -393,7 +492,7 @@ export default function PriceScanner() {
       });
       const base64 = await blobToBase64(blob);
       const dateStr = new Date().toISOString().slice(0, 10);
-      const filename = `price-tags-${format}-${dateStr}.xlsx`;
+      const filename = `cenovnik-${PRICE_TAG_STYLES[format].fileSlug}-${dateStr}.xlsx`;
 
       const {
         data: { session },
@@ -426,6 +525,71 @@ export default function PriceScanner() {
     else if (action === "email") sendSheetByEmail(formatKey);
   };
 
+  // The file picker must open synchronously inside a click handler (browsers
+  // block programmatic file dialogs outside a user gesture), so no awaits here.
+  const startLeafletImport = () => {
+    setImportError(null);
+    setImportNotice(null);
+    if (queue.length > 0) {
+      setImportStep("confirmClear");
+      return;
+    }
+    leafletInputRef.current.click();
+  };
+
+  const clearAndStartLeafletImport = () => {
+    persistQueue([]);
+    setImportStep(null);
+    leafletInputRef.current.click();
+  };
+
+  // The PDF is only read in memory here — never uploaded or stored anywhere.
+  const onLeafletFileChosen = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setImportStep("reading");
+    try {
+      const rows = await parseLeafletPdf(await file.arrayBuffer());
+      setImportMatches(await matchLeafletRows(rows));
+      setImportStep("confirm");
+    } catch (err) {
+      console.error("leaflet read failed", err);
+      setImportError(err.userFacing ? err.message : "Čitanje lifleta nije uspelo. Proveri internet konekciju i probaj ponovo.");
+      setImportStep(null);
+    }
+  };
+
+  const confirmLeafletImport = async () => {
+    setImportStep("saving");
+    try {
+      await saveLeafletPrices(importMatches);
+      const stamp = Date.now();
+      // Every leaflet article goes on the list (the user prunes it with X);
+      // ones we don't carry are flagged so they're easy to spot.
+      const imported = importMatches.map(({ ean, name, price, existing }, i) => ({
+        id: `${ean}-${stamp}-${i}`,
+        barcode: ean,
+        name: existing ? existing.name : name,
+        price,
+        notInDb: !existing,
+      }));
+      persistQueue(imported);
+      setImportNotice(`Uvezeno iz lifleta u listu za štampu: ${imported.length}`);
+      setTimeout(() => setImportNotice(null), 4000);
+    } catch (err) {
+      console.error("leaflet save failed", err);
+      setImportError("Čuvanje akcijskih cena nije uspelo. Proveri internet konekciju i probaj ponovo.");
+    }
+    setImportMatches(null);
+    setImportStep(null);
+  };
+
+  const cancelLeafletImport = () => {
+    setImportMatches(null);
+    setImportStep(null);
+  };
+
   const total = queue.length;
 
   return (
@@ -453,11 +617,11 @@ export default function PriceScanner() {
             Shelf Price Scanner
           </h1>
           <span style={{ fontFamily: FONT_MONO, fontSize: 12, color: MUTE }}>
-            {total} queued
+            {total} u listi
           </span>
         </div>
         <p style={{ fontSize: 13, color: MUTE, margin: "4px 0 0" }}>
-          Scan an item, set its price, queue it for printing.
+          Skeniraj artikal, proveri cenu i dodaj ga u listu za štampu.
         </p>
       </header>
 
@@ -480,29 +644,36 @@ export default function PriceScanner() {
               cursor: "pointer",
             }}
           >
-            <Camera size={20} /> Scan barcode
+            <Camera size={20} /> Skeniraj barkod
           </button>
-          <button
-            onClick={() => setMode("manualEntry")}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 8,
-              background: "transparent",
-              color: INK,
-              border: `1px solid ${BORDER}`,
-              borderRadius: 10,
-              padding: "13px 20px",
-              fontSize: 14,
-              fontWeight: 500,
-              cursor: "pointer",
-            }}
-          >
-            <Keyboard size={16} /> Enter barcode manually
-          </button>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={() => setMode("manualEntry")} style={secondaryHalfButton}>
+              <Keyboard size={16} /> Ručni unos
+            </button>
+            <button onClick={startLeafletImport} style={secondaryHalfButton}>
+              <FileUp size={16} /> Akcijski liflet
+            </button>
+          </div>
         </div>
       )}
+
+      {importError && (
+        <div style={{ display: "flex", gap: 8, fontSize: 13, color: RED, background: "#FBEAE8", padding: 10, borderRadius: 8, marginTop: 10 }}>
+          <AlertCircle size={16} style={{ flexShrink: 0, marginTop: 1 }} />
+          <span>{importError}</span>
+        </div>
+      )}
+      {importNotice && (
+        <div style={{ fontSize: 13, color: GREEN, marginTop: 10, fontWeight: 500 }}>{importNotice}</div>
+      )}
+
+      <input
+        ref={leafletInputRef}
+        type="file"
+        accept="application/pdf"
+        onChange={onLeafletFileChosen}
+        style={{ display: "none" }}
+      />
 
       {mode === "scanning" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -536,14 +707,14 @@ export default function PriceScanner() {
             onClick={cancelScan}
             style={{ background: "transparent", border: `1px solid ${BORDER}`, borderRadius: 10, padding: "12px", fontSize: 14, cursor: "pointer" }}
           >
-            Cancel
+            Otkaži
           </button>
         </div>
       )}
 
       {mode === "manualEntry" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          <label style={{ fontSize: 13, color: MUTE }}>Barcode number</label>
+          <label style={{ fontSize: 13, color: MUTE }}>Broj barkoda</label>
           <input
             autoFocus
             value={manualBarcode}
@@ -551,7 +722,7 @@ export default function PriceScanner() {
             onKeyDown={(e) => {
               if (e.key === "Enter") submitManualBarcode();
             }}
-            placeholder="e.g. 4104420000015"
+            placeholder="npr. 4104420000015"
             style={{
               fontFamily: FONT_MONO,
               fontSize: 16,
@@ -577,7 +748,7 @@ export default function PriceScanner() {
                 cursor: manualBarcode.trim() ? "pointer" : "not-allowed",
               }}
             >
-              Continue
+              Nastavi
             </button>
             <button
               onClick={() => {
@@ -586,7 +757,7 @@ export default function PriceScanner() {
               }}
               style={{ background: "transparent", border: `1px solid ${BORDER}`, borderRadius: 10, padding: "13px 16px", fontSize: 14, cursor: "pointer" }}
             >
-              Cancel
+              Otkaži
             </button>
           </div>
         </div>
@@ -613,11 +784,11 @@ export default function PriceScanner() {
             </div>
           )}
 
-          <label style={{ fontSize: 12, color: MUTE }}>Product name</label>
+          <label style={{ fontSize: 12, color: MUTE }}>Naziv artikla</label>
           <input
             value={editName}
             onChange={(e) => setEditName(e.target.value)}
-            placeholder="Product name"
+            placeholder="Naziv artikla"
             style={{
               width: "100%",
               fontSize: 16,
@@ -628,7 +799,7 @@ export default function PriceScanner() {
             }}
           />
 
-          <label style={{ fontSize: 12, color: MUTE }}>Price</label>
+          <label style={{ fontSize: 12, color: MUTE }}>Cena</label>
           <div style={{ position: "relative", margin: "4px 0 18px" }}>
             <input
               value={editPrice}
@@ -667,38 +838,38 @@ export default function PriceScanner() {
                 cursor: "pointer",
               }}
             >
-              <Check size={17} /> Save & add to list
+              <Check size={17} /> Sačuvaj i dodaj u listu
             </button>
             <button
               onClick={() => setMode("idle")}
               style={{ background: "transparent", border: `1px solid ${BORDER}`, borderRadius: 10, padding: "13px 16px", fontSize: 14, cursor: "pointer" }}
             >
-              Cancel
+              Otkaži
             </button>
           </div>
         </div>
       )}
 
       {savedFlash && (
-        <div style={{ fontSize: 13, color: GREEN, marginTop: 10, fontWeight: 500 }}>Added to print list.</div>
+        <div style={{ fontSize: 13, color: GREEN, marginTop: 10, fontWeight: 500 }}>Dodato u listu za štampu.</div>
       )}
 
       <section style={{ marginTop: 28 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-          <h2 style={{ fontSize: 14, fontWeight: 600, margin: 0, textTransform: "none" }}>Print list</h2>
+          <h2 style={{ fontSize: 14, fontWeight: 600, margin: 0, textTransform: "none" }}>Lista za štampu</h2>
           {queue.length > 0 && (
             <button
-              onClick={clearQueue}
+              onClick={() => setConfirmClearAll(true)}
               style={{ background: "none", border: "none", color: MUTE, fontSize: 12, cursor: "pointer", padding: 0 }}
             >
-              Clear all
+              Obriši sve
             </button>
           )}
         </div>
 
         {queue.length === 0 ? (
           <p style={{ fontSize: 13, color: MUTE, border: `1px dashed ${BORDER}`, borderRadius: 10, padding: 16, textAlign: "center" }}>
-            Nothing queued yet. Scan an item to add it here.
+            Lista je prazna — skeniraj artikal da ga dodaš ovde.
           </p>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -719,7 +890,10 @@ export default function PriceScanner() {
                   <div style={{ fontSize: 14, fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                     {item.name}
                   </div>
-                  <div style={{ fontFamily: FONT_MONO, fontSize: 11, color: MUTE }}>{item.barcode}</div>
+                  <div style={{ fontFamily: FONT_MONO, fontSize: 11, color: MUTE }}>
+                    {item.barcode}
+                    {item.notInDb && <span style={{ fontFamily: FONT_SANS, color: RED, marginLeft: 6 }}>· nije u bazi</span>}
+                  </div>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
                   <span style={{ fontFamily: FONT_MONO, fontSize: 15, fontWeight: 600, color: RED }}>
@@ -728,7 +902,7 @@ export default function PriceScanner() {
                   <button
                     onClick={() => removeFromQueue(item.id)}
                     style={{ background: "none", border: "none", color: MUTE, cursor: "pointer", padding: 4 }}
-                    aria-label="Remove"
+                    aria-label="Ukloni"
                   >
                     <X size={16} />
                   </button>
@@ -758,7 +932,7 @@ export default function PriceScanner() {
             cursor: queue.length === 0 ? "not-allowed" : "pointer",
           }}
         >
-          <Download size={18} /> Download price sheet (.xlsx)
+          <Download size={18} /> Preuzmi cenovnik (.xlsx)
         </button>
 
         <button
@@ -782,7 +956,7 @@ export default function PriceScanner() {
             opacity: queue.length === 0 || emailSending ? 0.6 : 1,
           }}
         >
-          <Mail size={16} /> {emailSending ? "Slanje…" : "Send by email"}
+          <Mail size={16} /> {emailSending ? "Slanje…" : "Pošalji mejlom"}
         </button>
 
         {emailError && (
@@ -796,73 +970,88 @@ export default function PriceScanner() {
         )}
 
         <p style={{ fontSize: 11.5, color: MUTE, marginTop: 8, lineHeight: 1.5 }}>
-          Downloads straight to this device — share it to email or print from there. Layout is a placeholder until your real template is added.
+          Preuzimanje čuva cenovnik na ovom uređaju, a slanje ga šalje na mejl radnje — odatle se štampa.
         </p>
       </section>
 
       {pendingAction && (
-        <div
-          onClick={() => setPendingAction(null)}
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(31,27,22,0.4)",
-            display: "flex",
-            alignItems: "flex-end",
-            justifyContent: "center",
-            zIndex: 50,
-          }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              width: "100%",
-              maxWidth: 480,
-              background: CARD,
-              borderRadius: "16px 16px 0 0",
-              padding: "10px 16px 24px",
-            }}
-          >
-            <div style={{ width: 36, height: 4, background: BORDER, borderRadius: 2, margin: "4px auto 16px" }} />
-            <p style={{ fontSize: 13, color: MUTE, margin: "0 0 12px", textAlign: "center" }}>
-              {pendingAction === "download" ? "Preuzmi cenovnik za:" : "Pošalji cenovnik za:"}
-            </p>
-            {Object.entries(PRICE_TAG_STYLES).map(([key, { label }]) => (
-              <button
-                key={key}
-                onClick={() => chooseFormatAndRun(key)}
-                style={{
-                  width: "100%",
-                  background: "transparent",
-                  color: INK,
-                  border: `1px solid ${BORDER}`,
-                  borderRadius: 10,
-                  padding: "14px",
-                  fontSize: 15,
-                  fontWeight: 500,
-                  cursor: "pointer",
-                  marginBottom: 8,
-                }}
-              >
-                {label}
-              </button>
-            ))}
-            <button
-              onClick={() => setPendingAction(null)}
-              style={{
-                width: "100%",
-                background: "none",
-                border: "none",
-                color: MUTE,
-                fontSize: 14,
-                padding: "10px",
-                cursor: "pointer",
-              }}
-            >
-              Otkaži
+        <BottomSheet onClose={() => setPendingAction(null)}>
+          <p style={{ fontSize: 13, color: MUTE, margin: "0 0 12px", textAlign: "center" }}>
+            {pendingAction === "download" ? "Preuzmi cenovnik za:" : "Pošalji cenovnik za:"}
+          </p>
+          {Object.entries(PRICE_TAG_STYLES).map(([key, { label }]) => (
+            <button key={key} onClick={() => chooseFormatAndRun(key)} style={sheetOptionButton}>
+              {label}
             </button>
+          ))}
+          <button onClick={() => setPendingAction(null)} style={sheetCancelButton}>
+            Otkaži
+          </button>
+        </BottomSheet>
+      )}
+
+      {confirmClearAll && (
+        <BottomSheet onClose={() => setConfirmClearAll(false)}>
+          <p style={sheetMessage}>Obrisati sve artikle iz liste za štampu ({queue.length})?</p>
+          <button
+            onClick={() => {
+              clearQueue();
+              setConfirmClearAll(false);
+            }}
+            style={{ ...sheetPrimaryButton, background: RED }}
+          >
+            Obriši sve
+          </button>
+          <button onClick={() => setConfirmClearAll(false)} style={sheetCancelButton}>
+            Otkaži
+          </button>
+        </BottomSheet>
+      )}
+
+      {importStep === "confirmClear" && (
+        <BottomSheet onClose={cancelLeafletImport}>
+          <p style={sheetMessage}>
+            Lista za štampu nije prazna. Pre uvoza akcijskih cena odštampaj ili očisti trenutnu listu.
+          </p>
+          <button onClick={clearAndStartLeafletImport} style={sheetPrimaryButton}>
+            Očisti listu i nastavi
+          </button>
+          <button onClick={cancelLeafletImport} style={sheetCancelButton}>
+            Otkaži
+          </button>
+        </BottomSheet>
+      )}
+
+      {(importStep === "reading" || importStep === "saving") && (
+        <BottomSheet>
+          <p style={{ ...sheetMessage, color: MUTE, margin: "8px 0 12px" }}>
+            {importStep === "reading" ? "Čitam liflet…" : "Čuvam akcijske cene…"}
+          </p>
+        </BottomSheet>
+      )}
+
+      {importStep === "confirm" && importMatches && (
+        <BottomSheet onClose={cancelLeafletImport}>
+          <p style={{ ...sheetMessage, fontWeight: 600, marginBottom: 10 }}>Akcijski liflet</p>
+          <div style={{ fontSize: 14, color: INK, lineHeight: 1.7, marginBottom: 16 }}>
+            <div>Artikala u lifletu: <strong>{importMatches.length}</strong></div>
+            <div>
+              Imamo u bazi, cena se ažurira: <strong>{importMatches.filter((m) => m.existing).length}</strong>
+            </div>
+            <div>
+              Nemamo u bazi, samo u listu: <strong>{importMatches.filter((m) => !m.existing).length}</strong>
+            </div>
           </div>
-        </div>
+          <p style={{ fontSize: 12, color: MUTE, margin: "-6px 0 16px", lineHeight: 1.5 }}>
+            Svi artikli idu u listu za štampu — nepotrebne ukloni sa X pre štampe.
+          </p>
+          <button onClick={confirmLeafletImport} style={sheetPrimaryButton}>
+            Uvezi i dodaj u listu
+          </button>
+          <button onClick={cancelLeafletImport} style={sheetCancelButton}>
+            Otkaži
+          </button>
+        </BottomSheet>
       )}
     </div>
   );
