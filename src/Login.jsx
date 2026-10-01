@@ -55,7 +55,7 @@ export default function Login() {
         }}
       >
         <h1 style={{ fontSize: 19, fontWeight: 600, margin: "0 0 4px", letterSpacing: "-0.01em" }}>
-          Shelf Price Scanner
+          Brancode
         </h1>
         <p style={{ fontSize: 13, color: MUTE, margin: "0 0 20px" }}>Prijavi se da nastaviš.</p>
 
