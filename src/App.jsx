@@ -614,7 +614,7 @@ export default function PriceScanner() {
       <header style={{ marginBottom: 22 }}>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
           <h1 style={{ fontSize: 21, fontWeight: 600, margin: 0, letterSpacing: "-0.01em" }}>
-            Shelf Price Scanner
+            Brancode
           </h1>
           <span style={{ fontFamily: FONT_MONO, fontSize: 12, color: MUTE }}>
             {total} u listi
