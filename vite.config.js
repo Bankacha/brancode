@@ -42,6 +42,12 @@ export default defineConfig(({ mode }) => {
               handler: "CacheFirst",
               options: { cacheName: "fonts" },
             },
+            // the zxing barcode reader (iPhone), fetched the first time the camera needs it
+            {
+              urlPattern: ({ url }) => url.pathname.endsWith(".wasm"),
+              handler: "CacheFirst",
+              options: { cacheName: "scanner" },
+            },
           ],
         },
       }),
