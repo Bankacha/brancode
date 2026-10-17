@@ -11,9 +11,7 @@ import "./index.css";
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <BrowserRouter>
-      <AuthGate>
-        <App />
-      </AuthGate>
+      <AuthGate>{(session) => <App session={session} />}</AuthGate>
     </BrowserRouter>
   </React.StrictMode>
 );
