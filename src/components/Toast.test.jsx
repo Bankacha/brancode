@@ -52,4 +52,14 @@ describe("ToastProvider", () => {
     expect(run).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole("status")).toBeNull();
   });
+
+  it("wraps an error over several lines instead of cutting it off", () => {
+    const text = "Čitanje lifleta nije uspelo. Proveri internet konekciju i probaj ponovo.";
+    setup({ kind: "error", text });
+    fireEvent.click(screen.getByText(`show ${text}`));
+    const message = screen.getByText(text);
+    expect(message.className).not.toContain("truncate");
+    expect(message.className).toContain("line-clamp-3");
+  });
 });
+

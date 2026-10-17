@@ -1,11 +1,13 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { ToastProvider } from "../components/Toast.jsx";
 import PrintPreview from "./PrintPreview.jsx";
+import { sendSheetByEmail } from "../lib/email.js";
 
 vi.mock("../lib/email.js", () => ({ sendSheetByEmail: vi.fn() }));
+vi.mock("../lib/priceTags.js", () => ({ buildWorkbookBuffer: vi.fn(async () => new ArrayBuffer(8)), sheetFilename: () => "cenovnik-raf.xlsx" }));
 
 const items = (n) => Array.from({ length: n }, (_, i) => ({ id: `i${i}`, barcode: `${i}`, name: `A${i}`, price: 10 }));
 
@@ -44,4 +46,15 @@ describe("PrintPreview", () => {
     setup([]);
     expect(screen.getByText("HOME")).toBeTruthy();
   });
+
+  it("sends the sheet only once while a send is in flight", async () => {
+    vi.mocked(sendSheetByEmail).mockReset().mockReturnValue(new Promise(() => {}));
+    setup(items(7));
+    const send = screen.getByRole("button", { name: /Pošalji/ });
+    fireEvent.click(send);
+    fireEvent.click(send);
+    await waitFor(() => expect(sendSheetByEmail).toHaveBeenCalledTimes(1));
+    expect(send.disabled).toBe(true);
+  });
 });
+

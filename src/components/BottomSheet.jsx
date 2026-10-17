@@ -4,6 +4,15 @@ import { shouldDismissDrag } from "../lib/gestures.js";
 const ANIMATION_MS = 250;
 const INTERACTIVE = "input, textarea, select, button, a, label";
 
+// Counted, because switching sheets briefly mounts two at once.
+let scrollLocks = 0;
+const lockScroll = () => {
+  if (scrollLocks++ === 0) document.body.style.overflow = "hidden";
+};
+const unlockScroll = () => {
+  if (--scrollLocks === 0) document.body.style.overflow = "";
+};
+
 // Slides up from the bottom over a scrim. Closes on scrim tap, a drag down,
 // Escape — and system back, via useSheet. `dismissible={false}` while work
 // is in flight.
@@ -23,6 +32,14 @@ export default function BottomSheet({ open, onClose, dismissible = true, childre
     const timer = setTimeout(() => setMounted(false), ANIMATION_MS);
     return () => clearTimeout(timer);
   }, [open]);
+
+  // While a sheet is up the page behind must not scroll: on touch screens a
+  // downward drag would otherwise become a scroll and cancel the gesture.
+  useEffect(() => {
+    if (!mounted) return;
+    lockScroll();
+    return unlockScroll;
+  }, [mounted]);
 
   useEffect(() => {
     if (!open || !dismissible) return;
@@ -65,7 +82,7 @@ export default function BottomSheet({ open, onClose, dismissible = true, childre
           onPointerUp={onPointerEnd}
           onPointerCancel={onPointerEnd}
           style={dragY ? { transform: `translateY(${dragY}px)`, transition: "none" } : undefined}
-          className={`pointer-events-auto flex flex-col gap-3.5 rounded-t-sheet bg-bg px-5 pt-3 pb-[calc(34px+env(safe-area-inset-bottom))] transition-transform duration-250 ease-out ${shown ? "translate-y-0" : "translate-y-full"}`}
+          className={`pointer-events-auto flex touch-none flex-col gap-3.5 rounded-t-sheet bg-bg px-5 pt-3 pb-[calc(34px+env(safe-area-inset-bottom))] transition-transform duration-250 ease-out ${shown ? "translate-y-0" : "translate-y-full"}`}
         >
           <div className="mx-auto mb-1 h-[5px] w-10 shrink-0 rounded-full bg-border" />
           {children}

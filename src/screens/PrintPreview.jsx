@@ -1,3 +1,4 @@
+import { useRef, useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router";
 import { Apple, ArrowLeft, Download, LayoutGrid, MailCheck, Refrigerator, Send, WifiOff } from "lucide-react";
 import { buildWorkbookBuffer, sheetFilename } from "../lib/priceTags.js";
@@ -20,10 +21,15 @@ export default function PrintPreview({ queue }) {
   const location = useLocation();
   const toast = useToast();
   const [format, setFormat] = usePrintFormat();
+  const [sending, setSending] = useState(false);
+  const sendingRef = useRef(false); // blocks a second tap before the re-render disables the button
 
   if (queue.length === 0) return <Navigate to="/" replace />;
 
   const send = async () => {
+    if (sendingRef.current) return;
+    sendingRef.current = true;
+    setSending(true);
     toast.show({ kind: "loading", text: "Šaljem na mejl…" });
     try {
       await sendSheetByEmail(sheetFilename(format), await buildWorkbookBuffer(queue, format));
@@ -32,6 +38,8 @@ export default function PrintPreview({ queue }) {
       console.error("send email failed", e);
       toast.show({ kind: "error", icon: WifiOff, text: "Nema veze. Nije poslato.", action: { label: "Ponovi", run: send } });
     }
+    sendingRef.current = false;
+    setSending(false);
   };
 
   return (
@@ -69,7 +77,7 @@ export default function PrintPreview({ queue }) {
       <div className="flex-1" />
 
       <div className="flex gap-2.5">
-        <Button variant="accent" icon={Send} onClick={send} className="flex-1">
+        <Button variant="accent" icon={Send} onClick={send} disabled={sending} className="flex-1">
           Pošalji
         </Button>
         <Button variant="outline" icon={Download} onClick={() => downloadWorkbook(queue, format)} className="flex-1">

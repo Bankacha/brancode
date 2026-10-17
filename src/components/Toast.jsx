@@ -30,7 +30,8 @@ function ToastView({ toast, onHide }) {
         <span className={`flex size-8 shrink-0 items-center justify-center rounded-full ${circle}`}>
           <Icon size={18} className={toast.kind === "loading" ? "animate-spin" : undefined} />
         </span>
-        <span className="min-w-0 flex-1 truncate text-[15px] font-semibold">{toast.text}</span>
+        {/* Errors and notes must stay readable; short success lines can clip. */}
+        <span className={`min-w-0 flex-1 text-[15px] font-semibold ${dismissOnTap ? "line-clamp-3" : "truncate"}`}>{toast.text}</span>
         {toast.detail && <span className="shrink-0 font-mono text-[13px] opacity-80">{toast.detail}</span>}
         {toast.action && (
           <button

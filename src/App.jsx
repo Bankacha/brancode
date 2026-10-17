@@ -1,4 +1,5 @@
-import { Navigate, Route, Routes, useNavigate } from "react-router";
+import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router";
+import { openSheetOverHome } from "./lib/navigation.js";
 import { usePrintQueue } from "./lib/printQueue.js";
 import { useProductEditor } from "./lib/useProductEditor.js";
 import { ToastProvider } from "./components/Toast.jsx";
@@ -10,15 +11,14 @@ import PrintPreview from "./screens/PrintPreview.jsx";
 
 export default function App({ session }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const [queue, setQueue] = usePrintQueue();
   const editor = useProductEditor(queue, setQueue);
 
-  // The camera / manual-entry entry becomes home, and the edit sheet is pushed
-  // on top of it: back closes the sheet, never reopens the camera.
+  // Back closes the edit sheet and never reopens the camera / manual entry.
   const openCode = (code) => {
     editor.open(code);
-    navigate("/", { replace: true });
-    navigate("/", { state: { sheet: "edit" } });
+    openSheetOverHome(navigate, location, "edit");
   };
 
   const legacy = (element) => <LegacyLayout queueLength={queue.length}>{element}</LegacyLayout>;
