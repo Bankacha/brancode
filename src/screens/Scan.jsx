@@ -1,10 +1,12 @@
 import React, { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 import { AlertCircle } from "lucide-react";
 import { PAPER, errorBanner, outlineButton } from "../lib/legacyTheme.js";
+import { leaveScreen } from "../lib/navigation.js";
 
 export default function Scan({ onDetected }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const videoRef = useRef(null);
   const [cameraError, setCameraError] = useState(null);
   // Latest callback without restarting the camera when the parent re-renders.
@@ -86,7 +88,7 @@ export default function Scan({ onDetected }) {
           <span>{cameraError}</span>
         </div>
       )}
-      <button onClick={() => navigate("/")} style={{ ...outlineButton, padding: "12px" }}>
+      <button onClick={() => leaveScreen(navigate, location)} style={{ ...outlineButton, padding: "12px" }}>
         Otkaži
       </button>
     </div>

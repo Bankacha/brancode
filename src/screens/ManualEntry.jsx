@@ -1,9 +1,11 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 import { FONT_MONO, MUTE, BORDER, CARD, INK, PAPER, outlineButton } from "../lib/legacyTheme.js";
+import { leaveScreen } from "../lib/navigation.js";
 
 export default function ManualEntry({ onSubmit }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const [code, setCode] = useState("");
 
   const submit = () => {
@@ -49,7 +51,7 @@ export default function ManualEntry({ onSubmit }) {
         >
           Nastavi
         </button>
-        <button onClick={() => navigate("/")} style={outlineButton}>
+        <button onClick={() => leaveScreen(navigate, location)} style={outlineButton}>
           Otkaži
         </button>
       </div>
