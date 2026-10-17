@@ -1,13 +1,16 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router";
 import { Apple, ArrowLeft, Download, LayoutGrid, MailCheck, Refrigerator, Send, WifiOff } from "lucide-react";
-import { buildWorkbookBuffer, sheetFilename } from "../lib/priceTags.js";
+import { PRICE_TAG_STYLES, buildWorkbookBuffer, layoutTagPages, sheetFilename } from "../lib/priceTags.js";
+import { plural } from "../lib/plural.js";
 import { downloadWorkbook } from "../lib/download.js";
 import { sendSheetByEmail } from "../lib/email.js";
 import { leaveScreen } from "../lib/navigation.js";
 import { usePrintFormat } from "../lib/printFormat.js";
 import { useToast } from "../components/Toast.jsx";
 import Button from "../components/Button.jsx";
+import PrintPage from "../components/PrintPage.jsx";
+import ScaledToWidth from "../components/ScaledToWidth.jsx";
 
 const FORMATS = [
   { key: "shelf", label: "Raf", icon: LayoutGrid },
@@ -15,7 +18,9 @@ const FORMATS = [
   { key: "fruit", label: "Voće", icon: Apple },
 ];
 
-// Handoff "06 · Format + pregled štampe" — the A4 preview comes in phase 3.
+// Handoff "06 · Format + pregled štampe". The A4 pages come from the same
+// layout as the Excel export (spec decision 4: drop the preview block if
+// paper and preview ever disagree).
 export default function PrintPreview({ queue }) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -23,6 +28,13 @@ export default function PrintPreview({ queue }) {
   const [format, setFormat] = usePrintFormat();
   const [sending, setSending] = useState(false);
   const sendingRef = useRef(false); // blocks a second tap before the re-render disables the button
+  const pagesRef = useRef(null);
+  const [page, setPage] = useState(1);
+
+  useEffect(() => {
+    pagesRef.current?.scrollTo?.({ left: 0 });
+    setPage(1);
+  }, [format]);
 
   if (queue.length === 0) return <Navigate to="/" replace />;
 
@@ -74,7 +86,7 @@ export default function PrintPreview({ queue }) {
         ))}
       </div>
 
-      <div className="flex-1" />
+      <PagePreview queue={queue} format={format} page={page} setPage={setPage} pagesRef={pagesRef} />
 
       <div className="flex gap-2.5">
         <Button variant="accent" icon={Send} onClick={send} disabled={sending} className="flex-1">
@@ -87,3 +99,26 @@ export default function PrintPreview({ queue }) {
     </div>
   );
 }
+
+function PagePreview({ queue, format, page, setPage, pagesRef }) {
+  const pages = layoutTagPages(queue, format);
+  const columns = PRICE_TAG_STYLES[format].columns;
+  const onScroll = (e) => setPage(Math.round(e.currentTarget.scrollLeft / e.currentTarget.clientWidth) + 1);
+  return (
+    <div className="mt-4 mb-4 flex flex-1 flex-col justify-center rounded-card bg-surface-muted py-4">
+      <div ref={pagesRef} onScroll={onScroll} className="flex snap-x snap-mandatory overflow-x-auto [scrollbar-width:none]">
+        {pages.map((rows, i) => (
+          <div key={i} className="w-full shrink-0 snap-center px-4">
+            <ScaledToWidth widthMm={210} heightMm={297}>
+              <PrintPage rows={rows} format={format} />
+            </ScaledToWidth>
+          </div>
+        ))}
+      </div>
+      <p className="mt-3 text-center text-[13px] text-ink-3">
+        {`A4 · ${columns} ${plural(columns, "kolona", "kolone", "kolona")} · strana ${page} od ${pages.length}`}
+      </p>
+    </div>
+  );
+}
+

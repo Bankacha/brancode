@@ -7,7 +7,12 @@ import PrintPreview from "./PrintPreview.jsx";
 import { sendSheetByEmail } from "../lib/email.js";
 
 vi.mock("../lib/email.js", () => ({ sendSheetByEmail: vi.fn() }));
-vi.mock("../lib/priceTags.js", () => ({ buildWorkbookBuffer: vi.fn(async () => new ArrayBuffer(8)), sheetFilename: () => "cenovnik-raf.xlsx" }));
+vi.mock("../lib/priceTags.js", async (importOriginal) => ({
+  ...(await importOriginal()),
+  buildWorkbookBuffer: vi.fn(async () => new ArrayBuffer(8)),
+  sheetFilename: () => "cenovnik-raf.xlsx",
+  makeBarcodeDataUrl: () => "data:image/png;base64,AAA", // jsdom has no canvas
+}));
 
 const items = (n) => Array.from({ length: n }, (_, i) => ({ id: `i${i}`, barcode: `${i}`, name: `A${i}`, price: 10 }));
 
@@ -55,6 +60,18 @@ describe("PrintPreview", () => {
     fireEvent.click(send);
     await waitFor(() => expect(sendSheetByEmail).toHaveBeenCalledTimes(1));
     expect(send.disabled).toBe(true);
+  });
+
+  it("shows which A4 page of how many, with the format's columns", () => {
+    setup(items(40));
+    expect(screen.getByText("A4 · 3 kolone · strana 1 od 3")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Voće" }));
+    expect(screen.getByText("A4 · 2 kolone · strana 1 od 5")).toBeTruthy();
+  });
+
+  it("pages through a long list", () => {
+    setup(items(120));
+    expect(screen.getByText("A4 · 3 kolone · strana 1 od 7")).toBeTruthy();
   });
 });
 
