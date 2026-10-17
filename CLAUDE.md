@@ -10,12 +10,16 @@ Brancode (package name `shelf-price-scanner`) is a mobile-first PWA for a single
 
 ```bash
 npm install
-npm run dev      # Vite dev server over HTTPS (self-signed cert via @vitejs/plugin-basic-ssl)
-npm run build    # production build into dist/
-npm run preview  # serve the built dist/
+npm run dev         # Vite dev server over HTTPS (self-signed cert via @vitejs/plugin-basic-ssl)
+npm run dev:http    # same dev server over plain HTTP, for browsers that refuse the self-signed cert
+npm run build       # production build into dist/
+npm run preview     # serve the built dist/
+npm test            # Vitest, single run (src/**/*.test.js, scripts/**/*.test.mjs)
+npm run test:watch  # Vitest in watch mode
+npx vitest run src/lib/products.test.js   # a single test file
 ```
 
-There is no test runner, linter or type checker configured; `npm run build` is the only automated check.
+`npm test` and `npm run build` are the automated checks; there is no linter or type checker.
 
 HTTPS in dev is deliberate: camera access (`getUserMedia`) and `BarcodeDetector` require a secure context when opening the dev server from a phone on the LAN. `BarcodeDetector` exists only in Chromium-based browsers, so desktop Firefox/Safari fall back to manual entry.
 
