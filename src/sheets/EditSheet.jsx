@@ -55,7 +55,7 @@ export default function EditSheet({ editor, open, onClose, format, source = "lis
   }, [open, editor.loading]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <BottomSheet open={open} onClose={onClose} dismissible={!editor.saving} closeOnScrim={source !== "scan"}>
+    <BottomSheet open={open} onClose={onClose} dismissible={!editor.saving} closeOnScrim={source !== "scan"} dim={source !== "scan"}>
       <div className="flex items-center gap-2.5">
         {editor.loading ? (
           <span className="text-xs font-semibold text-ink-3">Tražim u bazi…</span>

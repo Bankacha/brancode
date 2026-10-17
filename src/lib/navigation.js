@@ -7,19 +7,6 @@ export const leaveScreen = (navigate, location) => {
   else navigate(-1);
 };
 
-// Opens a home sheet (the editor) in place of a full-screen route. From
-// inside the app the camera/manual-entry entry becomes "home + sheet", so
-// back closes the sheet onto the home already behind it. On a deep link
-// there is no home behind, so one is put under the sheet first.
-export const openSheetOverHome = (navigate, location, sheet) => {
-  if (location.key === "default") {
-    navigate("/", { replace: true });
-    navigate("/", { state: { sheet } });
-  } else {
-    navigate("/", { replace: true, state: { sheet } });
-  }
-};
-
 // Saving from a sheet that sits on a full-screen route (camera, manual entry)
 // and leaving both at once: two entries back to the page behind them, or
 // home when that screen was the first page loaded.

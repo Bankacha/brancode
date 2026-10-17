@@ -52,5 +52,15 @@ describe("BottomSheet on touch screens", () => {
     act(() => vi.advanceTimersByTime(300));
     expect(document.body.style.overflow).toBe("");
   });
+
+  it("can leave what's behind visible, for the sheet over the camera", () => {
+    const { container } = render(
+      <BottomSheet open dim={false} onClose={() => {}}>
+        <p>Sadržaj</p>
+      </BottomSheet>
+    );
+    const backdrop = container.querySelector(".fixed > div");
+    expect(backdrop.className).not.toContain("bg-scrim");
+  });
 });
 

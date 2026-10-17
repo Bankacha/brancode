@@ -8,6 +8,7 @@ import { formatPrice } from "../lib/format.js";
 import { withoutItem, withItemRestored } from "../lib/printQueue.js";
 import { useSheet } from "../lib/useSheet.js";
 import { usePrintFormat } from "../lib/printFormat.js";
+import { useScannerReader } from "../lib/useScannerReader.js";
 import { useToast } from "../components/Toast.jsx";
 import QueueRow from "../components/QueueRow.jsx";
 import MenuSheet from "../sheets/MenuSheet.jsx";
@@ -48,6 +49,7 @@ export default function Home({ queue, setQueue, editor, session }) {
   const sheet = useSheet();
   const toast = useToast();
   const [format] = usePrintFormat();
+  const [reader, setReader] = useScannerReader();
   const queueRef = useRef(queue);
   queueRef.current = queue;
   const leafletInputRef = useRef(null);
@@ -267,6 +269,8 @@ export default function Home({ queue, setQueue, editor, session }) {
         canClear={n > 0}
         onClear={() => sheet.open("confirm-clear")}
         onSignOut={signOut}
+        reader={reader}
+        onReaderChange={setReader}
       />
       <ConfirmClearSheet open={sheet.name === "confirm-clear"} onClose={sheet.close} count={n} onConfirm={clearList} />
       <EditSheet editor={editor} open={sheet.name === "edit" && editor.barcode !== null} onClose={closeEdit} onSave={saveEdit} format={format} source="list" />
