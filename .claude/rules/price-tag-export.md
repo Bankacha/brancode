@@ -1,0 +1,16 @@
+---
+paths:
+  - "src/App.jsx"
+---
+
+# Price tag export (ExcelJS)
+
+`buildWorkbookBuffer` in `src/App.jsx` builds the sheet in the browser; the same buffer is used for download and for email.
+
+- Formats are entries in `PRICE_TAG_STYLES` (`shelf`, `fridge`, `fruit`). The format picker bottom sheet is generated from that object, so a new format only needs a new entry.
+- Sizes are Excel column-width units and row heights in points, with mm constants for the physical tag holders (e.g. the fridge format pads top and bottom because the holder hides those edges). These numbers are print-layout tuning — don't "simplify" them without checking printed output.
+- Manual page breaks keep each tag's rows on one A4 page (Excel paginates purely by height). The fit calculation relies on the explicit `PAGE_MARGINS_IN`, so change them together.
+- The `fruit` format embeds a CODE128 barcode image (JsBarcode on a canvas). Images are positioned with native EMU offsets (`nativeColOff`/`nativeRowOff`) because ExcelJS computes fractional anchor offsets in the wrong units.
+- Prices are formatted with the `sr-RS` locale (`1.249,99`); the shelf format picks its font size from the length of that text.
+- Fonts `Bahnschrift SemiBold` and `Oswald` are referenced by name and must be installed on the machine that prints the sheet.
+- File names follow `cenovnik-<fileSlug>-<YYYY-MM-DD>.xlsx`.

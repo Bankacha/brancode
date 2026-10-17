@@ -173,6 +173,7 @@ export default function PriceScanner() {
   const [queue, setQueue] = useState([]); // [{barcode, name, price, id}]
   const [mode, setMode] = useState("idle"); // idle | scanning | editing | manualEntry
   const [scannedBarcode, setScannedBarcode] = useState(null);
+  const [matchedBarcode, setMatchedBarcode] = useState(null); // barcode of the DB row the lookup found, if any
   const [editName, setEditName] = useState("");
   const [editPrice, setEditPrice] = useState("");
   const [isNewProduct, setIsNewProduct] = useState(false);
@@ -230,7 +231,7 @@ export default function PriceScanner() {
     for (const candidate of barcodeCandidates(barcode)) {
       const { data, error } = await supabase
         .from("products")
-        .select("name, price")
+        .select("barcode, name, price")
         .eq("barcode", candidate)
         .maybeSingle();
       if (error) throw error;
@@ -241,6 +242,7 @@ export default function PriceScanner() {
 
   const openProduct = async (barcode) => {
     setScannedBarcode(barcode);
+    setMatchedBarcode(null);
     setEditName("");
     setEditPrice("");
     setIsNewProduct(false);
@@ -250,6 +252,7 @@ export default function PriceScanner() {
     try {
       const data = await lookupProduct(barcode);
       if (data) {
+        setMatchedBarcode(data.barcode);
         setEditName(data.name || "");
         setEditPrice(data.price != null ? String(data.price) : "");
         setIsNewProduct(false);
@@ -320,11 +323,24 @@ export default function PriceScanner() {
     if (isNaN(priceNum)) return;
 
     setSaveError(null);
+    const product = { barcode: scannedBarcode, name: editName.trim(), price: priceNum };
     try {
-      const { error } = await supabase
-        .from("products")
-        .upsert({ barcode: scannedBarcode, name: editName.trim(), price: priceNum });
-      if (error) throw error;
+      // Found via the 12-digit fallback: move that row to the full scanned code
+      // instead of adding a second row for the same article next to it.
+      let moved = false;
+      if (matchedBarcode && matchedBarcode !== scannedBarcode) {
+        const { data, error } = await supabase
+          .from("products")
+          .update(product)
+          .eq("barcode", matchedBarcode)
+          .select("barcode");
+        if (error) throw error;
+        moved = data.length > 0; // 0 if the row is gone or the update was refused
+      }
+      if (!moved) {
+        const { error } = await supabase.from("products").upsert(product);
+        if (error) throw error;
+      }
     } catch (e) {
       console.error("save to supabase failed", e);
       setSaveError("Čuvanje u bazi nije uspelo. Proveri internet konekciju i probaj ponovo.");
