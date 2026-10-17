@@ -1,466 +1,190 @@
-import React, { useRef, useState } from "react";
+import { useRef } from "react";
 import { useNavigate } from "react-router";
-import { X, Download, Check, Camera, Keyboard, AlertCircle, Mail, FileUp } from "lucide-react";
-import { parseLeafletPdf, matchLeafletRows, saveLeafletPrices } from "../promoLeaflet.js";
-import { PRICE_TAG_STYLES, buildWorkbookBuffer, sheetFilename } from "../lib/priceTags.js";
-import { sendSheetByEmail } from "../lib/email.js";
-import BottomSheet from "../sheets/BottomSheet.jsx";
-import {
-  FONT_SANS,
-  FONT_MONO,
-  PAPER,
-  INK,
-  RED,
-  GREEN,
-  MUTE,
-  BORDER,
-  CARD,
-  secondaryHalfButton,
-  sheetOptionButton,
-  sheetPrimaryButton,
-  sheetCancelButton,
-  sheetMessage,
-  errorBanner,
-  outlineButton,
-} from "../lib/legacyTheme.js";
+import { Ellipsis, Eye, FileUp, Keyboard, Printer, ScanBarcode } from "lucide-react";
+import { supabase } from "../supabaseClient";
+import { plural } from "../lib/plural.js";
+import { withoutItem, withItemRestored } from "../lib/printQueue.js";
+import { useSheet } from "../lib/useSheet.js";
+import { useToast } from "../components/Toast.jsx";
+import QueueRow from "../components/QueueRow.jsx";
+import MenuSheet from "../sheets/MenuSheet.jsx";
+import ConfirmClearSheet from "../sheets/ConfirmClearSheet.jsx";
 
-export default function Home({ queue, setQueue, editor }) {
+const UNDO_MS = 4000;
+
+function IconButton({ label, icon: Icon, onClick }) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      onClick={onClick}
+      className="flex size-11 items-center justify-center rounded-full bg-surface-muted text-ink transition-transform duration-100 active:scale-[.97]"
+    >
+      <Icon size={20} />
+    </button>
+  );
+}
+
+function GroupTitle({ dot, className = "", children, action }) {
+  return (
+    <div className="mb-2 flex items-center justify-between">
+      <h2 className={`flex items-center gap-2 text-[13px] font-bold ${className}`}>
+        <span className={`size-2 rounded-full ${dot}`} />
+        {children}
+      </h2>
+      {action}
+    </div>
+  );
+}
+
+// Handoff "02 · Početna + lista".
+export default function Home({ queue, setQueue, editor, session }) {
   const navigate = useNavigate();
-  const [emailSending, setEmailSending] = useState(false);
-  const [emailError, setEmailError] = useState(null);
-  const [emailSent, setEmailSent] = useState(false);
-  const [pendingAction, setPendingAction] = useState(null); // null | "download" | "email"
-  const [importStep, setImportStep] = useState(null); // null | "confirmClear" | "reading" | "confirm" | "saving"
-  const [importMatches, setImportMatches] = useState(null);
-  const [importError, setImportError] = useState(null);
-  const [importNotice, setImportNotice] = useState(null);
-  const [confirmClearAll, setConfirmClearAll] = useState(false);
-  const leafletInputRef = useRef(null);
+  const sheet = useSheet();
+  const toast = useToast();
+  const queueRef = useRef(queue);
+  queueRef.current = queue;
 
-  const removeFromQueue = (id) => setQueue(queue.filter((q) => q.id !== id));
+  const check = queue.filter((q) => q.notInDb);
+  const ready = queue.filter((q) => !q.notInDb);
+  const n = queue.length;
+  const m = check.length;
 
-  const exportSheet = async (format) => {
-    if (queue.length === 0) return;
-    const buffer = await buildWorkbookBuffer(queue, format);
-    const blob = new Blob([buffer], {
-      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  const summary =
+    n === 0
+      ? "Skeniraj prvi artikal"
+      : m > 0
+        ? `${m} ${plural(m, "traži", "traže", "traže")} proveru pre štampe`
+        : "Sve je spremno za štampu";
+
+  const remove = (item) => {
+    const { next, removed } = withoutItem(queue, item.id);
+    if (!removed) return;
+    setQueue(next);
+    toast.show({
+      kind: "success",
+      text: `Uklonjeno: ${item.name}`,
+      duration: UNDO_MS,
+      action: { label: "Vrati", run: () => setQueue(withItemRestored(queueRef.current, removed)) },
     });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = sheetFilename(format);
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
   };
 
-  const emailSheet = async (format) => {
-    if (queue.length === 0) return;
-    setEmailSending(true);
-    setEmailError(null);
-    setEmailSent(false);
-    try {
-      await sendSheetByEmail(sheetFilename(format), await buildWorkbookBuffer(queue, format));
-      setEmailSent(true);
-      setTimeout(() => setEmailSent(false), 3000);
-    } catch (e) {
-      console.error("send email failed", e);
-      setEmailError("Slanje mejla nije uspelo. Proveri internet konekciju i probaj ponovo.");
-    }
-    setEmailSending(false);
+  const edit = (item) => {
+    editor.openItem(item);
+    sheet.open("edit");
   };
 
-  const chooseFormatAndRun = (formatKey) => {
-    const action = pendingAction;
-    setPendingAction(null);
-    if (action === "download") exportSheet(formatKey);
-    else if (action === "email") emailSheet(formatKey);
+  const signOut = () => {
+    sheet.close();
+    supabase.auth.signOut();
   };
 
-  // The file picker must open synchronously inside a click handler (browsers
-  // block programmatic file dialogs outside a user gesture), so no awaits here.
-  const startLeafletImport = () => {
-    setImportError(null);
-    setImportNotice(null);
-    if (queue.length > 0) {
-      setImportStep("confirmClear");
-      return;
-    }
-    leafletInputRef.current.click();
-  };
-
-  const clearAndStartLeafletImport = () => {
+  const clearList = () => {
     setQueue([]);
-    setImportStep(null);
-    leafletInputRef.current.click();
+    sheet.close();
   };
 
-  // The PDF is only read in memory here — never uploaded or stored anywhere.
-  const onLeafletFileChosen = async (e) => {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
-    setImportStep("reading");
-    try {
-      const rows = await parseLeafletPdf(await file.arrayBuffer());
-      setImportMatches(await matchLeafletRows(rows));
-      setImportStep("confirm");
-    } catch (err) {
-      console.error("leaflet read failed", err);
-      setImportError(err.userFacing ? err.message : "Čitanje lifleta nije uspelo. Proveri internet konekciju i probaj ponovo.");
-      setImportStep(null);
-    }
-  };
-
-  const confirmLeafletImport = async () => {
-    setImportStep("saving");
-    try {
-      await saveLeafletPrices(importMatches);
-      const stamp = Date.now();
-      // Every leaflet article goes on the list (the user prunes it with X);
-      // ones we don't carry are flagged so they're easy to spot.
-      const imported = importMatches.map(({ ean, name, price, existing }, i) => ({
-        id: `${ean}-${stamp}-${i}`,
-        barcode: ean,
-        name: existing ? existing.name : name,
-        price,
-        notInDb: !existing,
-      }));
-      setQueue(imported);
-      setImportNotice(`Uvezeno iz lifleta u listu za štampu: ${imported.length}`);
-      setTimeout(() => setImportNotice(null), 4000);
-    } catch (err) {
-      console.error("leaflet save failed", err);
-      setImportError("Čuvanje akcijskih cena nije uspelo. Proveri internet konekciju i probaj ponovo.");
-    }
-    setImportMatches(null);
-    setImportStep(null);
-  };
-
-  const cancelLeafletImport = () => {
-    setImportMatches(null);
-    setImportStep(null);
-  };
+  const rows = (items, tone) => (
+    <ul className="flex flex-col gap-2">
+      {items.map((item) => (
+        <QueueRow key={item.id} item={item} tone={tone} onLongPress={() => edit(item)} onRemove={() => remove(item)} />
+      ))}
+    </ul>
+  );
 
   return (
-    <>
-      {editor.barcode === null && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          <button
-            onClick={() => navigate("/skeniranje")}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 10,
-              background: INK,
-              color: PAPER,
-              border: "none",
-              borderRadius: 10,
-              padding: "16px 20px",
-              fontSize: 16,
-              fontWeight: 600,
-              cursor: "pointer",
-            }}
-          >
-            <Camera size={20} /> Skeniraj barkod
-          </button>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={() => navigate("/rucni-unos")} style={secondaryHalfButton}>
-              <Keyboard size={16} /> Ručni unos
-            </button>
-            <button onClick={startLeafletImport} style={secondaryHalfButton}>
-              <FileUp size={16} /> Akcijski liflet
-            </button>
-          </div>
+    <div className="flex min-h-dvh flex-col px-5 pt-[calc(16px+env(safe-area-inset-top))] pb-[calc(160px+env(safe-area-inset-bottom))]">
+      <header className="flex items-center justify-between">
+        <span className="font-display text-[22px] font-extrabold tracking-[-0.02em] text-ink">brancode</span>
+        <div className="flex gap-2">
+          <IconButton label="Uvezi akcijski liflet" icon={FileUp} onClick={() => {}} />
+          <IconButton label="Meni" icon={Ellipsis} onClick={() => sheet.open("menu")} />
         </div>
-      )}
+      </header>
 
-      {importError && (
-        <div style={{ ...errorBanner, marginTop: 10 }}>
-          <AlertCircle size={16} style={{ flexShrink: 0, marginTop: 1 }} />
-          <span>{importError}</span>
-        </div>
-      )}
-      {importNotice && <div style={{ fontSize: 13, color: GREEN, marginTop: 10, fontWeight: 500 }}>{importNotice}</div>}
-
-      <input ref={leafletInputRef} type="file" accept="application/pdf" onChange={onLeafletFileChosen} style={{ display: "none" }} />
-
-      {editor.barcode !== null && (
-        <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 12, padding: 18 }}>
-          <div style={{ fontFamily: FONT_MONO, fontSize: 12, color: MUTE, marginBottom: 12 }}>
-            {editor.barcode}
-            {editor.loading ? "  ·  učitavanje…" : editor.isNew ? "  ·  novi artikal" : ""}
-          </div>
-
-          {editor.error && (
-            <div style={{ ...errorBanner, marginBottom: 12 }}>
-              <AlertCircle size={16} style={{ flexShrink: 0, marginTop: 1 }} />
-              <span>{editor.error}</span>
-            </div>
-          )}
-
-          <label style={{ fontSize: 12, color: MUTE }}>Naziv artikla</label>
-          <input
-            value={editor.name}
-            onChange={(e) => editor.setName(e.target.value)}
-            placeholder="Naziv artikla"
-            style={{
-              width: "100%",
-              fontSize: 16,
-              padding: "11px 12px",
-              borderRadius: 8,
-              border: `1px solid ${BORDER}`,
-              margin: "4px 0 14px",
-            }}
-          />
-
-          <label style={{ fontSize: 12, color: MUTE }}>Cena</label>
-          <div style={{ position: "relative", margin: "4px 0 18px" }}>
-            <input
-              value={editor.price}
-              onChange={(e) => editor.setPrice(e.target.value)}
-              inputMode="decimal"
-              placeholder="0.00"
-              style={{
-                width: "100%",
-                fontFamily: FONT_MONO,
-                fontSize: 26,
-                fontWeight: 600,
-                padding: "12px 14px",
-                borderRadius: 8,
-                border: `1px solid ${BORDER}`,
-                color: RED,
-              }}
-            />
-          </div>
-
-          <div style={{ display: "flex", gap: 8 }}>
-            <button
-              onClick={editor.save}
-              style={{
-                flex: 1,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 8,
-                background: GREEN,
-                color: PAPER,
-                border: "none",
-                borderRadius: 10,
-                padding: "13px",
-                fontSize: 15,
-                fontWeight: 600,
-                cursor: "pointer",
-              }}
-            >
-              <Check size={17} /> Sačuvaj i dodaj u listu
-            </button>
-            <button onClick={editor.cancel} style={outlineButton}>
-              Otkaži
-            </button>
-          </div>
-        </div>
-      )}
-
-      {editor.savedFlash && <div style={{ fontSize: 13, color: GREEN, marginTop: 10, fontWeight: 500 }}>Dodato u listu za štampu.</div>}
-
-      <section style={{ marginTop: 28 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-          <h2 style={{ fontSize: 14, fontWeight: 600, margin: 0, textTransform: "none" }}>Lista za štampu</h2>
-          {queue.length > 0 && (
-            <button
-              onClick={() => setConfirmClearAll(true)}
-              style={{ background: "none", border: "none", color: MUTE, fontSize: 12, cursor: "pointer", padding: 0 }}
-            >
-              Obriši sve
-            </button>
-          )}
-        </div>
-
-        {queue.length === 0 ? (
-          <p style={{ fontSize: 13, color: MUTE, border: `1px dashed ${BORDER}`, borderRadius: 10, padding: 16, textAlign: "center" }}>
-            Lista je prazna — skeniraj artikal da ga dodaš ovde.
+      <section className="mt-[18px] flex items-center gap-3 rounded-card bg-ink py-[18px] pr-[18px] pl-5 text-bg">
+        <div className="min-w-0 flex-1">
+          <p className="flex items-baseline gap-1.5">
+            <span className="font-display text-[40px] leading-none font-extrabold">{n}</span>
+            <span className="text-[18px] font-medium">{plural(n, "cenovnik", "cenovnika", "cenovnika")}</span>
           </p>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {queue.map((item) => (
-              <div
-                key={item.id}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  background: CARD,
-                  border: `1px solid ${BORDER}`,
-                  borderRadius: 8,
-                  padding: "10px 12px",
-                }}
-              >
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: 14, fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                    {item.name}
-                  </div>
-                  <div style={{ fontFamily: FONT_MONO, fontSize: 11, color: MUTE }}>
-                    {item.barcode}
-                    {item.notInDb && <span style={{ fontFamily: FONT_SANS, color: RED, marginLeft: 6 }}>· nije u bazi</span>}
-                  </div>
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
-                  <span style={{ fontFamily: FONT_MONO, fontSize: 15, fontWeight: 600, color: RED }}>{item.price.toFixed(2)}</span>
-                  <button
-                    onClick={() => removeFromQueue(item.id)}
-                    style={{ background: "none", border: "none", color: MUTE, cursor: "pointer", padding: 4 }}
-                    aria-label="Ukloni"
-                  >
-                    <X size={16} />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
+          <p className="mt-1 text-[13px] text-ink-on-dark-muted">{summary}</p>
+        </div>
         <button
-          onClick={() => setPendingAction("download")}
-          disabled={queue.length === 0}
-          style={{
-            width: "100%",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 8,
-            marginTop: 14,
-            background: queue.length === 0 ? BORDER : INK,
-            color: PAPER,
-            border: "none",
-            borderRadius: 10,
-            padding: "14px",
-            fontSize: 15,
-            fontWeight: 600,
-            cursor: queue.length === 0 ? "not-allowed" : "pointer",
-          }}
+          type="button"
+          disabled={n === 0}
+          onClick={() => navigate("/pregled")}
+          className="flex h-12 shrink-0 items-center gap-2 rounded-full bg-bg px-4 text-[15px] font-semibold text-ink transition-transform duration-100 active:scale-[.97] disabled:opacity-50"
         >
-          <Download size={18} /> Preuzmi cenovnik (.xlsx)
+          <Eye size={18} /> Pregled
         </button>
-
-        <button
-          onClick={() => setPendingAction("email")}
-          disabled={queue.length === 0 || emailSending}
-          style={{
-            width: "100%",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 8,
-            marginTop: 8,
-            background: "transparent",
-            color: INK,
-            border: `1px solid ${BORDER}`,
-            borderRadius: 10,
-            padding: "13px",
-            fontSize: 14,
-            fontWeight: 500,
-            cursor: queue.length === 0 || emailSending ? "not-allowed" : "pointer",
-            opacity: queue.length === 0 || emailSending ? 0.6 : 1,
-          }}
-        >
-          <Mail size={16} /> {emailSending ? "Slanje…" : "Pošalji mejlom"}
-        </button>
-
-        {emailError && (
-          <div style={{ ...errorBanner, marginTop: 10 }}>
-            <AlertCircle size={16} style={{ flexShrink: 0, marginTop: 1 }} />
-            <span>{emailError}</span>
-          </div>
-        )}
-        {emailSent && <div style={{ fontSize: 13, color: GREEN, marginTop: 10, fontWeight: 500 }}>E-mail poslat.</div>}
-
-        <p style={{ fontSize: 11.5, color: MUTE, marginTop: 8, lineHeight: 1.5 }}>
-          Preuzimanje čuva cenovnik na ovom uređaju, a slanje ga šalje na mejl radnje — odatle se štampa.
-        </p>
       </section>
 
-      {pendingAction && (
-        <BottomSheet onClose={() => setPendingAction(null)}>
-          <p style={{ fontSize: 13, color: MUTE, margin: "0 0 12px", textAlign: "center" }}>
-            {pendingAction === "download" ? "Preuzmi cenovnik za:" : "Pošalji cenovnik za:"}
-          </p>
-          {Object.entries(PRICE_TAG_STYLES).map(([key, { label }]) => (
-            <button key={key} onClick={() => chooseFormatAndRun(key)} style={sheetOptionButton}>
-              {label}
-            </button>
-          ))}
-          <button onClick={() => setPendingAction(null)} style={sheetCancelButton}>
-            Otkaži
-          </button>
-        </BottomSheet>
+      {m > 0 && (
+        <section className="mt-5">
+          <GroupTitle dot="bg-accent" className="text-accent">
+            Za proveru · nije u bazi
+          </GroupTitle>
+          {rows(check, "check")}
+        </section>
       )}
 
-      {confirmClearAll && (
-        <BottomSheet onClose={() => setConfirmClearAll(false)}>
-          <p style={sheetMessage}>Obrisati sve artikle iz liste za štampu ({queue.length})?</p>
-          <button
-            onClick={() => {
-              setQueue([]);
-              setConfirmClearAll(false);
-            }}
-            style={{ ...sheetPrimaryButton, background: RED }}
+      {ready.length > 0 && (
+        <section className="mt-5">
+          <GroupTitle
+            dot="bg-success"
+            className="text-ink"
+            action={
+              <button type="button" onClick={() => sheet.open("confirm-clear")} className="text-[13px] font-medium text-ink-3">
+                Obriši sve
+              </button>
+            }
           >
-            Obriši sve
-          </button>
-          <button onClick={() => setConfirmClearAll(false)} style={sheetCancelButton}>
-            Otkaži
-          </button>
-        </BottomSheet>
+            Spremno · {ready.length}
+          </GroupTitle>
+          {rows(ready, "ready")}
+        </section>
       )}
 
-      {importStep === "confirmClear" && (
-        <BottomSheet onClose={cancelLeafletImport}>
-          <p style={sheetMessage}>Lista za štampu nije prazna. Pre uvoza akcijskih cena odštampaj ili očisti trenutnu listu.</p>
-          <button onClick={clearAndStartLeafletImport} style={sheetPrimaryButton}>
-            Očisti listu i nastavi
+      <nav className="pointer-events-none fixed inset-x-0 bottom-0 z-40">
+        <div className="mx-auto flex h-[calc(140px+env(safe-area-inset-bottom))] w-full max-w-[480px] items-center justify-center gap-7 bg-linear-to-b from-bg/0 to-bg to-40% pb-[env(safe-area-inset-bottom)]">
+          <button
+            type="button"
+            aria-label="Ručni unos"
+            onClick={() => navigate("/rucni-unos")}
+            className="pointer-events-auto flex size-[52px] items-center justify-center rounded-full border-[1.5px] border-border-soft bg-surface text-ink transition-transform duration-100 active:scale-[.97]"
+          >
+            <Keyboard size={22} />
           </button>
-          <button onClick={cancelLeafletImport} style={sheetCancelButton}>
-            Otkaži
+          <button
+            type="button"
+            aria-label="Skeniraj"
+            onClick={() => navigate("/skeniranje")}
+            className="pointer-events-auto flex size-[84px] items-center justify-center rounded-full bg-accent text-white shadow-scan transition-transform duration-100 active:scale-[.97]"
+          >
+            <ScanBarcode size={36} />
           </button>
-        </BottomSheet>
-      )}
+          <button
+            type="button"
+            aria-label="Štampa"
+            disabled={n === 0}
+            onClick={() => navigate("/pregled")}
+            className="pointer-events-auto flex size-[52px] items-center justify-center rounded-full bg-ink text-bg transition-transform duration-100 active:scale-[.97] disabled:opacity-50"
+          >
+            <Printer size={22} />
+          </button>
+        </div>
+      </nav>
 
-      {(importStep === "reading" || importStep === "saving") && (
-        <BottomSheet>
-          <p style={{ ...sheetMessage, color: MUTE, margin: "8px 0 12px" }}>
-            {importStep === "reading" ? "Čitam liflet…" : "Čuvam akcijske cene…"}
-          </p>
-        </BottomSheet>
-      )}
-
-      {importStep === "confirm" && importMatches && (
-        <BottomSheet onClose={cancelLeafletImport}>
-          <p style={{ ...sheetMessage, fontWeight: 600, marginBottom: 10 }}>Akcijski liflet</p>
-          <div style={{ fontSize: 14, color: INK, lineHeight: 1.7, marginBottom: 16 }}>
-            <div>
-              Artikala u lifletu: <strong>{importMatches.length}</strong>
-            </div>
-            <div>
-              Imamo u bazi, cena se ažurira: <strong>{importMatches.filter((m) => m.existing).length}</strong>
-            </div>
-            <div>
-              Nemamo u bazi, samo u listu: <strong>{importMatches.filter((m) => !m.existing).length}</strong>
-            </div>
-          </div>
-          <p style={{ fontSize: 12, color: MUTE, margin: "-6px 0 16px", lineHeight: 1.5 }}>
-            Svi artikli idu u listu za štampu — nepotrebne ukloni sa X pre štampe.
-          </p>
-          <button onClick={confirmLeafletImport} style={sheetPrimaryButton}>
-            Uvezi i dodaj u listu
-          </button>
-          <button onClick={cancelLeafletImport} style={sheetCancelButton}>
-            Otkaži
-          </button>
-        </BottomSheet>
-      )}
-    </>
+      <MenuSheet
+        open={sheet.name === "menu"}
+        onClose={sheet.close}
+        email={session.user.email}
+        canClear={n > 0}
+        onClear={() => sheet.open("confirm-clear")}
+        onSignOut={signOut}
+      />
+      <ConfirmClearSheet open={sheet.name === "confirm-clear"} onClose={sheet.close} count={n} onConfirm={clearList} />
+    </div>
   );
 }
