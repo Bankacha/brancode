@@ -30,7 +30,7 @@ export default function App({ session }) {
           <Route path="/" element={<Home queue={queue} setQueue={setQueue} editor={editor} session={session} />} />
           <Route path="/pregled" element={<PrintPreview queue={queue} />} />
           <Route path="/skeniranje" element={legacy(<Scan onDetected={openCode} />)} />
-          <Route path="/rucni-unos" element={legacy(<ManualEntry onSubmit={openCode} />)} />
+          <Route path="/rucni-unos" element={<ManualEntry editor={editor} />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </div>
