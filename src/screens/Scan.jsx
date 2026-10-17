@@ -53,6 +53,10 @@ export default function Scan({ editor }) {
   const videoRef = useRef(null);
   const cameraRef = useRef(null);
   const detectorRef = useRef(null);
+  // One for the whole visit: after a save, skip or cancel the article is
+  // usually still in front of the camera and must not reopen until it leaves
+  // the frame (or another code appears).
+  const confirmRead = useRef(createReadConfirmer()).current;
   const firstPage = useRef(location.key === "default");
   const [deviceId, setDeviceId] = useState(readCamera);
   const [cameras, setCameras] = useState([]);
@@ -149,7 +153,6 @@ export default function Scan({ editor }) {
       return;
     }
     video?.play?.().catch(() => {});
-    const confirm = createReadConfirmer();
     let stopped = false;
     let frame = null;
     const loop = async () => {
@@ -158,7 +161,7 @@ export default function Scan({ editor }) {
       if (detector && video && video.readyState >= 2) {
         try {
           const codes = await detector.detect(video);
-          const code = confirm(codes[0]?.rawValue ?? null);
+          const code = confirmRead(codes[0]?.rawValue ?? null);
           if (code && !stopped) return onReadRef.current(code);
         } catch (e) {
           // a frame the reader couldn't handle; try the next one
