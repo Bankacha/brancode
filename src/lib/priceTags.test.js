@@ -1,5 +1,15 @@
 import { describe, it, expect } from "vitest";
-import { buildWorkbook, sheetFilename, tagRowsPerPage } from "./priceTags.js";
+import {
+  barcodeImageBox,
+  buildWorkbook,
+  columnWidthMm,
+  layoutTagPages,
+  ptToMm,
+  sheetFilename,
+  shrinkFontPt,
+  tagGeometry,
+  tagRowsPerPage,
+} from "./priceTags.js";
 
 const items = (n) => Array.from({ length: n }, (_, i) => ({ id: `i${i}`, barcode: `86000050001${String(i).padStart(2, "0")}`, name: `Artikal ${i}`, price: 99 }));
 const PNG_1PX = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==";
@@ -53,3 +63,68 @@ describe("sheetFilename", () => {
     expect(sheetFilename("fridge", new Date("2026-10-17T10:00:00Z"))).toBe("cenovnik-frizider-2026-10-17.xlsx");
   });
 });
+
+describe("print geometry", () => {
+  it("converts Excel column widths the way Excel lays them out", () => {
+    expect(columnWidthMm(26.75)).toBeCloseTo(49.48, 2);
+    expect(columnWidthMm(40)).toBeCloseTo(74.08, 2);
+    expect(columnWidthMm(9.140625)).toBeCloseTo(16.93, 2); // Excel's default 64 px column
+    expect(ptToMm(28.5)).toBeCloseTo(10.05, 2);
+  });
+
+  it("describes a shelf tag", () => {
+    const g = tagGeometry("shelf");
+    expect(g.columns).toBe(3);
+    expect(g.widthMm).toBeCloseTo(49.48, 2);
+    expect(g.nameHeightMm).toBeCloseTo(10.05, 2);
+    expect(g.priceHeightMm).toBeCloseTo(27.25, 2);
+    expect(g.barcodeHeightMm).toBe(0);
+  });
+
+  it("describes a fruit tag with its barcode row", () => {
+    const g = tagGeometry("fruit");
+    expect(g.columns).toBe(2);
+    expect(g.nameHeightMm).toBeCloseTo(18, 2);
+    expect(g.priceHeightMm).toBeCloseTo(29, 2);
+    expect(g.barcodeHeightMm).toBeCloseTo(13, 2);
+  });
+
+  it("places the barcode image where the Excel export puts it", () => {
+    const box = barcodeImageBox("fruit");
+    expect(box.leftMm).toBeCloseTo(6.41, 2);
+    expect(box.topMm).toBeCloseTo(1.3, 2);
+    expect(box.widthMm).toBeCloseTo(62.59, 2);
+    expect(box.heightMm).toBeCloseTo(10.37, 2);
+    expect(barcodeImageBox("shelf")).toBeNull();
+  });
+});
+
+describe("layoutTagPages", () => {
+  const tagsPerPage = (format, n) => layoutTagPages(items(n), format).map((page) => page.flat().length);
+
+  it("fills pages the same way the export breaks them", () => {
+    expect(tagsPerPage("shelf", 40)).toEqual([18, 18, 4]);
+    expect(layoutTagPages(items(40), "shelf").map((page) => page.length)).toEqual([6, 6, 2]);
+    expect(tagsPerPage("fridge", 40)).toEqual([15, 15, 10]);
+    expect(tagsPerPage("fruit", 40)).toEqual([8, 8, 8, 8, 8]);
+  });
+
+  it("fills rows by columns and leaves the last one short", () => {
+    expect(layoutTagPages(items(7), "fruit")[0].map((row) => row.length)).toEqual([2, 2, 2, 1]);
+  });
+
+  it("has no pages for an empty list", () => {
+    expect(layoutTagPages([], "shelf")).toEqual([]);
+  });
+});
+
+describe("shrinkFontPt", () => {
+  it("keeps the size when the price fits the cell", () => {
+    expect(shrinkFontPt(42, 150, 187)).toBe(42);
+  });
+
+  it("shrinks a price that is wider than the cell, like Excel's shrink to fit", () => {
+    expect(shrinkFontPt(42, 366, 187)).toBeCloseTo(21, 5);
+  });
+});
+

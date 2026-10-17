@@ -100,10 +100,70 @@ export const makeBarcodeDataUrl = (value) => {
   return canvas.toDataURL("image/png");
 };
 
-// Rough Excel-width-unit -> pixel and point -> pixel conversions, good enough
-// for sizing a placed image (doesn't need to be exact).
-const colWidthToPx = (w) => Math.round(w * 7 + 5);
-const ptToPx = (pt) => Math.round(pt * (96 / 72));
+// --- Print geometry, shared by the Excel export and the on-screen preview ---
+
+// Excel's column-width → pixel rule at 96 dpi; 7 px is the max digit width of
+// the workbook's default font (Calibri 11). A stored width of 9.140625 gives
+// Excel's familiar 64 px default column.
+const MAX_DIGIT_WIDTH_PX = 7;
+const columnWidthPx = (width) =>
+  Math.trunc(((256 * width + Math.trunc(128 / MAX_DIGIT_WIDTH_PX)) / 256) * MAX_DIGIT_WIDTH_PX);
+const pxToMm = (px) => (px * 25.4) / 96;
+export const columnWidthMm = (width) => pxToMm(columnWidthPx(width));
+export const ptToMm = (pt) => (pt * 25.4) / 72;
+
+export const tagGeometry = (format) => {
+  const style = PRICE_TAG_STYLES[format];
+  const nameHeightMm = ptToMm(style.nameRowHeight);
+  const priceHeightMm = ptToMm(style.priceRowHeight);
+  const barcodeHeightMm = style.hasBarcode ? ptToMm(style.barcodeRowHeight) : 0;
+  return {
+    columns: style.columns,
+    widthMm: columnWidthMm(style.columnWidth),
+    nameHeightMm,
+    priceHeightMm,
+    barcodeHeightMm,
+    heightMm: nameHeightMm + priceHeightMm + barcodeHeightMm,
+  };
+};
+
+// Pages → rows → items, breaking pages exactly where the export does.
+export const layoutTagPages = (queue, format) => {
+  const { columns } = PRICE_TAG_STYLES[format];
+  const rowsPerPage = tagRowsPerPage(format);
+  const rows = [];
+  for (let i = 0; i < queue.length; i += columns) rows.push(queue.slice(i, i + columns));
+  const pages = [];
+  for (let i = 0; i < rows.length; i += rowsPerPage) pages.push(rows.slice(i, i + rowsPerPage));
+  return pages;
+};
+
+// Where the export places the fruit barcode image inside its cell, in px.
+// It sizes from a rough width (w·7+5, not the exact column width), so the
+// image sits a little right of centre on paper — the preview copies that.
+const barcodeImagePx = (style) => {
+  const colPx = Math.round(style.columnWidth * 7 + 5);
+  const rowPx = Math.round(style.barcodeRowHeight * (96 / 72));
+  const width = colPx * FRUIT_BARCODE_WIDTH_FRACTION;
+  const height = rowPx * 0.8;
+  return { left: (colPx - width) / 2, top: (rowPx - height) / 2, width, height };
+};
+
+export const barcodeImageBox = (format) => {
+  const style = PRICE_TAG_STYLES[format];
+  if (!style.hasBarcode) return null;
+  const { left, top, width, height } = barcodeImagePx(style);
+  return { leftMm: pxToMm(left), topMm: pxToMm(top), widthMm: pxToMm(width), heightMm: pxToMm(height) };
+};
+
+// Excel's "shrink to fit": text wider than the cell (minus ~2 px padding per
+// side) is scaled down to fit.
+const CELL_PADDING_PX = 4;
+export const shrinkFontPt = (fontPt, textWidthPx, cellWidthPx) => {
+  const available = cellWidthPx - CELL_PADDING_PX;
+  return textWidthPx <= available ? fontPt : (fontPt * available) / textWidthPx;
+};
+
 // exceljs's fractional `{ col: 1.05 }` image-anchor offset is computed with the
 // wrong units internally (it ends up a few px at most, regardless of the
 // fraction requested), so real centering needs the native EMU offset form
@@ -120,70 +180,67 @@ const thinBorder = {
 export const buildWorkbook = (queue, format, { barcodeImage = makeBarcodeDataUrl } = {}) => {
   const style = PRICE_TAG_STYLES[format];
   const rowsPerItem = style.hasBarcode ? 3 : 2;
-  const rowsPerPage = tagRowsPerPage(format);
 
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet("Cenovnici");
   sheet.columns = Array.from({ length: style.columns }, () => ({ width: style.columnWidth }));
   sheet.pageSetup = { paperSize: 9, orientation: "portrait", margins: PAGE_MARGINS_IN }; // 9 = A4
 
-  queue.forEach((item, i) => {
-    const col = (i % style.columns) + 1;
-    const groupIndex = Math.floor(i / style.columns);
-    if (col === 1 && groupIndex > 0 && groupIndex % rowsPerPage === 0) {
-      // break after the previous tag row; (1, 16384) makes exceljs write max="16383",
-      // the same full-width break Excel itself writes (its default would be 16838)
-      sheet.getRow(groupIndex * rowsPerItem).addPageBreak(1, 16384);
-    }
-    const nameRow = sheet.getRow(groupIndex * rowsPerItem + 1);
-    const priceRow = sheet.getRow(groupIndex * rowsPerItem + 2);
-    nameRow.height = style.nameRowHeight;
-    priceRow.height = style.priceRowHeight;
-
-    const nameCell = nameRow.getCell(col);
-    nameCell.value = item.name;
-    nameCell.font = { name: "Bahnschrift SemiBold", bold: true, size: style.nameFontSize };
-    nameCell.alignment = style.nameAlignment;
-    nameCell.border = thinBorder;
-
-    const priceText = formatPrice(item.price);
-    const priceCell = priceRow.getCell(col);
-    priceCell.value = priceText;
-    priceCell.font = { name: "Oswald", bold: false, size: style.priceFontSize(priceText) };
-    priceCell.alignment = style.priceAlignment;
-    priceCell.border = thinBorder;
-
-    if (style.hasBarcode) {
-      const barcodeRow = sheet.getRow(groupIndex * rowsPerItem + 3);
-      barcodeRow.height = style.barcodeRowHeight;
-      // still draw the border on an (empty) cell so the tag outline stays closed
-      barcodeRow.getCell(col).border = thinBorder;
-
-      const imageId = workbook.addImage({
-        base64: barcodeImage(item.barcode),
-        extension: "png",
-      });
-      const rowIdx = groupIndex * rowsPerItem + 2; // 0-indexed row number of the barcode row
-      const colIdx = col - 1; // 0-indexed
-      const colPx = colWidthToPx(style.columnWidth);
-      const rowPx = ptToPx(style.barcodeRowHeight);
-      const imageWidthPx = colPx * FRUIT_BARCODE_WIDTH_FRACTION;
-      const imageHeightPx = rowPx * 0.8;
-      const horizontalMarginPx = (colPx - imageWidthPx) / 2; // centers the image in the column
-      const verticalMarginPx = (rowPx - imageHeightPx) / 2;
-      sheet.addImage(imageId, {
-        tl: {
-          nativeCol: colIdx,
-          nativeColOff: Math.round(horizontalMarginPx * EMU_PER_PX),
-          nativeRow: rowIdx,
-          nativeRowOff: Math.round(verticalMarginPx * EMU_PER_PX),
-        },
-        ext: { width: imageWidthPx, height: imageHeightPx },
-      });
-    }
+  let groupIndex = 0;
+  layoutTagPages(queue, format).forEach((page, pageIndex) => {
+    page.forEach((row, rowIndex) => {
+      if (pageIndex > 0 && rowIndex === 0) {
+        // Excel paginates purely by height, so a tag could otherwise split
+        // across sheets. Break after the previous tag row; (1, 16384) makes
+        // exceljs write max="16383", the same full-width break Excel itself
+        // writes (its default would be 16838).
+        sheet.getRow(groupIndex * rowsPerItem).addPageBreak(1, 16384);
+      }
+      row.forEach((item, colIndex) => addTag(workbook, sheet, style, item, groupIndex, colIndex + 1, rowsPerItem, barcodeImage));
+      groupIndex++;
+    });
   });
 
   return workbook;
+};
+
+const addTag = (workbook, sheet, style, item, groupIndex, col, rowsPerItem, barcodeImage) => {
+  const nameRow = sheet.getRow(groupIndex * rowsPerItem + 1);
+  const priceRow = sheet.getRow(groupIndex * rowsPerItem + 2);
+  nameRow.height = style.nameRowHeight;
+  priceRow.height = style.priceRowHeight;
+
+  const nameCell = nameRow.getCell(col);
+  nameCell.value = item.name;
+  nameCell.font = { name: "Bahnschrift SemiBold", bold: true, size: style.nameFontSize };
+  nameCell.alignment = style.nameAlignment;
+  nameCell.border = thinBorder;
+
+  const priceText = formatPrice(item.price);
+  const priceCell = priceRow.getCell(col);
+  priceCell.value = priceText;
+  priceCell.font = { name: "Oswald", bold: false, size: style.priceFontSize(priceText) };
+  priceCell.alignment = style.priceAlignment;
+  priceCell.border = thinBorder;
+
+  if (style.hasBarcode) {
+    const barcodeRow = sheet.getRow(groupIndex * rowsPerItem + 3);
+    barcodeRow.height = style.barcodeRowHeight;
+    // still draw the border on an (empty) cell so the tag outline stays closed
+    barcodeRow.getCell(col).border = thinBorder;
+
+    const imageId = workbook.addImage({ base64: barcodeImage(item.barcode), extension: "png" });
+    const { left, top, width, height } = barcodeImagePx(style);
+    sheet.addImage(imageId, {
+      tl: {
+        nativeCol: col - 1, // 0-indexed
+        nativeColOff: Math.round(left * EMU_PER_PX),
+        nativeRow: groupIndex * rowsPerItem + 2, // 0-indexed row number of the barcode row
+        nativeRowOff: Math.round(top * EMU_PER_PX),
+      },
+      ext: { width, height },
+    });
+  }
 };
 
 export const buildWorkbookBuffer = (queue, format, options) => buildWorkbook(queue, format, options).xlsx.writeBuffer();
