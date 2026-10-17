@@ -35,7 +35,7 @@ export const rowsFromTextItems = (items) => {
 
 const userFacingError = (message) => Object.assign(new Error(message), { userFacing: true });
 
-export const parseLeafletPdf = async (arrayBuffer) => {
+export const parseLeafletPdf = async (arrayBuffer, onProgress) => {
   const pdfjs = await import("pdfjs-dist");
   const { default: workerUrl } = await import("pdfjs-dist/build/pdf.worker.min.mjs?url");
   pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
@@ -45,6 +45,7 @@ export const parseLeafletPdf = async (arrayBuffer) => {
   try {
     const byEan = new Map();
     for (let pageNumber = 1; pageNumber <= doc.numPages; pageNumber++) {
+      onProgress?.(pageNumber, doc.numPages);
       const page = await doc.getPage(pageNumber);
       const { items } = await page.getTextContent();
       for (const row of rowsFromTextItems(items)) byEan.set(row.ean, row);

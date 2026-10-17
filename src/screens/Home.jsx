@@ -1,7 +1,8 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
-import { Check, Ellipsis, Eye, FileUp, Keyboard, Printer, ScanBarcode, WifiOff } from "lucide-react";
+import { Check, CircleAlert, Ellipsis, Eye, FileUp, Keyboard, Printer, ScanBarcode, WifiOff } from "lucide-react";
 import { supabase } from "../supabaseClient";
+import { parseLeafletPdf, matchLeafletRows, saveLeafletPrices } from "../promoLeaflet.js";
 import { plural } from "../lib/plural.js";
 import { formatPrice } from "../lib/format.js";
 import { withoutItem, withItemRestored } from "../lib/printQueue.js";
@@ -11,6 +12,7 @@ import QueueRow from "../components/QueueRow.jsx";
 import MenuSheet from "../sheets/MenuSheet.jsx";
 import ConfirmClearSheet from "../sheets/ConfirmClearSheet.jsx";
 import EditSheet from "../sheets/EditSheet.jsx";
+import LeafletImportSheet from "../sheets/LeafletImportSheet.jsx";
 
 const UNDO_MS = 4000;
 
@@ -46,6 +48,9 @@ export default function Home({ queue, setQueue, editor, session }) {
   const toast = useToast();
   const queueRef = useRef(queue);
   queueRef.current = queue;
+  const leafletInputRef = useRef(null);
+  const [leaflet, setLeaflet] = useState(null); // { fileName, matches } once a PDF has been read
+  const [leafletSaving, setLeafletSaving] = useState(false);
 
   const check = queue.filter((q) => q.notInDb);
   const ready = queue.filter((q) => !q.notInDb);
@@ -79,8 +84,59 @@ export default function Home({ queue, setQueue, editor, session }) {
   // After a refresh the history can still say "edit" while the editor's data
   // is gone; drop that entry instead of showing an empty sheet.
   useEffect(() => {
-    if (sheet.name === "edit" && editor.barcode === null) navigate(".", { replace: true, state: null });
+    const stale = (sheet.name === "edit" && editor.barcode === null) || (sheet.name === "leaflet" && leaflet === null);
+    if (stale) navigate(".", { replace: true, state: null });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // The file picker must open synchronously inside the click (browsers block
+  // file dialogs opened after an await). The PDF is only read in memory.
+  const onLeafletChosen = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    toast.show({ kind: "loading", text: "Čitam liflet…" });
+    try {
+      const rows = await parseLeafletPdf(await file.arrayBuffer(), (page, total) =>
+        toast.show({ kind: "loading", text: "Čitam liflet…", detail: `strana ${page} / ${total}` })
+      );
+      const matches = await matchLeafletRows(rows);
+      toast.hide();
+      setLeaflet({ fileName: file.name, matches });
+      sheet.open("leaflet");
+    } catch (err) {
+      console.error("leaflet read failed", err);
+      toast.show({
+        kind: "error",
+        icon: CircleAlert,
+        text: err.userFacing ? err.message : "Čitanje lifleta nije uspelo. Proveri internet konekciju i probaj ponovo.",
+      });
+    }
+  };
+
+  const confirmLeaflet = async () => {
+    setLeafletSaving(true);
+    try {
+      await saveLeafletPrices(leaflet.matches);
+      const stamp = Date.now();
+      // Every leaflet article goes on the list (the user prunes it with X);
+      // ones we don't carry are flagged so they're easy to spot.
+      const imported = leaflet.matches.map(({ ean, name, price, existing }, i) => ({
+        id: `${ean}-${stamp}-${i}`,
+        barcode: ean,
+        name: existing ? existing.name : name,
+        price,
+        notInDb: !existing,
+      }));
+      setQueue(imported);
+      sheet.close();
+      setLeaflet(null);
+      toast.show({ kind: "success", text: `Uvezeno u listu: ${imported.length}` });
+    } catch (err) {
+      console.error("leaflet save failed", err);
+      toast.show({ kind: "error", icon: CircleAlert, text: "Čuvanje akcijskih cena nije uspelo. Proveri internet konekciju i probaj ponovo." });
+    }
+    setLeafletSaving(false);
+  };
 
   const saveEdit = async () => {
     const saved = await editor.save();
@@ -122,10 +178,11 @@ export default function Home({ queue, setQueue, editor, session }) {
       <header className="flex items-center justify-between">
         <span className="font-display text-[22px] font-extrabold tracking-[-0.02em] text-ink">brancode</span>
         <div className="flex gap-2">
-          <IconButton label="Uvezi akcijski liflet" icon={FileUp} onClick={() => {}} />
+          <IconButton label="Uvezi akcijski liflet" icon={FileUp} onClick={() => leafletInputRef.current.click()} />
           <IconButton label="Meni" icon={Ellipsis} onClick={() => sheet.open("menu")} />
         </div>
       </header>
+      <input ref={leafletInputRef} type="file" accept="application/pdf" onChange={onLeafletChosen} className="hidden" />
 
       <section className="mt-[18px] flex items-center gap-3 rounded-card bg-ink py-[18px] pr-[18px] pl-5 text-bg">
         <div className="min-w-0 flex-1">
@@ -211,6 +268,17 @@ export default function Home({ queue, setQueue, editor, session }) {
       />
       <ConfirmClearSheet open={sheet.name === "confirm-clear"} onClose={sheet.close} count={n} onConfirm={clearList} />
       <EditSheet editor={editor} open={sheet.name === "edit" && editor.barcode !== null} onClose={closeEdit} onSave={saveEdit} />
+      {leaflet && (
+        <LeafletImportSheet
+          open={sheet.name === "leaflet"}
+          onClose={sheet.close}
+          fileName={leaflet.fileName}
+          matches={leaflet.matches}
+          queueLength={n}
+          saving={leafletSaving}
+          onConfirm={confirmLeaflet}
+        />
+      )}
     </div>
   );
 }
