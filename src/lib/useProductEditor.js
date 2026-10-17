@@ -1,17 +1,19 @@
 import { useRef, useState } from "react";
 import { lookupProduct, saveProduct } from "./products.js";
-import { parsePrice, toPriceInput } from "./format.js";
+import { formatPrice, parsePrice, toPriceInput } from "./format.js";
 import { upsertQueueItem } from "./printQueue.js";
 
 // Edit state for one product, opened from a scan/typed code (`open`) or from
 // a print-list row (`openItem`); `barcode === null` means closed.
-// badge: "U bazi" | "Novi artikal" | "Nije u bazi"; error: null | "lookup" | "save".
+// badge: "U bazi" | "Novi artikal" | "Nije u bazi"; error: null | "lookup" | "save";
+// oldPrice: the database price ("79,00") when a scanned/typed code was found.
 export const useProductEditor = (queue, setQueue) => {
   const [barcode, setBarcode] = useState(null);
   const [matchedBarcode, setMatchedBarcode] = useState(null); // DB row the lookup found, if any
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
   const [badge, setBadge] = useState(null);
+  const [oldPrice, setOldPrice] = useState(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -21,6 +23,7 @@ export const useProductEditor = (queue, setQueue) => {
     const id = ++request.current;
     setBarcode(code);
     setMatchedBarcode(null);
+    setOldPrice(null);
     setError(null);
     setLoading(true);
     return id;
@@ -49,6 +52,7 @@ export const useProductEditor = (queue, setQueue) => {
         setMatchedBarcode(data.barcode);
         setName(data.name || "");
         setPrice(data.price != null ? toPriceInput(data.price) : "");
+        setOldPrice(data.price != null ? formatPrice(data.price) : null);
         setBadge("U bazi");
       } else {
         setBadge("Novi artikal");
@@ -89,7 +93,16 @@ export const useProductEditor = (queue, setQueue) => {
     return item;
   };
 
+  // "Preskoči": onto the print list as it is, without touching the database.
+  const skip = () => {
+    if (!canSave) return null;
+    const item = { id: `${barcode}-${Date.now()}`, barcode, name: name.trim(), price: priceNum };
+    setQueue(upsertQueueItem(queue, item));
+    setBarcode(null);
+    return item;
+  };
+
   const close = () => setBarcode(null);
 
-  return { barcode, name, price, badge, loading, saving, error, canSave, open, openItem, setName, setPrice, save, close };
+  return { barcode, name, price, badge, oldPrice, loading, saving, error, canSave, open, openItem, setName, setPrice, save, skip, close };
 };

@@ -19,3 +19,11 @@ export const openSheetOverHome = (navigate, location, sheet) => {
     navigate("/", { replace: true, state: { sheet } });
   }
 };
+
+// Saving from a sheet that sits on a full-screen route (camera, manual entry)
+// and leaving both at once: two entries back to the page behind them, or
+// home when that screen was the first page loaded.
+export const finishScreen = (navigate, screenWasFirstPage) => {
+  if (screenWasFirstPage) navigate("/", { replace: true });
+  else navigate(-2);
+};

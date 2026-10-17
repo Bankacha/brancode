@@ -15,8 +15,9 @@ const unlockScroll = () => {
 
 // Slides up from the bottom over a scrim. Closes on scrim tap, a drag down,
 // Escape — and system back, via useSheet. `dismissible={false}` while work
-// is in flight.
-export default function BottomSheet({ open, onClose, dismissible = true, children }) {
+// is in flight; `closeOnScrim={false}` where a stray tap on what's behind
+// (the camera) shouldn't count as cancelling.
+export default function BottomSheet({ open, onClose, dismissible = true, closeOnScrim = true, children }) {
   const [mounted, setMounted] = useState(open);
   const [shown, setShown] = useState(false);
   const [dragY, setDragY] = useState(0);
@@ -71,7 +72,7 @@ export default function BottomSheet({ open, onClose, dismissible = true, childre
     <div className="fixed inset-0 z-50">
       <div
         className={`absolute inset-0 bg-scrim/80 transition-opacity duration-250 ${shown ? "opacity-100" : "opacity-0"}`}
-        onClick={dismissible ? onClose : undefined}
+        onClick={dismissible && closeOnScrim ? onClose : undefined}
       />
       <div className="pointer-events-none absolute inset-x-0 bottom-0 mx-auto w-full max-w-[480px]">
         <div

@@ -72,4 +72,26 @@ describe("useProductEditor", () => {
     act(() => result.current.editor.setPrice("79"));
     expect(result.current.editor.canSave).toBe(true);
   });
+
+  it("remembers the database price to show what it was", async () => {
+    vi.mocked(lookupProduct).mockResolvedValue({ barcode: "8606107654321", name: "Hleb beli 500g", price: 79 });
+    const { result } = setup([]);
+    await act(() => result.current.editor.open("8606107654321"));
+    expect(result.current.editor.oldPrice).toBe("79,00");
+  });
+
+  it("adds the article to the list without saving it when skipped", async () => {
+    vi.mocked(lookupProduct).mockResolvedValue({ barcode: "8606107654321", name: "Hleb beli 500g", price: 79 });
+    const { result } = setup([a]);
+    await act(() => result.current.editor.open("8606107654321"));
+    act(() => {
+      result.current.editor.skip();
+    });
+    expect(saveProduct).not.toHaveBeenCalled();
+    expect(result.current.queue.map((q) => [q.barcode, q.name, q.price])).toEqual([
+      ["1", "A", 1],
+      ["8606107654321", "Hleb beli 500g", 79],
+    ]);
+    expect(result.current.editor.barcode).toBeNull();
+  });
 });

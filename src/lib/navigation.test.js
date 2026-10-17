@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { leaveScreen, openSheetOverHome } from "./navigation.js";
+import { finishScreen, leaveScreen, openSheetOverHome } from "./navigation.js";
 
 describe("leaveScreen", () => {
   it("goes back when the screen was opened from inside the app, so back can't reopen it", () => {
@@ -29,6 +29,20 @@ describe("openSheetOverHome", () => {
       ["/", { replace: true }],
       ["/", { state: { sheet: "edit" } }],
     ]);
+  });
+});
+
+describe("finishScreen", () => {
+  it("steps back past the sheet and the screen to the page behind them", () => {
+    const calls = [];
+    finishScreen((...args) => calls.push(args), false);
+    expect(calls).toEqual([[-2]]);
+  });
+
+  it("goes home when the screen was the first page loaded", () => {
+    const calls = [];
+    finishScreen((...args) => calls.push(args), true);
+    expect(calls).toEqual([["/", { replace: true }]]);
   });
 });
 

@@ -269,7 +269,7 @@ export default function Home({ queue, setQueue, editor, session }) {
         onSignOut={signOut}
       />
       <ConfirmClearSheet open={sheet.name === "confirm-clear"} onClose={sheet.close} count={n} onConfirm={clearList} />
-      <EditSheet editor={editor} open={sheet.name === "edit" && editor.barcode !== null} onClose={closeEdit} onSave={saveEdit} format={format} />
+      <EditSheet editor={editor} open={sheet.name === "edit" && editor.barcode !== null} onClose={closeEdit} onSave={saveEdit} format={format} source="list" />
       {leaflet && (
         <LeafletImportSheet
           open={sheet.name === "leaflet"}

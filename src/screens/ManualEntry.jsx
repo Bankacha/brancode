@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from "react-router";
 import { ArrowLeft, Check, Delete, WifiOff } from "lucide-react";
 import { eraseDigit, typeDigit } from "../lib/manualCode.js";
 import { formatPrice } from "../lib/format.js";
-import { leaveScreen } from "../lib/navigation.js";
+import { finishScreen, leaveScreen } from "../lib/navigation.js";
 import { usePrintFormat } from "../lib/printFormat.js";
 import { useSheet } from "../lib/useSheet.js";
 import { useToast } from "../components/Toast.jsx";
@@ -33,6 +33,7 @@ export default function ManualEntry({ editor }) {
   const toast = useToast();
   const [format] = usePrintFormat();
   const [code, setCode] = useState("");
+  const firstPage = useRef(location.key === "default"); // nothing in-app behind this screen
 
   const submit = () => {
     if (!code) return;
@@ -59,14 +60,20 @@ export default function ManualEntry({ editor }) {
     if (sheet.name === "edit" && editor.barcode === null) navigate(".", { replace: true, state: null });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const save = async () => {
+  // "Sačuvaj i upiši sledeći" stays here for the next code; "Sačuvaj i
+  // zatvori" leaves for home.
+  const save = async (then) => {
     const saved = await editor.save();
-    if (saved) {
+    if (!saved) {
+      toast.show({ kind: "error", icon: WifiOff, text: "Nema veze. Nije sačuvano.", action: { label: "Ponovi", run: () => saveRef.current(then) } });
+      return;
+    }
+    toast.show({ kind: "success", icon: Check, text: `Dodato: ${saved.name}`, detail: formatPrice(saved.price) });
+    if (then === "next") {
       sheet.close();
       setCode("");
-      toast.show({ kind: "success", icon: Check, text: `Dodato: ${saved.name}`, detail: formatPrice(saved.price) });
     } else {
-      toast.show({ kind: "error", icon: WifiOff, text: "Nema veze. Nije sačuvano.", action: { label: "Ponovi", run: () => saveRef.current() } });
+      finishScreen(navigate, firstPage.current);
     }
   };
   const saveRef = useRef(save);
@@ -122,7 +129,15 @@ export default function ManualEntry({ editor }) {
         Nastavi
       </Button>
 
-      <EditSheet editor={editor} open={sheet.name === "edit" && editor.barcode !== null} onClose={closeEdit} onSave={save} format={format} />
+      <EditSheet
+        editor={editor}
+        open={sheet.name === "edit" && editor.barcode !== null}
+        onClose={closeEdit}
+        format={format}
+        source="manual"
+        onSaveNext={() => save("next")}
+        onFinish={() => save("finish")}
+      />
     </div>
   );
 }
