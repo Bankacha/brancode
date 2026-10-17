@@ -14,7 +14,7 @@ npm run dev         # Vite dev server over HTTPS (self-signed cert via @vitejs/p
 npm run dev:http    # same dev server over plain HTTP, for browsers that refuse the self-signed cert
 npm run build       # production build into dist/
 npm run preview     # serve the built dist/
-npm test            # Vitest, single run (src/**/*.test.js, scripts/**/*.test.mjs)
+npm test            # Vitest, single run (src/**/*.test.js[x], scripts/**/*.test.mjs; component tests opt into jsdom per file)
 npm run test:watch  # Vitest in watch mode
 npx vitest run src/lib/products.test.js   # a single test file
 ```
@@ -32,7 +32,7 @@ HTTPS in dev is deliberate: camera access (`getUserMedia`) and `BarcodeDetector`
 - **No state library.** `App` keeps the print queue (`usePrintQueue`) and the product editor (`useProductEditor`) and passes them down; screens keep their own UI state.
 - **`src/lib/`** holds the logic, with tests next to the pure parts:
   - `products.js` — barcode candidates, lookup and save against the `products` table
-  - `priceTags.js` / `format.js` — tag formats, page layout and the ExcelJS export; price formatting
+  - `priceTags.js` / `format.js` — tag formats, print geometry, page layout and the ExcelJS export; price formatting and parsing
   - `printQueue.js` — the per-device print list in `localStorage`
   - `useProductEditor.js` — edit state for one scanned/typed barcode
   - `email.js` — sends a generated sheet through `api/send-email.js`
@@ -40,6 +40,7 @@ HTTPS in dev is deliberate: camera access (`getUserMedia`) and `BarcodeDetector`
   - `useSheet.js`, `useLongPress.js`, `gestures.js`, `navigation.js` — sheet history, long-press, drag-to-close, leaving full-screen routes
   - `plural.js` — Serbian count forms (1 cenovnik / 2 cenovnika / 5 cenovnika)
   - `legacyTheme.js` — the pre-redesign colors and styles, used by the camera and manual-entry screens until phase 4 (temporary)
+- **Print preview:** `components/PriceTag.jsx` and `PrintPage.jsx` draw tags and A4 pages in real millimetres from the same geometry as the Excel export; `ScaledToWidth.jsx` scales them to the screen.
 - **Data split:** the Supabase `products` table is shared across devices; the print list lives only in each device's `localStorage`.
 - `src/promoLeaflet.js` holds leaflet PDF parsing and matching. `api/send-email.js` is the only server code.
 - A redesign is in progress on the `redesign` branch: spec in `docs/superpowers/specs/`, plans in `docs/superpowers/plans/`, design handoff in `docs/design/redesign-handoff/`.
