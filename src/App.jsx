@@ -3,7 +3,8 @@ import { Scan, X, Plus, Download, Check, Camera, Keyboard, AlertCircle, Mail, Fi
 import ExcelJS from "exceljs";
 import JsBarcode from "jsbarcode";
 import { supabase } from "./supabaseClient";
-import { barcodeCandidates, parseLeafletPdf, matchLeafletRows, saveLeafletPrices } from "./promoLeaflet.js";
+import { parseLeafletPdf, matchLeafletRows, saveLeafletPrices } from "./promoLeaflet.js";
+import { lookupProduct, saveProduct } from "./lib/products.js";
 
 export const FONT_SANS = "'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
 export const FONT_MONO = "'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace";
@@ -227,19 +228,6 @@ export default function PriceScanner() {
 
   useEffect(() => stopCamera, [stopCamera]);
 
-  const lookupProduct = async (barcode) => {
-    for (const candidate of barcodeCandidates(barcode)) {
-      const { data, error } = await supabase
-        .from("products")
-        .select("barcode, name, price")
-        .eq("barcode", candidate)
-        .maybeSingle();
-      if (error) throw error;
-      if (data) return data;
-    }
-    return null;
-  };
-
   const openProduct = async (barcode) => {
     setScannedBarcode(barcode);
     setMatchedBarcode(null);
@@ -323,24 +311,8 @@ export default function PriceScanner() {
     if (isNaN(priceNum)) return;
 
     setSaveError(null);
-    const product = { barcode: scannedBarcode, name: editName.trim(), price: priceNum };
     try {
-      // Found via the 12-digit fallback: move that row to the full scanned code
-      // instead of adding a second row for the same article next to it.
-      let moved = false;
-      if (matchedBarcode && matchedBarcode !== scannedBarcode) {
-        const { data, error } = await supabase
-          .from("products")
-          .update(product)
-          .eq("barcode", matchedBarcode)
-          .select("barcode");
-        if (error) throw error;
-        moved = data.length > 0; // 0 if the row is gone or the update was refused
-      }
-      if (!moved) {
-        const { error } = await supabase.from("products").upsert(product);
-        if (error) throw error;
-      }
+      await saveProduct({ barcode: scannedBarcode, name: editName.trim(), price: priceNum }, matchedBarcode);
     } catch (e) {
       console.error("save to supabase failed", e);
       setSaveError("Čuvanje u bazi nije uspelo. Proveri internet konekciju i probaj ponovo.");

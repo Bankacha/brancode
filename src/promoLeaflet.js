@@ -1,9 +1,5 @@
 import { supabase } from "./supabaseClient.js";
-
-// About half of the imported product list stores EAN-13 barcodes without their
-// trailing check digit (12 digits), so a real 13-digit code won't string-match
-// them. Candidates are tried in order: the exact code first, then that prefix.
-export const barcodeCandidates = (code) => (/^\d{13}$/.test(code) ? [code, code.slice(0, 12)] : [code]);
+import { barcodeCandidates } from "./lib/products.js";
 
 // Leaflet row: Šifra, EAN, Naziv, Finalna cena na lifletu, Marža %, … — the
 // price is the first decimal number that is immediately followed by the Marža
