@@ -6,6 +6,7 @@ import LegacyLayout from "./screens/LegacyLayout.jsx";
 import Home from "./screens/Home.jsx";
 import Scan from "./screens/Scan.jsx";
 import ManualEntry from "./screens/ManualEntry.jsx";
+import PrintPreview from "./screens/PrintPreview.jsx";
 
 export default function App({ session }) {
   const navigate = useNavigate();
@@ -27,6 +28,7 @@ export default function App({ session }) {
       <div className="mx-auto min-h-dvh w-full max-w-[480px]">
         <Routes>
           <Route path="/" element={<Home queue={queue} setQueue={setQueue} editor={editor} session={session} />} />
+          <Route path="/pregled" element={<PrintPreview queue={queue} />} />
           <Route path="/skeniranje" element={legacy(<Scan onDetected={openCode} />)} />
           <Route path="/rucni-unos" element={legacy(<ManualEntry onSubmit={openCode} />)} />
           <Route path="*" element={<Navigate to="/" replace />} />
