@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import { MemoryRouter } from "react-router";
+import { MemoryRouter, Route, Routes, useNavigate } from "react-router";
 import { ToastProvider } from "../components/Toast.jsx";
 import ManualEntry from "./ManualEntry.jsx";
 
@@ -46,5 +46,31 @@ describe("ManualEntry", () => {
     fireEvent.keyDown(window, { key: "2" });
     fireEvent.keyDown(window, { key: "Backspace" });
     expect(screen.getByTestId("code").textContent).toBe("4");
+  });
+});
+
+describe("ManualEntry opened directly", () => {
+  it("finishing lands on home with nothing of manual entry left behind it", async () => {
+    const ed = { ...editor(), barcode: "1", name: "A", price: "10", badge: "Novi artikal", canSave: true, save: vi.fn(async () => ({ id: "1", barcode: "1", name: "A", price: 10 })) };
+    function Back() {
+      const navigate = useNavigate();
+      return <button onClick={() => navigate(-1)}>system back</button>;
+    }
+    render(
+      <MemoryRouter initialEntries={["/rucni-unos"]}>
+        <ToastProvider>
+          <Routes>
+            <Route path="/" element={<><p>HOME</p><Back /></>} />
+            <Route path="/rucni-unos" element={<ManualEntry editor={ed} />} />
+          </Routes>
+        </ToastProvider>
+      </MemoryRouter>
+    );
+    press("1");
+    press("Nastavi");
+    fireEvent.click(await screen.findByRole("button", { name: "Sačuvaj i zatvori" }));
+    await screen.findByText("HOME");
+    fireEvent.click(screen.getByText("system back"));
+    expect(screen.getByText("HOME")).toBeTruthy();
   });
 });

@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from "react-router";
 import { ArrowLeft, Check, Delete, WifiOff } from "lucide-react";
 import { eraseDigit, typeDigit } from "../lib/manualCode.js";
 import { formatPrice } from "../lib/format.js";
-import { finishScreen, leaveScreen } from "../lib/navigation.js";
+import { finishScreen, leaveScreen, putHomeBehind } from "../lib/navigation.js";
 import { usePrintFormat } from "../lib/printFormat.js";
 import { useSheet } from "../lib/useSheet.js";
 import { useToast } from "../components/Toast.jsx";
@@ -33,7 +33,6 @@ export default function ManualEntry({ editor }) {
   const toast = useToast();
   const [format] = usePrintFormat();
   const [code, setCode] = useState("");
-  const firstPage = useRef(location.key === "default"); // nothing in-app behind this screen
 
   const submit = () => {
     if (!code) return;
@@ -55,6 +54,15 @@ export default function ManualEntry({ editor }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [sheet.name]);
 
+  // Opened as the first page: put home behind this screen (once — StrictMode
+  // runs effects twice).
+  const homeBehind = useRef(false);
+  useEffect(() => {
+    if (homeBehind.current) return;
+    homeBehind.current = true;
+    putHomeBehind(navigate, location);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   // After a refresh the history can still say "edit" without the editor's data.
   useEffect(() => {
     if (sheet.name === "edit" && editor.barcode === null) navigate(".", { replace: true, state: null });
@@ -73,7 +81,7 @@ export default function ManualEntry({ editor }) {
       sheet.close();
       setCode("");
     } else {
-      finishScreen(navigate, firstPage.current);
+      finishScreen(navigate, sheet.isOpen());
     }
   };
   const saveRef = useRef(save);

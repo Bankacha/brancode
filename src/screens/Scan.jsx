@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
-import { CameraOff, Check, CircleCheck, Flashlight, WifiOff, X } from "lucide-react";
+import { CameraOff, Check, CircleAlert, CircleCheck, Flashlight, WifiOff, X } from "lucide-react";
 import { backCameras, cameraErrorKind, createDetector, createReadConfirmer, nextCameraId, readerKind, startCamera } from "../lib/scanner.js";
 import { formatPrice } from "../lib/format.js";
-import { finishScreen, leaveScreen } from "../lib/navigation.js";
+import { finishScreen, leaveScreen, putHomeBehind } from "../lib/navigation.js";
 import { usePrintFormat } from "../lib/printFormat.js";
 import { useScannerReader } from "../lib/useScannerReader.js";
 import { useSheet } from "../lib/useSheet.js";
@@ -11,6 +11,9 @@ import { useToast } from "../components/Toast.jsx";
 import EditSheet from "../sheets/EditSheet.jsx";
 
 const CAMERA_KEY = "camera-device";
+// Frames in a row the built-in reader may fail before zxing takes over (some
+// Android phones expose BarcodeDetector without the service behind it).
+const NATIVE_FAILURES_BEFORE_FALLBACK = 20;
 const readCamera = () => {
   try {
     return localStorage.getItem(CAMERA_KEY);
@@ -53,11 +56,12 @@ export default function Scan({ editor }) {
   const videoRef = useRef(null);
   const cameraRef = useRef(null);
   const detectorRef = useRef(null);
+  const detectorKind = useRef(null);
+  const [forceZxing, setForceZxing] = useState(false);
   // One for the whole visit: after a save, skip or cancel the article is
   // usually still in front of the camera and must not reopen until it leaves
   // the frame (or another code appears).
   const confirmRead = useRef(createReadConfirmer()).current;
-  const firstPage = useRef(location.key === "default");
   const [deviceId, setDeviceId] = useState(readCamera);
   const [cameras, setCameras] = useState([]);
   const [live, setLive] = useState(false);
@@ -67,6 +71,15 @@ export default function Scan({ editor }) {
   const paused = sheet.name === "edit";
   const pausedRef = useRef(paused);
   pausedRef.current = paused;
+
+  // Opened as the first page: put home behind this screen (once — StrictMode
+  // runs effects twice).
+  const homeBehind = useRef(false);
+  useEffect(() => {
+    if (homeBehind.current) return;
+    homeBehind.current = true;
+    putHomeBehind(navigate, location);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // A refreshed page can't have a read in flight: drop a stale "edit" entry.
   useEffect(() => {
@@ -123,19 +136,32 @@ export default function Scan({ editor }) {
     };
   }, [visible, deviceId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Built-in reader or zxing, per device support and the (temporary) menu choice.
+  // Built-in reader or zxing, per device support and the (temporary) menu
+  // choice; zxing also when the built-in one turned out not to work.
   useEffect(() => {
     let cancelled = false;
-    createDetector(readerKind(readerSetting, "BarcodeDetector" in window))
+    const kind = forceZxing ? "zxing" : readerKind(readerSetting, "BarcodeDetector" in window);
+    createDetector(kind)
       .then((detector) => {
-        if (!cancelled) detectorRef.current = detector;
+        if (cancelled) return;
+        detectorRef.current = detector;
+        detectorKind.current = kind;
       })
-      .catch((e) => console.error("barcode reader failed to load", e));
+      .catch((e) => {
+        if (cancelled) return;
+        console.error("barcode reader failed to load", e);
+        toast.show({
+          kind: "error",
+          icon: CircleAlert,
+          text: "Čitač barkoda nije dostupan.",
+          action: { label: "Upiši ručno", run: () => navigate("/rucni-unos", { replace: true }) },
+        });
+      });
     return () => {
       cancelled = true;
       detectorRef.current = null;
     };
-  }, [readerSetting]);
+  }, [readerSetting, forceZxing]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const onReadRef = useRef(null);
   onReadRef.current = (code) => {
@@ -154,6 +180,7 @@ export default function Scan({ editor }) {
     }
     video?.play?.().catch(() => {});
     let stopped = false;
+    let failures = 0;
     let frame = null;
     const loop = async () => {
       if (stopped) return;
@@ -161,10 +188,16 @@ export default function Scan({ editor }) {
       if (detector && video && video.readyState >= 2) {
         try {
           const codes = await detector.detect(video);
+          failures = 0;
           const code = confirmRead(codes[0]?.rawValue ?? null);
           if (code && !stopped) return onReadRef.current(code);
         } catch (e) {
-          // a frame the reader couldn't handle; try the next one
+          // A frame the reader couldn't handle: try the next one, unless the
+          // built-in reader fails on every frame.
+          if (++failures >= NATIVE_FAILURES_BEFORE_FALLBACK && detectorKind.current === "native" && !stopped) {
+            failures = 0;
+            setForceZxing(true);
+          }
         }
       }
       if (!stopped) frame = requestAnimationFrame(loop);
@@ -199,7 +232,7 @@ export default function Scan({ editor }) {
     }
     added(saved);
     if (then === "next") sheet.close();
-    else finishScreen(navigate, firstPage.current);
+    else finishScreen(navigate, sheet.isOpen());
   };
   const saveRef = useRef(save);
   saveRef.current = save;

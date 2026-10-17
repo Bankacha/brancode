@@ -75,3 +75,11 @@ describe("EditSheet actions by source", () => {
   });
 });
 });
+
+describe("EditSheet while a scanned code is looked up", () => {
+  it("doesn't show the new-article preview before the database answers", () => {
+    render(<EditSheet open onClose={() => {}} format="shelf" source="scan" sessionCount={1} editor={editor({ loading: true, badge: null, name: "", price: "", canSave: false })} />);
+    expect(screen.queryByText(/Ovako izgleda cenovnik/)).toBeNull();
+  });
+});
+

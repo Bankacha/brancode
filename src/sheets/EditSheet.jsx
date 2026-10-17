@@ -42,7 +42,9 @@ function TagPreview({ editor, format }) {
 export default function EditSheet({ editor, open, onClose, format, source = "list", sessionCount = 0, onSave, onSaveNext, onSkip, onFinish }) {
   const nameRef = useRef(null);
   const priceRef = useRef(null);
-  const quickCheck = source !== "list" && editor.badge === "U bazi";
+  // While a scanned/typed code is still being looked up, stay compact: the
+  // preview appears only once the database says it is a new article.
+  const quickCheck = source !== "list" && (editor.loading || editor.badge === "U bazi");
   const disabled = !editor.canSave;
 
   // Once the lookup settles: a known product goes straight to the price,

@@ -33,5 +33,8 @@ export const useSheet = () => {
     navigate(-1);
   };
 
-  return { name, open, close };
+  // Whether a sheet is open right now, for decisions made after an await.
+  const isOpen = () => current.current !== null;
+
+  return { name, open, close, isOpen };
 };

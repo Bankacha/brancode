@@ -7,10 +7,16 @@ export const leaveScreen = (navigate, location) => {
   else navigate(-1);
 };
 
-// Saving from a sheet that sits on a full-screen route (camera, manual entry)
-// and leaving both at once: two entries back to the page behind them, or
-// home when that screen was the first page loaded.
-export const finishScreen = (navigate, screenWasFirstPage) => {
-  if (screenWasFirstPage) navigate("/", { replace: true });
-  else navigate(-2);
+// A full-screen route (camera, manual entry) opened as the first page — a
+// deep link, or the app relaunched there — gets home put under it, so back
+// and "finish" always land on home instead of leaving the app or the screen
+// staying in history.
+export const putHomeBehind = (navigate, location) => {
+  if (location.key !== "default") return;
+  navigate("/", { replace: true });
+  navigate(location.pathname, { state: location.state });
 };
+
+// Saving from the sheet over a full-screen route and leaving both: two
+// entries back while the sheet is still open, one if back already closed it.
+export const finishScreen = (navigate, sheetOpen) => navigate(sheetOpen ? -2 : -1);
