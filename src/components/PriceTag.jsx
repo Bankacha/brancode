@@ -35,6 +35,7 @@ export function NameCell({ name, format }) {
           fontSize: `${style.nameFontSize}pt`,
           lineHeight: 1.15,
           textAlign: "center",
+          overflowWrap: "anywhere",
           padding: "0 2px",
         }}
       >
@@ -52,15 +53,17 @@ export function PriceCell({ price, format }) {
   const [fontPt, setFontPt] = useState(basePt);
   const textRef = useRef(null);
 
-  // Excel's shrink-to-fit: measure at the full size, scale down if too wide.
-  // Measured again once the print font has loaded.
+  // Excel's shrink-to-fit. Text width scales with font size, so the width at
+  // the full size is derived from the size currently drawn — the DOM is never
+  // written behind React's back. Measured again once the print font loads.
   useLayoutEffect(() => {
     const el = textRef.current;
     let cancelled = false;
     const measure = () => {
       if (cancelled || !el) return;
-      el.style.fontSize = `${basePt}pt`;
-      setFontPt(shrinkFontPt(basePt, el.scrollWidth, widthMm * PX_PER_MM));
+      const drawnPt = parseFloat(el.style.fontSize) || basePt;
+      const widthAtBasePx = (el.scrollWidth * basePt) / drawnPt;
+      setFontPt(shrinkFontPt(basePt, widthAtBasePx, widthMm * PX_PER_MM));
     };
     measure();
     document.fonts?.ready.then(measure);
@@ -80,7 +83,15 @@ export function PriceCell({ price, format }) {
   );
 }
 
-export function BarcodeCell({ code, format, barcodeImage = makeBarcodeDataUrl }) {
+// Drawing a barcode is a canvas render; the same codes come back on every
+// page turn and format switch.
+const drawnBarcodes = new Map();
+const cachedBarcode = (code) => {
+  if (!drawnBarcodes.has(code)) drawnBarcodes.set(code, makeBarcodeDataUrl(code));
+  return drawnBarcodes.get(code);
+};
+
+export function BarcodeCell({ code, format, barcodeImage = cachedBarcode }) {
   const { barcodeHeightMm } = tagGeometry(format);
   const placement = barcodeImageBox(format);
   const src = useMemo(() => {
@@ -122,7 +133,8 @@ export const TagColumns = ({ format, count }) => {
 
 export default function PriceTag({ item, format, barcodeImage }) {
   return (
-    <table className="table-fixed border-collapse bg-white text-black">
+    // table-layout: fixed only clamps columns when the table has a width.
+    <table className="table-fixed border-collapse bg-white text-black" style={{ width: `${tagGeometry(format).widthMm}mm` }}>
       <TagColumns format={format} count={1} />
       <tbody>
         <tr>

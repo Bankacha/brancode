@@ -1,5 +1,5 @@
 import { Fragment } from "react";
-import { PAGE_MARGINS_IN, PRICE_TAG_STYLES } from "../lib/priceTags.js";
+import { PAGE_MARGINS_IN, PRICE_TAG_STYLES, tagGeometry } from "../lib/priceTags.js";
 import { BarcodeCell, NameCell, PriceCell, TagColumns } from "./PriceTag.jsx";
 
 const MM_PER_IN = 25.4;
@@ -13,7 +13,7 @@ export default function PrintPage({ rows, format, barcodeImage }) {
       className="box-border bg-white text-black shadow-paper"
       style={{ width: "210mm", height: "297mm", paddingTop: `${PAGE_MARGINS_IN.top * MM_PER_IN}mm`, paddingLeft: `${PAGE_MARGINS_IN.left * MM_PER_IN}mm` }}
     >
-      <table className="table-fixed border-collapse">
+      <table className="table-fixed border-collapse" style={{ width: `${style.columns * tagGeometry(format).widthMm}mm` }}>
         <TagColumns format={format} count={style.columns} />
         <tbody>
           {rows.map((row, r) => (

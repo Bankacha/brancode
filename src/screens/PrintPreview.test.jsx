@@ -73,5 +73,12 @@ describe("PrintPreview", () => {
     setup(items(120));
     expect(screen.getByText("A4 · 3 kolone · strana 1 od 7")).toBeTruthy();
   });
+
+  it("draws only the pages around the one in view, so a long fruit list stays quick", () => {
+    localStorage.setItem("print-format", "fruit");
+    setup(items(120)); // 15 pages of 8
+    expect(screen.getByText("A4 · 2 kolone · strana 1 od 15")).toBeTruthy();
+    expect(screen.getAllByText("10,00")).toHaveLength(16); // page 1 and page 2
+  });
 });
 

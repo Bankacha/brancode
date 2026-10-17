@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router";
 import { Apple, ArrowLeft, Download, LayoutGrid, MailCheck, Refrigerator, Send, WifiOff } from "lucide-react";
 import { PRICE_TAG_STYLES, buildWorkbookBuffer, layoutTagPages, sheetFilename } from "../lib/priceTags.js";
@@ -100,8 +100,12 @@ export default function PrintPreview({ queue }) {
   );
 }
 
+// Only the page in view and its neighbours are drawn; the rest keep their
+// place as blank A4-shaped slots, so long lists (barcodes!) stay quick.
+const DRAWN_PAGES_AROUND = 1;
+
 function PagePreview({ queue, format, page, setPage, pagesRef }) {
-  const pages = layoutTagPages(queue, format);
+  const pages = useMemo(() => layoutTagPages(queue, format), [queue, format]);
   const columns = PRICE_TAG_STYLES[format].columns;
   const onScroll = (e) => setPage(Math.round(e.currentTarget.scrollLeft / e.currentTarget.clientWidth) + 1);
   return (
@@ -109,9 +113,13 @@ function PagePreview({ queue, format, page, setPage, pagesRef }) {
       <div ref={pagesRef} onScroll={onScroll} className="flex snap-x snap-mandatory overflow-x-auto [scrollbar-width:none]">
         {pages.map((rows, i) => (
           <div key={i} className="w-full shrink-0 snap-center px-4">
-            <ScaledToWidth widthMm={210} heightMm={297}>
-              <PrintPage rows={rows} format={format} />
-            </ScaledToWidth>
+            {Math.abs(i - (page - 1)) <= DRAWN_PAGES_AROUND ? (
+              <ScaledToWidth widthMm={210} heightMm={297}>
+                <PrintPage rows={rows} format={format} />
+              </ScaledToWidth>
+            ) : (
+              <div className="aspect-[210/297] w-full bg-white" />
+            )}
           </div>
         ))}
       </div>
