@@ -1,5 +1,6 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
 import basicSsl from "@vitejs/plugin-basic-ssl";
 import { VitePWA } from "vite-plugin-pwa";
 
@@ -10,6 +11,7 @@ export default defineConfig(({ mode }) => {
   const https = mode !== "http";
   return {
     plugins: [
+      tailwindcss(),
       react(),
       https && basicSsl(),
       VitePWA({
@@ -31,6 +33,15 @@ export default defineConfig(({ mode }) => {
         workbox: {
           // the serverless email endpoint must always hit the network
           navigateFallbackDenylist: [/^\/api\//],
+          // fontsource ships many language subsets; cache the ones the device
+          // actually loads so text keeps its typeface offline
+          runtimeCaching: [
+            {
+              urlPattern: ({ request }) => request.destination === "font",
+              handler: "CacheFirst",
+              options: { cacheName: "fonts" },
+            },
+          ],
         },
       }),
     ],

@@ -1,0 +1,50 @@
+@import "tailwindcss";
+
+/* Design tokens from docs/design/redesign-handoff/README.md ("Pijaca").
+   New UI uses only these — no hex values or inline styles in components. */
+@theme {
+  --color-bg: #fbf6ee;
+  --color-surface: #ffffff;
+  --color-surface-muted: #f2eadd;
+  --color-border: #e2d8c8;
+  --color-border-soft: #ede4d5;
+  --color-ink: #1d3b2a;
+  --color-ink-2: #55685b;
+  --color-ink-3: #7a8a7e;
+  --color-ink-4: #a7b2a9;
+  --color-ink-on-dark-muted: #b7c7ba;
+  --color-accent: #d9502b;
+  --color-danger-bg: #fce3d9;
+  --color-danger-ink: #9e3218;
+  --color-success: #3e8b57;
+  --color-success-light: #7bd39a;
+  --color-success-bg: #e3efe5;
+  --color-success-ink: #2c6b40;
+  --color-scrim: #3a4a3f;
+  --color-camera: #3a4a3f;
+  --color-camera-stripe: #33433a;
+
+  --font-display: "Bricolage Grotesque Variable", system-ui, sans-serif;
+  --font-sans: "DM Sans Variable", system-ui, sans-serif;
+  --font-mono: "DM Mono", ui-monospace, monospace;
+
+  --radius-sheet: 32px;
+  --radius-card: 24px;
+  --radius-tag-frame: 22px;
+  --radius-toast: 20px;
+  --radius-field: 18px;
+  --radius-error: 16px;
+
+  --shadow-toast: 0 6px 16px rgba(29, 59, 42, 0.1);
+  --shadow-paper: 0 8px 20px rgba(29, 59, 42, 0.14);
+  --shadow-tag: 0 4px 12px rgba(29, 59, 42, 0.12);
+  --shadow-scan: 0 10px 24px rgba(217, 80, 43, 0.35);
+}
+
+@layer base {
+  body {
+    background-color: var(--color-bg);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+  }
+}
