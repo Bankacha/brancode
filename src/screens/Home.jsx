@@ -1,14 +1,16 @@
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { useNavigate } from "react-router";
-import { Ellipsis, Eye, FileUp, Keyboard, Printer, ScanBarcode } from "lucide-react";
+import { Check, Ellipsis, Eye, FileUp, Keyboard, Printer, ScanBarcode, WifiOff } from "lucide-react";
 import { supabase } from "../supabaseClient";
 import { plural } from "../lib/plural.js";
+import { formatPrice } from "../lib/format.js";
 import { withoutItem, withItemRestored } from "../lib/printQueue.js";
 import { useSheet } from "../lib/useSheet.js";
 import { useToast } from "../components/Toast.jsx";
 import QueueRow from "../components/QueueRow.jsx";
 import MenuSheet from "../sheets/MenuSheet.jsx";
 import ConfirmClearSheet from "../sheets/ConfirmClearSheet.jsx";
+import EditSheet from "../sheets/EditSheet.jsx";
 
 const UNDO_MS = 4000;
 
@@ -72,6 +74,29 @@ export default function Home({ queue, setQueue, editor, session }) {
   const edit = (item) => {
     editor.openItem(item);
     sheet.open("edit");
+  };
+
+  // After a refresh the history can still say "edit" while the editor's data
+  // is gone; drop that entry instead of showing an empty sheet.
+  useEffect(() => {
+    if (sheet.name === "edit" && editor.barcode === null) navigate(".", { replace: true, state: null });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const saveEdit = async () => {
+    const saved = await editor.save();
+    if (saved) {
+      sheet.close();
+      toast.show({ kind: "success", icon: Check, text: `Dodato: ${saved.name}`, detail: formatPrice(saved.price) });
+    } else {
+      toast.show({ kind: "error", icon: WifiOff, text: "Nema veze. Nije sačuvano.", action: { label: "Ponovi", run: () => saveRef.current() } });
+    }
+  };
+  const saveRef = useRef(saveEdit);
+  saveRef.current = saveEdit;
+
+  const closeEdit = () => {
+    sheet.close();
+    editor.close();
   };
 
   const signOut = () => {
@@ -185,6 +210,7 @@ export default function Home({ queue, setQueue, editor, session }) {
         onSignOut={signOut}
       />
       <ConfirmClearSheet open={sheet.name === "confirm-clear"} onClose={sheet.close} count={n} onConfirm={clearList} />
+      <EditSheet editor={editor} open={sheet.name === "edit" && editor.barcode !== null} onClose={closeEdit} onSave={saveEdit} />
     </div>
   );
 }

@@ -1,65 +1,95 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { lookupProduct, saveProduct } from "./products.js";
+import { parsePrice, toPriceInput } from "./format.js";
+import { upsertQueueItem } from "./printQueue.js";
 
-// Edit state for one scanned/typed barcode; `barcode === null` means closed.
+// Edit state for one product, opened from a scan/typed code (`open`) or from
+// a print-list row (`openItem`); `barcode === null` means closed.
+// badge: "U bazi" | "Novi artikal" | "Nije u bazi"; error: null | "lookup" | "save".
 export const useProductEditor = (queue, setQueue) => {
   const [barcode, setBarcode] = useState(null);
-  const [matchedBarcode, setMatchedBarcode] = useState(null); // barcode of the DB row the lookup found, if any
+  const [matchedBarcode, setMatchedBarcode] = useState(null); // DB row the lookup found, if any
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
-  const [isNew, setIsNew] = useState(false);
+  const [badge, setBadge] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
-  const [savedFlash, setSavedFlash] = useState(false);
+  const request = useRef(0); // a newer open() makes older lookups stale
 
-  const open = async (code) => {
+  const begin = (code) => {
+    const id = ++request.current;
     setBarcode(code);
     setMatchedBarcode(null);
-    setName("");
-    setPrice("");
-    setIsNew(false);
     setError(null);
     setLoading(true);
+    return id;
+  };
+
+  const lookup = async (id, code, onFound) => {
     try {
       const data = await lookupProduct(code);
-      if (data) {
-        setMatchedBarcode(data.barcode);
-        setName(data.name || "");
-        setPrice(data.price != null ? String(data.price) : "");
-        setIsNew(false);
-      } else {
-        setIsNew(true);
-      }
+      if (id !== request.current) return;
+      onFound(data);
     } catch (e) {
+      if (id !== request.current) return;
       console.error("lookup failed", e);
-      setError("Ne mogu da se povežem sa bazom. Proveri internet konekciju.");
+      setError("lookup");
     }
     setLoading(false);
   };
 
-  const save = async () => {
-    if (!name.trim() || price === "") return;
-    const priceNum = parseFloat(price.replace(",", "."));
-    if (isNaN(priceNum)) return;
-
-    setError(null);
-    try {
-      await saveProduct({ barcode, name: name.trim(), price: priceNum }, matchedBarcode);
-    } catch (e) {
-      console.error("save to supabase failed", e);
-      setError("Čuvanje u bazi nije uspelo. Proveri internet konekciju i probaj ponovo.");
-      return;
-    }
-
-    const withoutDuplicate = queue.filter((q) => q.barcode !== barcode);
-    setQueue([...withoutDuplicate, { id: `${barcode}-${Date.now()}`, barcode, name: name.trim(), price: priceNum }]);
-
-    setSavedFlash(true);
-    setTimeout(() => setSavedFlash(false), 1200);
-    setBarcode(null);
+  const open = (code) => {
+    const id = begin(code);
+    setName("");
+    setPrice("");
+    setBadge(null);
+    return lookup(id, code, (data) => {
+      if (data) {
+        setMatchedBarcode(data.barcode);
+        setName(data.name || "");
+        setPrice(data.price != null ? toPriceInput(data.price) : "");
+        setBadge("U bazi");
+      } else {
+        setBadge("Novi artikal");
+      }
+    });
   };
 
-  const cancel = () => setBarcode(null);
+  // The list's name and price win; the lookup only finds the row to save onto.
+  const openItem = (item) => {
+    const id = begin(item.barcode);
+    setName(item.name);
+    setPrice(toPriceInput(item.price));
+    setBadge(item.notInDb ? "Nije u bazi" : "U bazi");
+    return lookup(id, item.barcode, (data) => setMatchedBarcode(data ? data.barcode : null));
+  };
 
-  return { barcode, name, price, isNew, loading, error, savedFlash, open, setName, setPrice, save, cancel };
+  const priceNum = parsePrice(price);
+  const canSave = name.trim() !== "" && priceNum !== null && !loading && !saving;
+
+  // Resolves to the saved item, or null (the editor stays open, error "save").
+  const save = async () => {
+    if (!canSave) return null;
+    const product = { barcode, name: name.trim(), price: priceNum };
+    setSaving(true);
+    setError(null);
+    try {
+      await saveProduct(product, matchedBarcode);
+    } catch (e) {
+      console.error("save to supabase failed", e);
+      setError("save");
+      setSaving(false);
+      return null;
+    }
+    const item = { id: `${barcode}-${Date.now()}`, ...product };
+    setQueue(upsertQueueItem(queue, item));
+    setSaving(false);
+    setBarcode(null);
+    return item;
+  };
+
+  const close = () => setBarcode(null);
+
+  return { barcode, name, price, badge, loading, saving, error, canSave, open, openItem, setName, setPrice, save, close };
 };

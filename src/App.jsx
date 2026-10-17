@@ -12,10 +12,12 @@ export default function App({ session }) {
   const [queue, setQueue] = usePrintQueue();
   const editor = useProductEditor(queue, setQueue);
 
-  // Replace the camera / manual-entry entry so system back doesn't return to it.
+  // The camera / manual-entry entry becomes home, and the edit sheet is pushed
+  // on top of it: back closes the sheet, never reopens the camera.
   const openCode = (code) => {
-    navigate("/", { replace: true });
     editor.open(code);
+    navigate("/", { replace: true });
+    navigate("/", { state: { sheet: "edit" } });
   };
 
   const legacy = (element) => <LegacyLayout queueLength={queue.length}>{element}</LegacyLayout>;

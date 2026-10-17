@@ -1,0 +1,75 @@
+// @vitest-environment jsdom
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { useState } from "react";
+import { renderHook, act } from "@testing-library/react";
+import { useProductEditor } from "./useProductEditor.js";
+import { lookupProduct, saveProduct } from "./products.js";
+
+vi.mock("./products.js", () => ({ lookupProduct: vi.fn(), saveProduct: vi.fn() }));
+
+const a = { id: "a", barcode: "1", name: "A", price: 1 };
+const b = { id: "b", barcode: "2", name: "Lista", price: 12.5, notInDb: true };
+const c = { id: "c", barcode: "3", name: "C", price: 3 };
+
+const setup = (initial = [a, b, c]) =>
+  renderHook(() => {
+    const [queue, setQueue] = useState(initial);
+    return { queue, editor: useProductEditor(queue, setQueue) };
+  });
+
+describe("useProductEditor", () => {
+  beforeEach(() => {
+    vi.mocked(lookupProduct).mockReset().mockResolvedValue(null);
+    vi.mocked(saveProduct).mockReset().mockResolvedValue(undefined);
+  });
+
+  it("opens a list item with the list's name and price", async () => {
+    const { result } = setup();
+    await act(() => result.current.editor.openItem(b));
+    expect(result.current.editor.name).toBe("Lista");
+    expect(result.current.editor.price).toBe("12,5");
+    expect(result.current.editor.badge).toBe("Nije u bazi");
+  });
+
+  it("saves a 'nije u bazi' item to the database and keeps it in place as ready", async () => {
+    const { result } = setup();
+    await act(() => result.current.editor.openItem(b));
+    await act(() => result.current.editor.save());
+    expect(saveProduct).toHaveBeenCalledWith({ barcode: "2", name: "Lista", price: 12.5 }, null);
+    expect(result.current.queue).toEqual([a, { id: "b", barcode: "2", name: "Lista", price: 12.5 }, c]);
+  });
+
+  it("saves a scan found via the 12-digit fallback onto that row", async () => {
+    vi.mocked(lookupProduct).mockResolvedValue({ barcode: "860000500012", name: "MAJONEZ 175", price: 84 });
+    const { result } = setup([]);
+    await act(() => result.current.editor.open("8600005000122"));
+    expect(result.current.editor.badge).toBe("U bazi");
+    await act(() => result.current.editor.save());
+    expect(saveProduct).toHaveBeenCalledWith({ barcode: "8600005000122", name: "MAJONEZ 175", price: 84 }, "860000500012");
+  });
+
+  it("keeps the editor open with the typed values when saving fails", async () => {
+    vi.mocked(saveProduct).mockRejectedValue(new Error("offline"));
+    const { result } = setup();
+    await act(() => result.current.editor.openItem(b));
+    act(() => result.current.editor.setPrice("15"));
+    let saved;
+    await act(async () => {
+      saved = await result.current.editor.save();
+    });
+    expect(saved).toBeNull();
+    expect(result.current.editor.error).toBe("save");
+    expect(result.current.editor.barcode).toBe("2");
+    expect(result.current.editor.price).toBe("15");
+    expect(result.current.queue).toEqual([a, b, c]);
+  });
+
+  it("only allows saving a name with a price above zero", async () => {
+    const { result } = setup();
+    await act(() => result.current.editor.openItem(b));
+    act(() => result.current.editor.setPrice("0"));
+    expect(result.current.editor.canSave).toBe(false);
+    act(() => result.current.editor.setPrice("79"));
+    expect(result.current.editor.canSave).toBe(true);
+  });
+});
