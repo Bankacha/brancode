@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { LogOut } from "lucide-react";
-import { supabase } from "./supabaseClient";
+import { supabase } from "../supabaseClient";
 import Login from "./Login";
-import { FONT_SANS, FONT_MONO, PAPER, INK, MUTE, BORDER } from "./App";
+import { FONT_SANS, FONT_MONO, PAPER, INK, MUTE, BORDER } from "../lib/legacyTheme.js";
 
 export default function AuthGate({ children }) {
   const [session, setSession] = useState(undefined); // undefined = still loading

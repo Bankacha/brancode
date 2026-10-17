@@ -27,10 +27,18 @@ HTTPS in dev is deliberate: camera access (`getUserMedia`) and `BarcodeDetector`
 
 ## Architecture
 
-- **No router, no state library.** `src/main.jsx` renders `AuthGate` → `App`. `AuthGate` shows `Login` until a Supabase session exists (email/password; there is no sign-up flow — users are created in Supabase).
-- **`src/App.jsx` is the whole app** (`PriceScanner` component): a `mode` state machine (`idle | scanning | editing | manualEntry`), plus separate state for the leaflet import flow (`importStep`) and bottom-sheet menus. It also builds the Excel export.
+- **Routing:** `src/main.jsx` renders `BrowserRouter` → `AuthGate` → `App`. `AuthGate` (`src/auth/`) shows `Login` until a Supabase session exists (email/password; there is no sign-up flow — users are created in Supabase). `App.jsx` holds the shared state and the routes: `/` (`screens/Home.jsx`), `/skeniranje` (`screens/Scan.jsx`), `/rucni-unos` (`screens/ManualEntry.jsx`); unknown paths redirect to `/`. `vercel.json` serves `index.html` for every path except `/api/*`.
+- **No state library.** `App` keeps the print queue (`usePrintQueue`) and the product editor (`useProductEditor`) and passes them down; screens keep their own UI state.
+- **`src/lib/`** holds the logic, each with tests next to it:
+  - `products.js` — barcode candidates, lookup and save against the `products` table
+  - `priceTags.js` / `format.js` — tag formats, page layout and the ExcelJS export; price formatting
+  - `printQueue.js` — the per-device print list in `localStorage`
+  - `useProductEditor.js` — edit state for one scanned/typed barcode
+  - `email.js` — sends a generated sheet through `api/send-email.js`
+  - `legacyTheme.js` — the pre-redesign colors and button styles, used by screens not yet redesigned (temporary)
 - **Data split:** the Supabase `products` table is shared across devices; the print list lives only in each device's `localStorage`.
-- `src/promoLeaflet.js` holds leaflet PDF parsing and the shared barcode-matching helper. `api/send-email.js` is the only server code.
+- `src/promoLeaflet.js` holds leaflet PDF parsing and matching. `api/send-email.js` is the only server code.
+- A redesign is in progress on the `redesign` branch: spec in `docs/superpowers/specs/`, plans in `docs/superpowers/plans/`, design handoff in `docs/design/redesign-handoff/`.
 
 `src/templates/prices_template.xlsx`/`.xlsb` are not referenced by the code (the sheet is built from scratch).
 

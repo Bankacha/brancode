@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { AlertCircle, LogIn } from "lucide-react";
-import { supabase } from "./supabaseClient";
-import { FONT_SANS, FONT_MONO, PAPER, INK, RED, MUTE, BORDER, CARD } from "./App";
+import { supabase } from "../supabaseClient";
+import { FONT_SANS, FONT_MONO, PAPER, INK, RED, MUTE, BORDER, CARD } from "../lib/legacyTheme.js";
 
 export default function Login() {
   const [email, setEmail] = useState("");
