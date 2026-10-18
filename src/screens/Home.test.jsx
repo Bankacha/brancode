@@ -38,6 +38,12 @@ describe("Home", () => {
     expect(screen.getByText("Spremno · 5")).toBeTruthy();
   });
 
+  it("shows the logo at the top instead of the app's name", () => {
+    render(<Harness initial={[]} />);
+    expect(screen.getByRole("img", { name: "Brancode" })).toBeTruthy();
+    expect(screen.queryByText("brancode")).toBeNull();
+  });
+
   it("says everything is ready when nothing needs checking", () => {
     render(<Harness initial={list(1)} />);
     expect(screen.getByText("cenovnik")).toBeTruthy();
