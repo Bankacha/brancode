@@ -5,6 +5,7 @@ Ovo nije provereno na pravom telefonu i papiru, pa ostaje za zajednički test. �
 ## 1. Na računaru (dev server, `npm run dev`)
 
 - [ ] Prijava: pogrešna lozinka pokazuje grešku, a ispravna ulazi.
+- [ ] Pozdrav na prijavi prati doba dana: Dobro jutro (5–11), Dobar dan (11–18), Dobro veče (posle 18 i noću).
 - [ ] Na vrhu početnog ekrana je logo umesto natpisa „brancode“.
 - [ ] Podešavanja imaju odeljke „Izvoz u PDF“ i „Skeniranje“, a na dnu piše „Verzija 0.9.0“.
 - [ ] Meni (☰ gore desno) se otvara odozdo: Cenovnici (označeno), Podešavanja, Odjavi se i email. „Nazad“ zatvara meni, a iz Podešavanja „nazad“ ne vraća meni.

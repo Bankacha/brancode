@@ -19,6 +19,7 @@ Odluke koje sam doneo sam dok smo radili meni, cene, popis i trebovanje, i tvoji
   - Uz svaki deploy (merge na `main`) se podiže: popravke 0.9.1, nove funkcije 0.10.0.
   - 1.0.0 je dan kad radnja počne da se oslanja na aplikaciju.
   - Pravilo je zapisano u `CLAUDE.md`.
+- **Prijava:** ✅ pozdrav prati doba dana na telefonu: „Dobro jutro.“ od 5 do 11, „Dobar dan.“ od 11 do 18 i „Dobro veče.“ od 18 pa kroz noć do 5.
 - Sve ostalo ispod ostaje kako je urađeno.
 
 ## Meni (hamburger)
