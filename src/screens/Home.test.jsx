@@ -4,10 +4,11 @@ import { useState } from "react";
 import { render, screen, fireEvent, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { ToastProvider } from "../components/Toast.jsx";
+import { SessionProvider } from "../auth/session.jsx";
 import Home from "./Home.jsx";
 import { supabase } from "../supabaseClient";
 
-vi.mock("../supabaseClient", () => ({ supabase: { auth: { signOut: vi.fn() } } }));
+vi.mock("../supabaseClient", () => ({ supabase: { auth: { signOut: vi.fn(async () => ({ error: null })) } } }));
 
 const item = (i, notInDb = false) => ({ id: `i${i}`, barcode: `860000000${String(i).padStart(4, "0")}`, name: `Artikal ${i}`, price: 100 + i, ...(notInDb && { notInDb }) });
 const list = (n, notInDb = 0) => Array.from({ length: n }, (_, i) => item(i, i < notInDb));
@@ -15,11 +16,13 @@ const list = (n, notInDb = 0) => Array.from({ length: n }, (_, i) => item(i, i <
 function Harness({ initial }) {
   const [queue, setQueue] = useState(initial);
   return (
-    <MemoryRouter>
-      <ToastProvider>
-        <Home queue={queue} setQueue={setQueue} editor={{ openItem: vi.fn() }} session={{ user: { email: "b@b.com" } }} />
-      </ToastProvider>
-    </MemoryRouter>
+    <SessionProvider value={{ user: { email: "b@b.com" } }}>
+      <MemoryRouter>
+        <ToastProvider>
+          <Home queue={queue} setQueue={setQueue} editor={{ openItem: vi.fn() }} />
+        </ToastProvider>
+      </MemoryRouter>
+    </SessionProvider>
   );
 }
 

@@ -1,35 +1,21 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
-import { Check, CircleAlert, Ellipsis, Eye, FileUp, Keyboard, Printer, ScanBarcode, WifiOff } from "lucide-react";
-import { supabase } from "../supabaseClient";
+import { Check, CircleAlert, Eye, FileUp, Keyboard, Printer, ScanBarcode, WifiOff } from "lucide-react";
 import { parseLeafletPdf, matchLeafletRows, saveLeafletPrices } from "../promoLeaflet.js";
 import { plural } from "../lib/plural.js";
 import { formatPrice } from "../lib/format.js";
 import { withoutItem, withItemRestored } from "../lib/printQueue.js";
 import { useSheet } from "../lib/useSheet.js";
 import { usePrintFormat } from "../lib/printFormat.js";
-import { useScannerReader } from "../lib/useScannerReader.js";
 import { useToast } from "../components/Toast.jsx";
 import QueueRow from "../components/QueueRow.jsx";
-import MenuSheet from "../sheets/MenuSheet.jsx";
+import IconButton from "../components/IconButton.jsx";
+import AppHeader from "../components/AppHeader.jsx";
 import ConfirmClearSheet from "../sheets/ConfirmClearSheet.jsx";
 import EditSheet from "../sheets/EditSheet.jsx";
 import LeafletImportSheet from "../sheets/LeafletImportSheet.jsx";
 
 const UNDO_MS = 4000;
-
-function IconButton({ label, icon: Icon, onClick }) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      onClick={onClick}
-      className="flex size-11 items-center justify-center rounded-full bg-surface-muted text-ink transition-transform duration-100 active:scale-[.97]"
-    >
-      <Icon size={20} />
-    </button>
-  );
-}
 
 function GroupTitle({ dot, className = "", children, action }) {
   return (
@@ -44,12 +30,11 @@ function GroupTitle({ dot, className = "", children, action }) {
 }
 
 // Handoff "02 · Početna + lista".
-export default function Home({ queue, setQueue, editor, session }) {
+export default function Home({ queue, setQueue, editor }) {
   const navigate = useNavigate();
   const sheet = useSheet();
   const toast = useToast();
   const [format] = usePrintFormat();
-  const [reader, setReader] = useScannerReader();
   const queueRef = useRef(queue);
   queueRef.current = queue;
   const leafletInputRef = useRef(null);
@@ -159,11 +144,6 @@ export default function Home({ queue, setQueue, editor, session }) {
     editor.close();
   };
 
-  const signOut = () => {
-    sheet.close();
-    supabase.auth.signOut();
-  };
-
   const clearList = () => {
     setQueue([]);
     sheet.close();
@@ -187,13 +167,10 @@ export default function Home({ queue, setQueue, editor, session }) {
 
   return (
     <div className="flex min-h-dvh flex-col px-5 pt-[calc(16px+env(safe-area-inset-top))] pb-[calc(160px+env(safe-area-inset-bottom))]">
-      <header className="flex items-center justify-between">
-        <span className="font-display text-[22px] font-extrabold tracking-[-0.02em] text-ink">brancode</span>
-        <div className="flex gap-2">
-          <IconButton label="Uvezi akcijski liflet" icon={FileUp} onClick={() => leafletInputRef.current.click()} />
-          <IconButton label="Meni" icon={Ellipsis} onClick={() => sheet.open("menu")} />
-        </div>
-      </header>
+      <AppHeader
+        title={<span className="font-display text-[22px] font-extrabold tracking-[-0.02em] text-ink">brancode</span>}
+        actions={<IconButton label="Uvezi akcijski liflet" icon={FileUp} onClick={() => leafletInputRef.current.click()} />}
+      />
       <input ref={leafletInputRef} type="file" accept="application/pdf" onChange={onLeafletChosen} className="hidden" />
 
       <section className="mt-[18px] flex items-center gap-3 rounded-card bg-ink py-[18px] pr-[18px] pl-5 text-bg">
@@ -266,14 +243,6 @@ export default function Home({ queue, setQueue, editor, session }) {
         </div>
       </nav>
 
-      <MenuSheet
-        open={sheet.name === "menu"}
-        onClose={sheet.close}
-        email={session.user.email}
-        onSignOut={signOut}
-        reader={reader}
-        onReaderChange={setReader}
-      />
       <ConfirmClearSheet open={sheet.name === "confirm-clear"} onClose={sheet.close} count={n} onConfirm={clearList} />
       <EditSheet editor={editor} open={sheet.name === "edit" && editor.barcode !== null} onClose={closeEdit} onSave={saveEdit} format={format} source="list" />
       {leaflet && (
