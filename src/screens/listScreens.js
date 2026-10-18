@@ -2,6 +2,7 @@ import { formatPrice } from "../lib/format.js";
 import { inventoryTitle, requisitionTitle } from "../lib/listFormat.js";
 import { popisKind, trebovanjeKind } from "../lib/listKinds.js";
 import { inventoryPdfDefinition, inventoryPdfFilename } from "../lib/listPdf.js";
+import { transferItems } from "../lib/requisitions.js";
 import InventoryFormSheet from "../sheets/InventoryFormSheet.jsx";
 import RequisitionFormSheet from "../sheets/RequisitionFormSheet.jsx";
 
@@ -29,6 +30,7 @@ export const trebovanjeScreen = {
   detail: (item) => [item.barcode, item.price === null ? null : formatPrice(item.price)].filter(Boolean).join(" · ") || null,
   FormSheet: RequisitionFormSheet,
   pdf: null,
+  transfer: transferItems, // "Prenesi stavke" into another trebovanje
   texts: {
     fallbackTitle: "Trebovanje",
     gone: "Trebovanje više ne postoji.",

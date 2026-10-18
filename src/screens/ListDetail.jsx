@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router";
-import { ArrowLeft, Check, Pencil, WifiOff } from "lucide-react";
+import { ArrowLeft, Check, CopyPlus, Pencil, WifiOff } from "lucide-react";
 import { downloadBlob } from "../lib/download.js";
 import { sendFileByEmail } from "../lib/email.js";
 import { buildPdfBlob } from "../lib/listPdf.js";
@@ -16,6 +16,8 @@ import LoadError from "../components/LoadError.jsx";
 import ListBottomBar from "../components/ListBottomBar.jsx";
 import ListItemSheet from "../sheets/ListItemSheet.jsx";
 import ExportSheet from "../sheets/ExportSheet.jsx";
+import TransferSheet from "../sheets/TransferSheet.jsx";
+import Button from "../components/Button.jsx";
 import { savedToast } from "./listToasts.js";
 
 const UNDO_MS = 4000;
@@ -40,9 +42,14 @@ export default function ListDetail({ screen }) {
   const [hidden, setHidden] = useState(() => new Set()); // removed here, waiting for the database
   const [saving, setSaving] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [selected, setSelected] = useState(() => new Set()); // item ids picked for "Prenesi stavke"
+  const [transferring, setTransferring] = useState(false);
 
   const list = data.data?.list;
   const items = (data.data?.items ?? []).filter((item) => !hidden.has(item.id));
+  // Picking items is a history entry too, so back leaves it.
+  const selecting = ["select", "transfer", "transfer-new"].includes(sheet.name);
+  const chosen = items.filter((item) => selected.has(item.id));
 
   // Deleted on another phone (or a stale link).
   useEffect(() => {
@@ -151,6 +158,53 @@ export default function ListDetail({ screen }) {
     }
   };
 
+  const startSelecting = () => {
+    setSelected(new Set());
+    sheet.open("select");
+  };
+  const toggle = (item) =>
+    setSelected((current) => {
+      const next = new Set(current);
+      if (next.has(item.id)) next.delete(item.id);
+      else next.add(item.id);
+      return next;
+    });
+  const allSelected = items.length > 0 && chosen.length === items.length;
+  const toggleAll = () => setSelected(allSelected ? new Set() : new Set(items.map((item) => item.id)));
+
+  // Copies, then opens the target in place of this screen's sheet entry.
+  const transfer = async (targetId) => {
+    setTransferring(true);
+    toast.show({ kind: "loading", text: "Prenosim…" });
+    try {
+      const { copied, added, skipped } = await screen.transfer(store, chosen, targetId);
+      toast.show({
+        kind: "success",
+        icon: Check,
+        text: `Preneseno: ${copied + added}`,
+        detail: skipped ? `${skipped} već postoji` : undefined,
+      });
+      navigate(`/${section}/${targetId}`, { replace: true });
+    } catch (e) {
+      offline(`Nema veze. Preneseno ${e.done ?? 0} od ${chosen.length}.`);
+    } finally {
+      setTransferring(false);
+    }
+  };
+
+  const createAndTransfer = async (fields) => {
+    setTransferring(true);
+    let created;
+    try {
+      created = await store.create(fields);
+    } catch (e) {
+      setTransferring(false);
+      offline("Nema veze. Trebovanje nije napravljeno.", () => createAndTransfer(fields));
+      return;
+    }
+    await transfer(created.id);
+  };
+
   if (data.error && !data.data) {
     return (
       <div className="px-5 pt-[calc(16px+env(safe-area-inset-top))]">
@@ -168,8 +222,17 @@ export default function ListDetail({ screen }) {
           <h1 className="font-display text-[22px] leading-tight font-extrabold tracking-[-0.02em] text-ink">{list ? screen.title(list) : texts.fallbackTitle}</h1>
           <p className="text-[13px] text-ink-3">{list ? itemCount(items.length) : "Učitavanje…"}</p>
         </div>
-        {list && <IconButton label={texts.rename} icon={Pencil} onClick={() => sheet.open("edit-list")} />}
+        {list && !selecting && screen.transfer && items.length > 0 && <IconButton label="Prenesi stavke" icon={CopyPlus} onClick={startSelecting} />}
+        {list && !selecting && <IconButton label={texts.rename} icon={Pencil} onClick={() => sheet.open("edit-list")} />}
       </header>
+      {selecting && (
+        <div className="mt-4 flex items-center justify-between">
+          <p className="text-[14px] font-semibold text-ink-2">Izaberi stavke za prenos</p>
+          <button type="button" onClick={toggleAll} className="text-[14px] font-semibold text-accent">
+            {allSelected ? "Poništi izbor" : "Izaberi sve"}
+          </button>
+        </div>
+      )}
 
       {list && items.length === 0 && <p className="mt-10 text-center text-[15px] text-ink-3">Prazno. Skeniraj prvi artikal.</p>}
       <ul className="mt-5 flex flex-col gap-2">
@@ -181,16 +244,32 @@ export default function ListDetail({ screen }) {
             quantity={item.quantity === null ? null : formatQuantity(item.quantity)}
             onLongPress={() => edit(item)}
             onRemove={() => remove(item)}
+            selectable={selecting}
+            selected={selected.has(item.id)}
+            onToggle={() => toggle(item)}
           />
         ))}
       </ul>
 
-      <ListBottomBar
-        onType={() => navigate(`/${section}/${id}/rucni-unos`)}
-        onScan={() => navigate(`/${section}/${id}/skeniranje`)}
-        onExport={() => sheet.open("export")}
-        canExport={Boolean(screen.pdf) && items.length > 0}
-      />
+      {selecting ? (
+        <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40">
+          <div className="mx-auto flex w-full max-w-[480px] gap-2 bg-linear-to-b from-bg/0 to-bg to-40% px-5 pt-8 pb-[calc(24px+env(safe-area-inset-bottom))]">
+            <Button variant="muted" onClick={sheet.close} className="pointer-events-auto">
+              Otkaži
+            </Button>
+            <Button disabled={chosen.length === 0} onClick={() => sheet.open("transfer")} className="pointer-events-auto flex-1">
+              Prenesi ({chosen.length})
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <ListBottomBar
+          onType={() => navigate(`/${section}/${id}/rucni-unos`)}
+          onScan={() => navigate(`/${section}/${id}/skeniranje`)}
+          onExport={() => sheet.open("export")}
+          canExport={Boolean(screen.pdf) && items.length > 0}
+        />
+      )}
 
       <ListItemSheet flow={flow} texts={kind.texts} open={sheet.name === "item" && flow.state.kind !== "idle"} onClose={closeItem} source="list" onSubmit={saveItem} />
       <ExportSheet
@@ -201,6 +280,29 @@ export default function ListDetail({ screen }) {
         onDownload={() => exportPdf("download")}
         onEmail={() => exportPdf("email")}
       />
+      {screen.transfer && (
+        <>
+          <TransferSheet
+            open={sheet.name === "transfer"}
+            onClose={sheet.close}
+            store={store}
+            title={screen.title}
+            currentId={id}
+            count={chosen.length}
+            busy={transferring}
+            onPickNew={() => sheet.open("transfer-new")}
+            onPick={(target) => transfer(target.id)}
+          />
+          <screen.FormSheet
+            open={sheet.name === "transfer-new"}
+            onClose={sheet.close}
+            heading="Novo trebovanje"
+            submitLabel="Napravi i prenesi"
+            saving={transferring}
+            onSubmit={createAndTransfer}
+          />
+        </>
+      )}
       <screen.FormSheet
         open={sheet.name === "edit-list" && Boolean(list)}
         onClose={sheet.close}
