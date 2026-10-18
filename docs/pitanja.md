@@ -28,6 +28,7 @@ Odluke koje sam doneo sam dok smo radili meni, cene, popis i trebovanje, i tvoji
   - Android/Chrome menja ikonicu instalirane aplikacije tek kad sam proveri manifest, najviše jednom dnevno, pri otvaranju aplikacije, i tada ponekad pita da li se slaže;
   - iPhone ikonicu nikad ne menja sam.
   - Odmah: ukloniti aplikaciju sa početnog ekrana i ponovo je dodati iz browser-a. Podaci (prijava, lista) ostaju.
+- **Datumi:** ✅ svuda je prvo dan pa mesec (18.10.2026): u poljima za datum na popisu i trebovanju, bez obzira na jezik browser-a, i u imenima fajlova (`cenovnik-raf-18.10.2026.xlsx`, `popis-01.10.2026-18.10.2026.pdf`, `trebovanje-18.10.2026.pdf`). Ide pod istom verzijom 0.9.1.
 - **Naziv sekcije:** ✅ „Cene“ umesto „Cenovnici“.
   - Brojač kaže „76 cena“ („1 cena“, „3 cene“), a brisanje „Obrisati sve 3 cene?“.
   - „Cenovnik“ je ostao tamo gde se misli na sam papirni cenovnik: pregled „Ovako izgleda cenovnik na rafu“, ime Excel fajla i naslov mejla.
