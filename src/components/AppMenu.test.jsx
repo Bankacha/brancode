@@ -22,6 +22,8 @@ const setup = (path = "/") =>
           <Routes>
             <Route path="/" element={<><p>CENOVNICI</p><Back /><AppMenu /></>} />
             <Route path="/drugo" element={<><p>DRUGO</p><Back /><AppMenu /></>} />
+            <Route path="/popis" element={<><p>SPISAK POPISA</p><AppMenu /></>} />
+            <Route path="/popis/:id" element={<><p>JEDAN POPIS</p><AppMenu /></>} />
           </Routes>
         </ToastProvider>
       </MemoryRouter>
@@ -86,5 +88,15 @@ describe("AppMenu", () => {
     openMenu();
     fireEvent.click(screen.getByRole("button", { name: /Odjavi se/ }));
     await waitFor(() => expect(screen.getByRole("status").textContent).toContain("Odjava nije uspela"));
+  });
+
+  it("marks Popis on a popis and goes to the list of popisi from there", async () => {
+    setup("/popis/7");
+    openMenu();
+    const popis = screen.getByRole("link", { name: /Popis/ });
+    expect(popis.getAttribute("aria-current")).toBe("page");
+    expect(screen.getByRole("link", { name: /Cenovnici/ }).getAttribute("aria-current")).toBeNull();
+    fireEvent.click(popis);
+    expect(await screen.findByText("SPISAK POPISA")).toBeTruthy();
   });
 });
