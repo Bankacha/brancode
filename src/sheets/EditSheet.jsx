@@ -56,6 +56,15 @@ export default function EditSheet({ editor, open, onClose, format, source = "lis
     target?.select();
   }, [open, editor.loading]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // The keyboard's ✓ / Enter saves like the main button, so nobody has to
+  // close the keyboard to reach it.
+  const primary = source === "list" ? onSave : onSaveNext;
+  const saveOnEnter = (e) => {
+    if (e.key !== "Enter" || e.repeat || e.nativeEvent?.isComposing || e.isComposing) return;
+    e.preventDefault();
+    if (!disabled) primary();
+  };
+
   return (
     <BottomSheet open={open} onClose={onClose} dismissible={!editor.saving} closeOnScrim={source !== "scan"} dim={source !== "scan"}>
       <div className="flex items-center gap-2.5">
@@ -71,11 +80,13 @@ export default function EditSheet({ editor, open, onClose, format, source = "lis
         <p className="text-[13px] text-danger-ink">Ne mogu da se povežem sa bazom. Proveri internet konekciju.</p>
       )}
       {!quickCheck && <TagPreview editor={editor} format={format} />}
-      <Field ref={nameRef} label="Naziv" value={editor.name} onChange={(e) => editor.setName(e.target.value)} />
+      <Field ref={nameRef} label="Naziv" value={editor.name} onChange={(e) => editor.setName(e.target.value)} enterKeyHint="done" onKeyDown={saveOnEnter} />
       <Field
         ref={priceRef}
         label={quickCheck && editor.oldPrice ? `Cena · bila ${editor.oldPrice}` : "Cena"}
         inputMode="decimal"
+        enterKeyHint="done"
+        onKeyDown={saveOnEnter}
         suffix="din"
         value={editor.price}
         onChange={(e) => editor.setPrice(e.target.value)}

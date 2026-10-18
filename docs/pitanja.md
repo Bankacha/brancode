@@ -22,6 +22,18 @@ Odluke koje sam doneo sam dok smo radili meni, cene, popis i trebovanje, i tvoji
 - **Prijava:** ✅ pozdrav prati doba dana na telefonu: „Dobro jutro.“ od 5 do 11, „Dobar dan.“ od 11 do 18 i „Dobro veče.“ od 18 pa kroz noć do 5.
 - Sve ostalo ispod ostaje kako je urađeno.
 
+## 0.9.2
+
+- **Čuvanje dok je tastatura otvorena:** ✅
+  - sheet se sada podiže iznad tastature, pa se dugmad za čuvanje vide;
+  - taster ✓ / Enter na tastaturi čuva kao glavno dugme („Sačuvaj i skeniraj sledeći“);
+  - ako je telefon mali, pa sheet ne staje iznad tastature, može da se skroluje prstom.
+  - na iPhone-u tastatura za cenu (samo brojevi) nema taster Enter, pa se tamo koristi dugme, koje je sada vidljivo.
+- **Ikonica i ekran pri učitavanju** su i dalje stari na telefonu. U aplikaciji više nema nijedne stare ikonice, a produkcija služi samo nove. I ikonicu i ekran pri pokretanju pravi telefon iz svoje kopije, napravljene pri instalaciji:
+  - Android/Chrome tu kopiju osvežava sam, ali najviše jednom dnevno i ponekad uz pitanje;
+  - iPhone je nikad ne osvežava.
+  - **Rešenje odmah:** ukloniti aplikaciju sa početnog ekrana (dugo držanje → Ukloni/Deinstaliraj), pa u Chrome-u otvoriti `brancode.vercel.app` → ⋮ → „Instaliraj aplikaciju“ / „Dodaj na početni ekran“. Posle toga su i ikonica i ekran pri učitavanju novi. Prijava i lista ostaju.
+
 ## 0.9.1
 
 - **Ikonica PWA** je posle ažuriranja i dalje stara. Produkcija služi novu ikonicu, pa je razlog na telefonu:

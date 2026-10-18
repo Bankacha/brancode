@@ -51,6 +51,7 @@ Ovo nije provereno na pravom telefonu i papiru, pa ostaje za zajednički test. �
 - [ ] Blic, ako ga telefon ima.
 - [ ] Tap na „kamera“ prebacuje sočivo („kamera 2/3“). Proveri koje sočivo najbolje hvata izbliza.
 - [ ] Da li se tastatura za cenu otvara sama posle skeniranja.
+- [ ] Sa otvorenom tastaturom se vide dugmad za čuvanje (sheet je iznad tastature), a ✓ na tastaturi čuva. Isto na popisu i trebovanju.
 - [ ] Kamera se gasi kad napustiš ekran ili aplikacija ode u pozadinu (indikator kamere nestaje).
 - [ ] Odbijena dozvola za kameru daje status „Nema dozvole za kameru.“ sa „Upiši ručno“.
 - [ ] **Poređenje čitača:** meni → Podešavanja → „Čitač barkoda (test)“ → Ugrađeni, pa zxing. Koji brže i pouzdanije hvata? Posle odluke se ovaj izbor uklanja.

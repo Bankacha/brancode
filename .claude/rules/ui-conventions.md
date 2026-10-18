@@ -13,3 +13,4 @@ paths:
 - Layout is phone-first: one column, `maxWidth: 480`.
 - Icons come from `lucide-react`.
 - Every section screen (Cene, Popis, Trebovanje) starts with `AppHeader` so the menu button sits in the same place everywhere. A new section adds itself to `SECTIONS` in `components/AppMenu.jsx`.
+- Sheets stay above the on-screen keyboard: `index.html` asks Android to shrink the page (`interactive-widget=resizes-content`) and `BottomSheet` follows `useVisibleViewport` (iPhone), capping its height to what is visible; a sheet that still doesn't fit scrolls by touch. Fields that save get `enterKeyHint="done"` and save on Enter (or sit in a `<form>` with a submit button).
