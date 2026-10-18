@@ -15,6 +15,19 @@ describe("leaveScreen", () => {
   });
 });
 
+describe("leaveScreen and putHomeBehind for a list's screens", () => {
+  it("use the list as home", () => {
+    const calls = [];
+    leaveScreen((...args) => calls.push(args), { key: "default" }, "/popis/p1");
+    putHomeBehind((...args) => calls.push(args), { key: "default", pathname: "/popis/p1/skeniranje", state: null }, "/popis/p1");
+    expect(calls).toEqual([
+      ["/popis/p1", { replace: true }],
+      ["/popis/p1", { replace: true }],
+      ["/popis/p1/skeniranje", { state: null }],
+    ]);
+  });
+});
+
 describe("finishScreen", () => {
   it("steps back past the sheet and the screen when the sheet is still open", () => {
     const calls = [];
