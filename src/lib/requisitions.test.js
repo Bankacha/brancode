@@ -44,7 +44,8 @@ describe("requisition store", () => {
 });
 
 describe("transferItems", () => {
-  const store = (onTarget = {}) => ({
+  const store = (onTarget = {}, targetItems = []) => ({
+    items: vi.fn(async () => targetItems),
     findItem: vi.fn(async (_, code) => onTarget[code] ?? null),
     addItem: vi.fn(async () => ({ item: {} })),
     addQuantity: vi.fn(async () => ({})),
@@ -63,6 +64,17 @@ describe("transferItems", () => {
     expect(s.addItem).toHaveBeenCalledWith("t2", { barcode: "333", name: "Sir", price: null, quantity: 1 });
     expect(s.addItem).toHaveBeenCalledWith("t2", { barcode: null, name: "Hleb za sendviče", price: null, quantity: null });
     expect(s.findItem).toHaveBeenCalledTimes(3); // not for the item without a barcode
+  });
+
+  it("treats an item without a barcode and with the same name as the one already there", async () => {
+    const s = store({}, [{ id: "h1", barcode: null, name: "Hleb za sendviče", price: null, quantity: null }]);
+    const items = [
+      { barcode: null, name: "  hleb za SENDVIČE ", price: null, quantity: 4 },
+      { barcode: null, name: "Hleb za sendviče", price: null, quantity: null },
+    ];
+    expect(await transferItems(s, items, "t2")).toEqual({ copied: 0, added: 1, skipped: 1 });
+    expect(s.addQuantity).toHaveBeenCalledWith("h1", 4);
+    expect(s.addItem).not.toHaveBeenCalled();
   });
 
   it("adds to the item another phone put there in the meantime", async () => {

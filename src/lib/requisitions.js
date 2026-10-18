@@ -33,12 +33,16 @@ export const createRequisitionStore = (client) =>
 
 export const requisitionStore = createRequisitionStore(supabase);
 
+const sameName = (a, b) => a.trim().toLocaleLowerCase("sr") === b.trim().toLocaleLowerCase("sr");
+
 // "Prenesi stavke": copies items into another trebovanje. An article that is
-// already there (same barcode) gets the quantity added instead of a second
-// row, or is skipped when there is nothing to add; items without a barcode
-// are always copied. A failure part way throws with `done` set.
+// already there gets the quantity added instead of a second row, or is
+// skipped when there is nothing to add: the same barcode, or for items
+// without one the same name ("Hleb za sendviče"). A failure part way throws
+// with `done` set.
 export const transferItems = async (store, items, targetId) => {
   const result = { copied: 0, added: 0, skipped: 0 };
+  const unnamed = items.some((item) => !item.barcode) ? (await store.items(targetId)).filter((t) => !t.barcode) : [];
   const addTo = async (existing, quantity) => {
     if (quantity) {
       await store.addQuantity(existing.id, quantity);
@@ -49,14 +53,19 @@ export const transferItems = async (store, items, targetId) => {
   };
   for (const item of items) {
     try {
-      const existing = item.barcode ? await store.findItem(targetId, item.barcode) : null;
+      const existing = item.barcode
+        ? await store.findItem(targetId, item.barcode)
+        : unnamed.find((target) => sameName(target.name, item.name)) ?? null;
       if (existing) {
         await addTo(existing, item.quantity);
         continue;
       }
       const added = await store.addItem(targetId, { barcode: item.barcode, name: item.name, price: item.price, quantity: item.quantity });
       if (added.duplicate) await addTo(added.duplicate, item.quantity);
-      else result.copied++;
+      else {
+        result.copied++;
+        if (!item.barcode) unnamed.push({ id: added.item.id, name: item.name }); // two "Hleb" in one transfer are one
+      }
     } catch (e) {
       e.done = result.copied + result.added + result.skipped;
       throw e;

@@ -49,7 +49,7 @@ describe("Prenesi stavke", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     requisitionStore.get.mockResolvedValue(t1);
-    requisitionStore.items.mockResolvedValue(items);
+    requisitionStore.items.mockImplementation(async (id) => (id === "t1" ? items : [])); // targets start empty
     requisitionStore.list.mockResolvedValue([
       { id: "t2", title: "", date: "2026-10-18", createdAt: "b", itemCount: 1 },
       { ...t1, itemCount: 2 },
