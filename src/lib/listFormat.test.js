@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { formatDate, formatQuantity, inventoryTitle, monthStartIso, parseQuantity, todayIso } from "./listFormat.js";
+import { formatDate, formatQuantity, inventoryTitle, isArchived, monthStartIso, parseQuantity, requisitionTitle, todayIso } from "./listFormat.js";
 
 describe("dates", () => {
   it("prints an ISO date the Serbian way", () => {
@@ -44,5 +44,26 @@ describe("formatQuantity", () => {
     expect(formatQuantity(1.5)).toBe("1,5");
     expect(formatQuantity(0.125)).toBe("0,125");
     expect(formatQuantity(1500)).toBe("1.500");
+  });
+});
+
+describe("requisitionTitle", () => {
+  it("is the optional text followed by the date", () => {
+    expect(requisitionTitle({ title: "Pekara", date: "2026-10-18" })).toBe("Pekara 18.10.2026");
+    expect(requisitionTitle({ title: " ", date: "2026-10-18" })).toBe("18.10.2026");
+  });
+});
+
+describe("isArchived", () => {
+  const now = new Date(2026, 9, 18, 9, 0);
+
+  it("keeps the last 20 days on top", () => {
+    expect(isArchived("2026-10-18", now)).toBe(false);
+    expect(isArchived("2026-09-28", now)).toBe(false); // exactly 20 days ago
+  });
+
+  it("archives older ones, across a month and a clock change", () => {
+    expect(isArchived("2026-09-27", now)).toBe(true);
+    expect(isArchived("2026-11-15", new Date(2026, 11, 6, 0, 30))).toBe(true); // 21 days, over the end of DST
   });
 });

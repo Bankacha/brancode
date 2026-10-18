@@ -8,21 +8,10 @@ import { useSheet } from "../lib/useSheet.js";
 import { useToast } from "../components/Toast.jsx";
 import AppHeader from "../components/AppHeader.jsx";
 import Button from "../components/Button.jsx";
+import LoadError from "../components/LoadError.jsx";
 import ListCard from "../components/ListCard.jsx";
 import ConfirmDeleteListSheet from "../sheets/ConfirmDeleteListSheet.jsx";
 import InventoryFormSheet from "../sheets/InventoryFormSheet.jsx";
-
-export function LoadError({ text, onRetry }) {
-  return (
-    <div className="mt-6 flex flex-col items-center gap-3 rounded-card bg-surface-muted px-5 py-6 text-center">
-      <WifiOff size={24} className="text-ink-3" />
-      <p className="text-[15px] text-ink-2">{text}</p>
-      <Button variant="dark" size="md" onClick={onRetry}>
-        Pokušaj ponovo
-      </Button>
-    </div>
-  );
-}
 
 // /popis: every stocktaking list in the shop, newest first.
 export default function InventoryLists() {

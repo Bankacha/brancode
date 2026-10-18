@@ -83,6 +83,23 @@ Ovo nije provereno na pravom telefonu i papiru, pa ostaje za zajednički test. �
 - [ ] „Pošalji mejlom“: stiže mejl „Popis – …“ sa PDF-om (samo na Vercel-u).
 - [ ] Bez interneta: jasna poruka i „Ponovi“, ništa se ne gubi.
 
+## 2b. Trebovanje (na telefonu)
+
+- [ ] Meni → Trebovanje. Poslednjih 20 dana je na vrhu, a starija su pod „Arhiva“.
+- [ ] Novo trebovanje sa datumom danas i tekstom. Naziv je „tekst 18.10.2026“.
+- [ ] Ručni unos:
+  - „Bez barkoda“ dodaje stavku sa samo nazivom;
+  - cena i količina mogu da ostanu prazne;
+  - artikal iz baze ima zaključan naziv i cenu.
+- [ ] Isti artikal ponovo: „Dodaj količinu“ i na stavci bez količine.
+- [ ] **Prenesi stavke:**
+  - biranje stavki i „Izaberi sve“;
+  - prenos u postojeće i u novo trebovanje;
+  - otvara se ciljno trebovanje;
+  - drugi prenos istih stavki ne pravi duplikate;
+  - „nazad“ izlazi iz biranja.
+- [ ] **PDF:** kolone Naziv, Barkod, Cena, Količina i kvadratić za štikliranje desno. Prazne vrednosti su prazne.
+
 ## 3. Štampa
 
 - [ ] Odštampaj po jednu stranu za Raf, Frižider i Voće i uporedi sa `/pregled`:

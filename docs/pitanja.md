@@ -55,3 +55,20 @@ Dok se ovo ne reši, sve testiraj lokalno (`npm run dev`, telefon na istoj mrež
 7. **Meni na ekranu jednog popisa** se ne vidi (tu su „nazad“ i olovčica). Meni je na spisku popisa.
 8. **Probni podaci:** napravio sam popis „Proba (Claude)“ u tvojoj bazi, sa dve stavke, proverio sve i **obrisao ga**. Tabele popisa su ponovo prazne. U `products` nisam ništa pisao.
 9. **PWA:** PDF biblioteka (oko 1,9 MB) se čuva za rad bez interneta, pa je prva instalacija aplikacije nešto veća.
+
+## Trebovanje
+
+1. **Artikal iz baze** ima zaključan naziv i cenu, kao na popisu, i pri dodavanju i pri izmeni. Trebovanje u bazi ne pamti da li je artikal iz baze, pa se pri izmeni barkod ponovo proverava. Spec je rekao „isto kao Popis“. Da li na trebovanju treba da mogu da se menjaju?
+2. **„Bez barkoda“** je dugme na ekranu za ručni unos, ispod „Nastavi“. Stavka tada ima samo naziv, a cenu i količinu po želji.
+3. **Prenos stavki bez barkoda:** spec spominje samo barkod. Ako cilj već ima stavku bez barkoda **sa istim nazivom** (bez obzira na velika i mala slova), ne pravi se druga, nego se dodaje količina. Probao sam: bez toga je drugi prenos dupliran „Hleb za sendviče“.
+4. **Postojeća stavka bez količine na cilju** se pri prenosu preskače, ako ni prenesena nema količinu. Poruka kaže „N već postoji“.
+5. **Ako veza pukne na pola prenosa:**
+   - poruka kaže koliko je preneseno (npr. „Preneseno 1 od 2“) i otvara se ciljno trebovanje, da se vidi šta je stiglo;
+   - ostale stavke se prenose ponovo, ručno;
+   - „Ponovi“ se nudi samo kad ništa nije preneseno, da se količine ne bi dodale dvaput;
+   - ako je ciljno trebovanje u međuvremenu obrisano, to se jasno kaže.
+6. **Biranje stavki je korak u istoriji:** „nazad“ izlazi iz biranja. „Nazad“ iz liste ciljeva izlazi iz celog prenosa, a ne nazad na biranje.
+7. **Spisak trebovanja** je poređan po datumu trebovanja (najnovije gore), a ne po vremenu kad je napravljeno.
+8. **Arhiva:** sve sa datumom starijim od 20 dana. Trebovanje od pre tačno 20 dana je još gore.
+9. **PDF trebovanja** nema kolonu „#“ (redni broj), jer je spec za trebovanje naveo kolone bez nje. Popis je ima.
+10. **Probni podaci:** napravio sam i obrisao tri trebovanja „Proba (Claude)…“. Tabele trebovanja su prazne.

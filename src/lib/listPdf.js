@@ -8,7 +8,7 @@ import { formatDate, formatQuantity, itemCount, todayIso } from "./listFormat.js
 const header = (labels) => labels.map(([text, alignment = "left"]) => ({ text, style: "th", alignment }));
 const right = (text) => ({ text, alignment: "right" });
 
-const document = ({ title, lines, widths, head, rows }) => ({
+const tableDocument = ({ title, lines, widths, head, rows }) => ({
   pageSize: "A4",
   pageOrientation: "portrait",
   pageMargins: [36, 40, 36, 48],
@@ -32,7 +32,7 @@ const document = ({ title, lines, widths, head, rows }) => ({
 });
 
 export const inventoryPdfDefinition = (inventory, items, now = new Date()) =>
-  document({
+  tableDocument({
     title: inventory.title.trim() ? `Popis · ${inventory.title.trim()}` : "Popis",
     lines: [`Period: ${formatDate(inventory.dateFrom)} – ${formatDate(inventory.dateTo)}`, `Izrađeno ${formatDate(todayIso(now))} · ${itemCount(items.length)}`],
     widths: [22, "*", 88, 60, 52],
@@ -41,6 +41,27 @@ export const inventoryPdfDefinition = (inventory, items, now = new Date()) =>
   });
 
 export const inventoryPdfFilename = (inventory) => `popis-${inventory.dateFrom}_${inventory.dateTo}.pdf`;
+
+// An empty square to tick by hand after printing.
+const tickBox = { canvas: [{ type: "rect", x: 2, y: 1, w: 9, h: 9, lineWidth: 0.8, lineColor: "#333333" }] };
+const orEmpty = (value, format) => (value === null || value === undefined ? "" : format(value));
+
+export const requisitionPdfDefinition = (requisition, items, now = new Date()) =>
+  tableDocument({
+    title: requisition.title.trim() ? `Trebovanje · ${requisition.title.trim()}` : "Trebovanje",
+    lines: [`Datum: ${formatDate(requisition.date)}`, `Izrađeno ${formatDate(todayIso(now))} · ${itemCount(items.length)}`],
+    widths: ["*", 88, 60, 52, 16],
+    head: [["Naziv"], ["Barkod"], ["Cena", "right"], ["Količina", "right"], [""]],
+    rows: items.map((item) => [
+      item.name,
+      item.barcode ?? "",
+      right(orEmpty(item.price, formatPrice)),
+      right(orEmpty(item.quantity, formatQuantity)),
+      tickBox,
+    ]),
+  });
+
+export const requisitionPdfFilename = (requisition) => `trebovanje-${requisition.date}.pdf`;
 
 // Browser only.
 export const buildPdfBlob = async (definition) => {

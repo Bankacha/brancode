@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { inventoryPdfDefinition, inventoryPdfFilename } from "./listPdf.js";
+import { inventoryPdfDefinition, inventoryPdfFilename, requisitionPdfDefinition, requisitionPdfFilename } from "./listPdf.js";
 
 const popis = { id: "p1", title: "Magacin", dateFrom: "2026-10-01", dateTo: "2026-10-18" };
 const items = [
@@ -41,5 +41,35 @@ describe("inventoryPdfDefinition", () => {
 describe("inventoryPdfFilename", () => {
   it("names the file after the period", () => {
     expect(inventoryPdfFilename(popis)).toBe("popis-2026-10-01_2026-10-18.pdf");
+  });
+});
+
+describe("requisitionPdfDefinition", () => {
+  const trebovanje = { id: "t1", title: "Pekara", date: "2026-10-18" };
+  const rows = [
+    { id: "a", barcode: "111", name: "Mleko", price: 100, quantity: 3 },
+    { id: "b", barcode: null, name: "Hleb za sendviče", price: null, quantity: null },
+  ];
+  const def = () => requisitionPdfDefinition(trebovanje, rows, new Date(2026, 9, 18, 9, 0));
+
+  it("names the trebovanje and its date on top", () => {
+    const top = JSON.stringify(def().content.filter((node) => !node.table));
+    expect(top).toContain("Trebovanje · Pekara");
+    expect(top).toContain("Datum: 18.10.2026");
+    expect(top).toContain("2 stavke");
+  });
+
+  it("has name, barcode, price, quantity and an empty box to tick on each row, header on every page", () => {
+    const t = table(def());
+    expect(t.headerRows).toBe(1);
+    expect(t.body[0].map((cell) => cell.text)).toEqual(["Naziv", "Barkod", "Cena", "Količina", ""]);
+    const [, mleko, hleb] = t.body;
+    expect(mleko.slice(0, 4).map((cell) => cell.text ?? cell)).toEqual(["Mleko", "111", "100,00", "3"]);
+    expect(hleb.slice(0, 4).map((cell) => cell.text ?? cell)).toEqual(["Hleb za sendviče", "", "", ""]);
+    expect(mleko[4].canvas[0]).toMatchObject({ type: "rect" });
+  });
+
+  it("names the file after the date", () => {
+    expect(requisitionPdfFilename(trebovanje)).toBe("trebovanje-2026-10-18.pdf");
   });
 });
