@@ -21,7 +21,7 @@ function Key({ label, children, onPress }) {
 // Handoff "05 · Ručni unos", the keypad screen: typing a barcode for price
 // tags or for a list. A physical keyboard works too (desktop) while
 // `listening` — off while a sheet's fields have the keyboard.
-export default function BarcodeKeypad({ code, onCodeChange, onSubmit, onBack, listening, children }) {
+export default function BarcodeKeypad({ code, onCodeChange, onSubmit, onBack, listening, extraAction = null, children }) {
   const submitRef = useRef(onSubmit);
   submitRef.current = onSubmit;
 
@@ -80,6 +80,11 @@ export default function BarcodeKeypad({ code, onCodeChange, onSubmit, onBack, li
       <Button variant="dark" disabled={!code} onClick={onSubmit} className="mt-3 w-full">
         Nastavi
       </Button>
+      {extraAction && (
+        <Button variant="text" size="md" onClick={extraAction.run} className="mt-1 w-full">
+          {extraAction.label}
+        </Button>
+      )}
 
       {children}
     </div>
