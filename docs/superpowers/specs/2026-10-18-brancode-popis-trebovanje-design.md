@@ -143,14 +143,14 @@ Svaka faza ima svoj plan, izvršavanje i pregled, kao kod redizajna. Na `main` i
 
 1. **Meni + Popis:** meni, rute sekcija, tabele za popis, spisak, lista, stavke, duplikati, skeniranje u nizu, PDF i mejl.
 2. **Trebovanje:** tabele, spisak sa arhivom, lista, stavke, prenos stavki i PDF. Koristi što je moguće više delova Popisa.
-3. **Nadogradnja cenovnika:** decimale i uspravan barkod na rafu i frižideru, u Excel-u i pregledu.
+3. **Nadogradnja cenovnika:** decimale i uspravan broj barkoda na rafu i frižideru, u Excel-u i pregledu.
 
 ## Provera
 
 - Vitest za čistu logiku: nazivi lista, validacija, sabiranje količina, izbor i prenos stavki bez duplikata, raspored PDF-a gde je moguće, rich text cene i položaj barkoda.
 - Ručna provera u browseru kao do sada.
 - Na telefonu i papiru se testira kasnije, zajedno sa redizajnom. Sve se dopisuje u `docs/testing/redesign-test-checklist.md` (ili u novi spisak pored njega), naročito:
-  - da li se uspravan barkod na rafu i frižideru očitava na kasi;
+  - da li je uspravan broj barkoda na rafu i frižideru čitljiv i da li ostaje u vidljivom delu držača;
   - da li PDF od više strana izgleda uredno na papiru.
 
 ## Ostavljeno graditelju
