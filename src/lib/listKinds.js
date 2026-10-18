@@ -7,7 +7,7 @@ import { requisitionStore } from "./requisitions.js";
 export const popisKind = {
   section: "popis",
   store: inventoryStore,
-  rules: { priceRequired: true, quantityRequired: true, zeroQuantity: true },
+  rules: { priceRequired: true, quantityRequired: true, zeroQuantity: true, lockProductName: true },
   texts: {
     onList: "na popisu",
     duplicateTitle: "Artikal je već na popisu",
@@ -21,7 +21,9 @@ export const popisKind = {
 export const trebovanjeKind = {
   section: "trebovanje",
   store: requisitionStore,
-  rules: { priceRequired: false, quantityRequired: false, zeroQuantity: false },
+  // a scanned article may be renamed on a trebovanje (what to order, in the
+  // shop's own words); its price stays as in `products`
+  rules: { priceRequired: false, quantityRequired: false, zeroQuantity: false, lockProductName: false },
   texts: {
     onList: "na trebovanju",
     duplicateTitle: "Artikal je već na trebovanju",

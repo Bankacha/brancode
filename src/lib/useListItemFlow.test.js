@@ -243,13 +243,21 @@ describe("useListItemFlow on a trebovanje", () => {
     expect(requisitionStore.updateItem).toHaveBeenCalledWith("r3", { name: "Jaja", price: null, quantity: 30 });
   });
 
-  it("locks a database article on edit too, looking it up since trebovanje doesn't store that", async () => {
+  it("lets the name of a scanned database article be changed, keeping its price locked", async () => {
+    requisitionStore.findItem.mockResolvedValue(null);
+    lookupArticle.mockResolvedValue({ barcode: "8600005000122", name: "MAJONEZ 175", price: 85 });
+    const flow = flowFor();
+    await act(() => flow.current.start("8600005000122"));
+    expect(flow.current.state).toMatchObject({ kind: "new", name: "MAJONEZ 175", lockName: false, lockPrice: true, inProducts: true });
+  });
+
+  it("locks a database article's price on edit too, looking it up since trebovanje doesn't store that", async () => {
     lookupArticle.mockResolvedValue({ barcode: "8600005000122", name: "MAJONEZ 175", price: 85 });
     const flow = flowFor();
     let result;
-    await act(async () => (result = await flow.current.edit({ id: "r4", barcode: "8600005000122", name: "MAJONEZ 175", price: 85, quantity: 2 })));
+    await act(async () => (result = await flow.current.edit({ id: "r4", barcode: "8600005000122", name: "Majonez za salatu", price: 85, quantity: 2 })));
     expect(result).toEqual({ ok: true });
-    expect(flow.current.state).toMatchObject({ kind: "edit", lockName: true, lockPrice: true, inProducts: true });
+    expect(flow.current.state).toMatchObject({ kind: "edit", name: "Majonez za salatu", lockName: false, lockPrice: true, inProducts: true });
   });
 
   it("leaves an item that isn't in the database editable, and doesn't look up one without a barcode", async () => {
