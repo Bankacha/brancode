@@ -63,6 +63,26 @@ Ovo nije provereno na pravom telefonu i papiru, pa ostaje za zajednički test. �
 - [ ] Bez interneta: aplikacija se otvara, a fontovi i skeniranje rade. Čuvanje i slanje traže vezu.
 - [ ] Sheet-ovi se zatvaraju prevlačenjem nadole.
 
+## 2a. Popis (na telefonu)
+
+- [ ] Meni → Popis → „Novi popis“. Podrazumevani period je od 1. u mesecu do danas, a naziv se vidi pre čuvanja.
+- [ ] Skeniranje u nizu:
+  - artikal iz baze ima zaključan naziv i cenu, pa se upiše količina;
+  - „Sačuvaj i skeniraj sledeći“ nastavlja kameru;
+  - artikal kog nema u bazi traži naziv i cenu.
+- [ ] Isti artikal ponovo pita „Dodaj količinu / Izmeni stavku / Otkaži“. Količina se sabira, i sa decimalama („1,5“).
+- [ ] **Dva telefona na istom popisu:** oba skeniraju isti artikal. Drugi dobija pitanje o duplikatu, a zbir je tačan.
+- [ ] Dugi pritisak na stavku je otvara za izmenu. X briše stavku, a „Vrati“ je vraća.
+- [ ] Olovčica menja tekst i period.
+- [ ] Dugi pritisak na popis u spisku nudi brisanje, sa brojem stavki.
+- [ ] **PDF:**
+  - preuzet PDF ima naziv, period, datum, broj stavki i tabelu;
+  - zaglavlje tabele je na svakoj strani;
+  - podnožje je „Strana X od Y“;
+  - slova č ć š ž đ su ispravna.
+- [ ] „Pošalji mejlom“: stiže mejl „Popis – …“ sa PDF-om (samo na Vercel-u).
+- [ ] Bez interneta: jasna poruka i „Ponovi“, ništa se ne gubi.
+
 ## 3. Štampa
 
 - [ ] Odštampaj po jednu stranu za Raf, Frižider i Voće i uporedi sa `/pregled`:

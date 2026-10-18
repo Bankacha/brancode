@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "react-router";
-import { LogOut, Menu, Settings, Tag } from "lucide-react";
+import { ClipboardList, LogOut, Menu, Settings, Tag } from "lucide-react";
 import { supabase } from "../supabaseClient";
 import { useSession } from "../auth/session.jsx";
 import { useToast } from "./Toast.jsx";
@@ -9,13 +9,20 @@ import IconButton from "./IconButton.jsx";
 import SettingsSheet from "../sheets/SettingsSheet.jsx";
 
 // The app's sections; each new feature adds its entry here.
-export const SECTIONS = [{ path: "/", label: "Cenovnici", icon: Tag }];
+export const SECTIONS = [
+  { path: "/", label: "Cenovnici", icon: Tag },
+  { path: "/popis", label: "Popis", icon: ClipboardList },
+];
+
+// A section is current on its own page and on the pages under it
+// (/popis/7 belongs to Popis); "/" only on itself.
+const inSection = (pathname, path) => pathname === path || (path !== "/" && pathname.startsWith(`${path}/`));
 
 function MenuRow({ icon: Icon, children, active, ...props }) {
-  const Tag = props.to ? Link : "button";
+  const As = props.to ? Link : "button";
   return (
-    <Tag
-      {...(Tag === "button" ? { type: "button" } : {})}
+    <As
+      {...(As === "button" ? { type: "button" } : {})}
       {...props}
       className={`flex h-14 w-full items-center gap-3.5 rounded-field px-4 text-left text-[17px] font-semibold text-ink transition-transform duration-100 active:scale-[.98] ${
         active ? "bg-surface-muted" : ""
@@ -23,7 +30,7 @@ function MenuRow({ icon: Icon, children, active, ...props }) {
     >
       <Icon size={22} className={active ? "text-accent" : "text-ink-2"} />
       {children}
-    </Tag>
+    </As>
   );
 }
 
@@ -56,7 +63,7 @@ export default function AppMenu() {
       <BottomSheet open={sheet.name === "menu"} onClose={sheet.close}>
         <nav className="flex flex-col gap-1">
           {SECTIONS.map(({ path, label, icon }) => {
-            const active = path === "/" ? location.pathname === "/" : location.pathname.startsWith(path);
+            const active = inSection(location.pathname, path);
             return (
               <MenuRow key={path} to={path} icon={icon} active={active} aria-current={active ? "page" : undefined} onClick={(e) => go(e, path)}>
                 {label}

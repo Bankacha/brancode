@@ -1,4 +1,5 @@
 import { supabase } from "../supabaseClient.js";
+import { sameArticleCodes } from "./ean.js";
 
 // About half of the imported product list stores EAN-13 barcodes without their
 // trailing check digit (12 digits), so a real 13-digit code won't string-match
@@ -12,6 +13,17 @@ export const lookupProduct = async (barcode, client = supabase) => {
       .select("barcode, name, price")
       .eq("barcode", candidate)
       .maybeSingle();
+    if (error) throw error;
+    if (data) return data;
+  }
+  return null;
+};
+
+// For Popis and Trebovanje, which only read `products`: also finds the full
+// 13-digit row when someone typed the 12 digits printed without the last one.
+export const lookupArticle = async (code, client = supabase) => {
+  for (const candidate of sameArticleCodes(code)) {
+    const { data, error } = await client.from("products").select("barcode, name, price").eq("barcode", candidate).maybeSingle();
     if (error) throw error;
     if (data) return data;
   }

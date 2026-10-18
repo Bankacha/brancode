@@ -1,6 +1,7 @@
 import ExcelJS from "exceljs";
 import JsBarcode from "jsbarcode";
 import { formatPrice } from "./format.js";
+import { eanCheckDigitOk } from "./ean.js";
 
 // Fridge price holders cover the top and bottom of the printed strip, so only a
 // middle band is visible — the fridge preset adds blank space above the name
@@ -99,13 +100,6 @@ export const tagRowsPerPage = (format) => {
 
 export const sheetFilename = (format, date = new Date()) =>
   `cenovnik-${PRICE_TAG_STYLES[format].fileSlug}-${date.toISOString().slice(0, 10)}.xlsx`;
-
-// EAN-13 / EAN-8 check digit: weights 3,1,3,… from the right of the data digits.
-const eanCheckDigitOk = (digits) => {
-  const data = digits.slice(0, -1).split("").map(Number).reverse();
-  const sum = data.reduce((total, d, i) => total + d * (i % 2 === 0 ? 3 : 1), 0);
-  return (10 - (sum % 10)) % 10 === Number(digits.at(-1));
-};
 
 // EAN symbols are shorter than CODE128 for the same digits, which matters on
 // an upright barcode only ~25 mm long. 12 digits are an EAN-13 the POS export

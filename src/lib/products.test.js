@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { barcodeCandidates, lookupProduct, saveProduct } from "./products.js";
+import { barcodeCandidates, lookupArticle, lookupProduct, saveProduct } from "./products.js";
 
 // Records every Supabase call the code makes, in order.
 const fakeClient = ({ rows = {}, updateResult = { data: [], error: null }, upsertResult = { error: null } } = {}) => {
@@ -69,5 +69,18 @@ describe("saveProduct", () => {
   it("rejects when the move fails", async () => {
     const { client } = fakeClient({ updateResult: { data: null, error: new Error("boom") } });
     await expect(saveProduct(majonez, "860000500012", client)).rejects.toThrow("boom");
+  });
+});
+
+describe("lookupArticle (lists, read only)", () => {
+  it("finds the full 13-digit row when only 12 digits were typed", async () => {
+    const { client, calls } = fakeClient({ rows: { "8600005000122": majonez } });
+    expect(await lookupArticle("860000500012", client)).toEqual(majonez);
+    expect(calls).toEqual([["select", "860000500012"], ["select", "8600005000122"]]);
+  });
+
+  it("finds the 12-digit row for a scanned code, like the price tags do", async () => {
+    const { client } = fakeClient({ rows: { "860000500012": legacyRow } });
+    expect(await lookupArticle("8600005000122", client)).toEqual(legacyRow);
   });
 });

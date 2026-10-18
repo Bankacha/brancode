@@ -8,12 +8,11 @@ const blobToBase64 = (blob) =>
     reader.readAsDataURL(blob);
   });
 
-// Sends the generated sheet to the shop's address via api/send-email.js,
-// authenticated with the signed-in user's Supabase token.
-export const sendSheetByEmail = async (filename, buffer) => {
-  const blob = new Blob([buffer], {
-    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  });
+// Sends a file to the shop's address via api/send-email.js, authenticated
+// with the signed-in user's Supabase token. Without `subject` the mail is
+// titled as a price-tag sheet. Throws "file-too-large" when the endpoint
+// refuses the size (offer the download instead), "send-failed" otherwise.
+export const sendFileByEmail = async (filename, blob, { subject } = {}) => {
   const base64 = await blobToBase64(blob);
 
   const {
@@ -27,7 +26,11 @@ export const sendSheetByEmail = async (filename, buffer) => {
       "Content-Type": "application/json",
       Authorization: `Bearer ${session.access_token}`,
     },
-    body: JSON.stringify({ filename, base64 }),
+    body: JSON.stringify({ filename, base64, ...(subject && { subject }) }),
   });
+  if (res.status === 413) throw new Error("file-too-large");
   if (!res.ok) throw new Error("send-failed");
 };
+
+export const sendSheetByEmail = (filename, buffer) =>
+  sendFileByEmail(filename, new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));

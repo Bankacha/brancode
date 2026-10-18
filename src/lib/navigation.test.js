@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { finishScreen, leaveScreen, putHomeBehind } from "./navigation.js";
 
 describe("leaveScreen", () => {
@@ -12,6 +12,30 @@ describe("leaveScreen", () => {
     const calls = [];
     leaveScreen((...args) => calls.push(args), { key: "default" });
     expect(calls).toEqual([["/", { replace: true }]]);
+  });
+});
+
+describe("leaveScreen and putHomeBehind for a list's screens", () => {
+  it("use the list as home", () => {
+    const calls = [];
+    leaveScreen((...args) => calls.push(args), { key: "default" }, "/popis/p1");
+    putHomeBehind((...args) => calls.push(args), { key: "default", pathname: "/popis/p1/skeniranje", state: null }, "/popis/p1");
+    expect(calls).toEqual([
+      ["/popis/p1", { replace: true }],
+      ["/popis/p1", { replace: true }],
+      ["/popis/p1/skeniranje", { state: null }],
+    ]);
+  });
+});
+
+describe("leaveScreen on the first entry of the app's history", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("goes home instead of back out of the app, e.g. after home was put behind a deep link", () => {
+    vi.stubGlobal("window", { history: { state: { idx: 0, key: "k1" } } });
+    const calls = [];
+    leaveScreen((...args) => calls.push(args), { key: "k1" }, "/popis");
+    expect(calls).toEqual([["/popis", { replace: true }]]);
   });
 });
 
