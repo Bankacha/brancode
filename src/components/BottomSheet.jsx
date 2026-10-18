@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { shouldDismissDrag } from "../lib/gestures.js";
+import { useVisibleViewport } from "../lib/useVisibleViewport.js";
 
 const ANIMATION_MS = 250;
 const INTERACTIVE = "input, textarea, select, button, a, label";
@@ -23,6 +24,18 @@ export default function BottomSheet({ open, onClose, dismissible = true, closeOn
   const [shown, setShown] = useState(false);
   const [dragY, setDragY] = useState(0);
   const drag = useRef(null);
+  // Stays above the on-screen keyboard and within what it leaves visible, so
+  // the save buttons can be reached without closing the keyboard first.
+  const visible = useVisibleViewport();
+  // A sheet taller than that scrolls by touch (closing it is then by back or
+  // a tap outside); otherwise touch drags belong to drag-to-close.
+  const panel = useRef(null);
+  const [scrollable, setScrollable] = useState(false);
+  useLayoutEffect(() => {
+    const el = panel.current;
+    const next = Boolean(el) && el.scrollHeight > el.clientHeight + 1;
+    if (next !== scrollable) setScrollable(next);
+  });
 
   useEffect(() => {
     if (open) {
@@ -53,7 +66,7 @@ export default function BottomSheet({ open, onClose, dismissible = true, closeOn
   if (!mounted) return null;
 
   const onPointerDown = (e) => {
-    if (!dismissible || e.target.closest(INTERACTIVE)) return;
+    if (!dismissible || scrollable || e.target.closest(INTERACTIVE)) return;
     drag.current = { y: e.clientY, t: performance.now() };
     e.currentTarget.setPointerCapture?.(e.pointerId);
   };
@@ -75,16 +88,20 @@ export default function BottomSheet({ open, onClose, dismissible = true, closeOn
         className={`absolute inset-0 transition-opacity duration-250 ${dim ? "bg-scrim/80" : ""} ${shown ? "opacity-100" : "opacity-0"}`}
         onClick={dismissible && closeOnScrim ? onClose : undefined}
       />
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 mx-auto w-full max-w-[480px]">
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 mx-auto w-full max-w-[480px]" style={visible.keyboard ? { bottom: visible.keyboard } : undefined}>
         <div
+          ref={panel}
           role="dialog"
           aria-modal="true"
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerEnd}
           onPointerCancel={onPointerEnd}
-          style={dragY ? { transform: `translateY(${dragY}px)`, transition: "none" } : undefined}
-          className={`pointer-events-auto flex touch-none flex-col gap-3.5 rounded-t-sheet bg-bg px-5 pt-3 pb-[calc(34px+env(safe-area-inset-bottom))] transition-transform duration-250 ease-out ${shown ? "translate-y-0" : "translate-y-full"}`}
+          style={{
+            ...(visible.height ? { maxHeight: visible.height - 8 } : {}),
+            ...(dragY ? { transform: `translateY(${dragY}px)`, transition: "none" } : {}),
+          }}
+          className={`pointer-events-auto flex ${scrollable ? "touch-pan-y" : "touch-none"} flex-col gap-3.5 overflow-y-auto rounded-t-sheet bg-bg px-5 pt-3 pb-[calc(34px+env(safe-area-inset-bottom))] transition-transform duration-250 ease-out ${shown ? "translate-y-0" : "translate-y-full"}`}
         >
           <div className="mx-auto mb-1 h-[5px] w-10 shrink-0 rounded-full bg-border" />
           {children}

@@ -68,6 +68,26 @@ describe("EditSheet actions by source", () => {
     expect(screen.getByRole("button", { name: "Sačuvaj i zatvori" })).toBeTruthy();
   });
 
+  it("saves from the keyboard's Enter key, without closing the keyboard first", () => {
+    const h = handlers();
+    setup({ source: "scan", sessionCount: 1, editor: found, ...h });
+    const price = screen.getByLabelText(/Cena/);
+    expect(price.getAttribute("enterkeyhint")).toBe("done");
+    fireEvent.keyDown(price, { key: "Enter" });
+    expect(h.onSaveNext).toHaveBeenCalledTimes(1);
+  });
+
+  it("saves a list row from Enter too, but not while the price isn't valid", () => {
+    const h = handlers();
+    setup({ source: "list", ...h });
+    fireEvent.keyDown(screen.getByLabelText("Naziv"), { key: "Enter" });
+    expect(h.onSave).toHaveBeenCalledTimes(1);
+    const blocked = handlers();
+    setup({ source: "list", editor: editor({ canSave: false }), ...blocked });
+    fireEvent.keyDown(screen.getAllByLabelText(/Cena/).at(-1), { key: "Enter" });
+    expect(blocked.onSave).not.toHaveBeenCalled();
+  });
+
   it("from the list: just save and close", () => {
     const h = handlers();
     setup({ source: "list", ...h });
