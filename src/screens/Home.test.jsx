@@ -32,7 +32,7 @@ describe("Home", () => {
   it("counts tags and groups the ones that need checking", () => {
     render(<Harness initial={list(7, 2)} />);
     expect(screen.getByText("7")).toBeTruthy();
-    expect(screen.getByText("cenovnika")).toBeTruthy();
+    expect(screen.getByText("cena")).toBeTruthy();
     expect(screen.getByText("2 traže proveru pre štampe")).toBeTruthy();
     expect(screen.getByText("Za proveru · nije u bazi")).toBeTruthy();
     expect(screen.getByText("Spremno · 5")).toBeTruthy();
@@ -46,7 +46,7 @@ describe("Home", () => {
 
   it("says everything is ready when nothing needs checking", () => {
     render(<Harness initial={list(1)} />);
-    expect(screen.getByText("cenovnik")).toBeTruthy();
+    expect(screen.getByText("cena")).toBeTruthy();
     expect(screen.getByText("Sve je spremno za štampu")).toBeTruthy();
     expect(screen.queryByText("Za proveru · nije u bazi")).toBeNull();
   });
@@ -54,8 +54,19 @@ describe("Home", () => {
   it("uses singular forms for 21 tags and 1 to check", () => {
     render(<Harness initial={list(21, 1)} />);
     expect(screen.getByText("21")).toBeTruthy();
-    expect(screen.getByText("cenovnik")).toBeTruthy();
+    expect(screen.getByText("cena")).toBeTruthy();
     expect(screen.getByText("1 traži proveru pre štampe")).toBeTruthy();
+  });
+
+  it("counts 2 to 4 as cene", () => {
+    render(<Harness initial={list(22)} />);
+    expect(screen.getByText("cene")).toBeTruthy();
+  });
+
+  it("asks before deleting a single price as 1 cenu", () => {
+    render(<Harness initial={list(1)} />);
+    fireEvent.click(screen.getByRole("button", { name: "Obriši sve" }));
+    expect(screen.getByText("Obrisati 1 cenu?")).toBeTruthy();
   });
 
   it("invites the first scan when the list is empty", () => {
@@ -85,7 +96,7 @@ describe("Home", () => {
   it("offers Obriši sve on the first group, even when every article still needs checking", () => {
     render(<Harness initial={list(3, 3)} />);
     fireEvent.click(screen.getByRole("button", { name: "Obriši sve" }));
-    expect(screen.getByText("Obrisati sva 3 cenovnika?")).toBeTruthy();
+    expect(screen.getByText("Obrisati sve 3 cene?")).toBeTruthy();
   });
 
   it("shows Obriši sve only once, on the first group", () => {

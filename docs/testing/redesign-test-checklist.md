@@ -7,12 +7,12 @@ Ovo nije provereno na pravom telefonu i papiru, pa ostaje za zajednički test. �
 - [ ] Prijava: pogrešna lozinka pokazuje grešku, a ispravna ulazi.
 - [ ] Pozdrav na prijavi prati doba dana: Dobro jutro (5–11), Dobar dan (11–18), Dobro veče (posle 18 i noću).
 - [ ] Na vrhu početnog ekrana je logo umesto natpisa „brancode“.
-- [ ] Podešavanja imaju odeljke „Izvoz u PDF“ i „Skeniranje“, a na dnu piše „Verzija 0.9.0“.
-- [ ] Meni (☰ gore desno) se otvara odozdo: Cenovnici (označeno), Podešavanja, Odjavi se i email. „Nazad“ zatvara meni, a iz Podešavanja „nazad“ ne vraća meni.
+- [ ] Podešavanja imaju odeljke „Izvoz u PDF“ i „Skeniranje“, a na dnu piše trenutna verzija (0.9.1).
+- [ ] Meni (☰ gore desno) se otvara odozdo: Cene (označeno), Popis, Trebovanje, Podešavanja, Odjavi se i email. „Nazad“ zatvara meni, a iz Podešavanja „nazad“ ne vraća meni.
 - [ ] Odjava iz menija.
 - [ ] Početna:
   - [ ] grupe „Za proveru · nije u bazi“ i „Spremno · N“;
-  - [ ] brojevi i množina („1 cenovnik“, „2 traže proveru“);
+  - [ ] brojevi i množina („1 cena“, „3 cene“, „76 cena“, „2 traže proveru“);
   - [ ] prazno stanje.
 - [ ] Dugi pritisak na red otvara izmenu. Kratak tap ne radi ništa, a skrolovanje liste ne otvara izmenu.
 - [ ] X uklanja red, a „Vrati“ ga vraća na isto mesto.

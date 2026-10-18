@@ -178,7 +178,7 @@ export default function Home({ queue, setQueue, editor }) {
         <div className="min-w-0 flex-1">
           <p className="flex items-baseline gap-1.5">
             <span className="font-display text-[40px] leading-none font-extrabold">{n}</span>
-            <span className="text-[18px] font-medium">{plural(n, "cenovnik", "cenovnika", "cenovnika")}</span>
+            <span className="text-[18px] font-medium">{plural(n, "cena", "cene", "cena")}</span>
           </p>
           <p className="mt-1 text-[13px] text-ink-on-dark-muted">{summary}</p>
         </div>

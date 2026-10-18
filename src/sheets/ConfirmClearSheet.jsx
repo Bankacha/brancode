@@ -5,7 +5,7 @@ import { plural } from "../lib/plural.js";
 
 // Handoff "08 · Potvrda brisanja".
 export default function ConfirmClearSheet({ open, onClose, count, onConfirm }) {
-  const what = plural(count, `${count} cenovnik`, `sva ${count} cenovnika`, `svih ${count} cenovnika`);
+  const what = plural(count, `${count} cenu`, `sve ${count} cene`, `svih ${count} cena`);
   return (
     <BottomSheet open={open} onClose={onClose}>
       <span className="flex size-14 items-center justify-center rounded-field bg-danger-bg text-accent">

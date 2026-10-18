@@ -12,4 +12,4 @@ paths:
 - Long-press uses `useLongPress` (500 ms, cancelled by movement/scroll); rows that can be long-pressed get `select-none` and `[-webkit-touch-callout:none]`.
 - Layout is phone-first: one column, `maxWidth: 480`.
 - Icons come from `lucide-react`.
-- Every section screen (Cenovnici, Popis, Trebovanje) starts with `AppHeader` so the menu button sits in the same place everywhere. A new section adds itself to `SECTIONS` in `components/AppMenu.jsx`.
+- Every section screen (Cene, Popis, Trebovanje) starts with `AppHeader` so the menu button sits in the same place everywhere. A new section adds itself to `SECTIONS` in `components/AppMenu.jsx`.
