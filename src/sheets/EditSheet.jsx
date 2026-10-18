@@ -60,7 +60,7 @@ export default function EditSheet({ editor, open, onClose, format, source = "lis
   // close the keyboard to reach it.
   const primary = source === "list" ? onSave : onSaveNext;
   const saveOnEnter = (e) => {
-    if (e.key !== "Enter") return;
+    if (e.key !== "Enter" || e.repeat || e.nativeEvent?.isComposing || e.isComposing) return;
     e.preventDefault();
     if (!disabled) primary();
   };

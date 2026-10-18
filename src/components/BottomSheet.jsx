@@ -101,7 +101,7 @@ export default function BottomSheet({ open, onClose, dismissible = true, closeOn
             ...(visible.height ? { maxHeight: visible.height - 8 } : {}),
             ...(dragY ? { transform: `translateY(${dragY}px)`, transition: "none" } : {}),
           }}
-          className={`pointer-events-auto flex ${scrollable ? "touch-pan-y" : "touch-none"} flex-col gap-3.5 overflow-y-auto rounded-t-sheet bg-bg px-5 pt-3 pb-[calc(34px+env(safe-area-inset-bottom))] transition-transform duration-250 ease-out ${shown ? "translate-y-0" : "translate-y-full"}`}
+          className={`pointer-events-auto flex ${scrollable ? "touch-pan-y" : "touch-none"} flex-col gap-3.5 overflow-y-auto overscroll-contain rounded-t-sheet bg-bg px-5 pt-3 pb-[calc(34px+env(safe-area-inset-bottom))] transition-transform duration-250 ease-out ${shown ? "translate-y-0" : "translate-y-full"}`}
         >
           <div className="mx-auto mb-1 h-[5px] w-10 shrink-0 rounded-full bg-border" />
           {children}

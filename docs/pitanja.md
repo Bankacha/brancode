@@ -28,6 +28,7 @@ Odluke koje sam doneo sam dok smo radili meni, cene, popis i trebovanje, i tvoji
   - sheet se sada podiže iznad tastature, pa se dugmad za čuvanje vide;
   - taster ✓ / Enter na tastaturi čuva kao glavno dugme („Sačuvaj i skeniraj sledeći“);
   - ako je telefon mali, pa sheet ne staje iznad tastature, može da se skroluje prstom.
+  - na iPhone-u tastatura za cenu (samo brojevi) nema taster Enter, pa se tamo koristi dugme, koje je sada vidljivo.
 - **Ikonica i ekran pri učitavanju** su i dalje stari na telefonu. U aplikaciji više nema nijedne stare ikonice, a produkcija služi samo nove. I ikonicu i ekran pri pokretanju pravi telefon iz svoje kopije, napravljene pri instalaciji:
   - Android/Chrome tu kopiju osvežava sam, ali najviše jednom dnevno i ponekad uz pitanje;
   - iPhone je nikad ne osvežava.

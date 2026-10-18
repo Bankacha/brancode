@@ -131,6 +131,7 @@ describe("BottomSheet taller than the space left", () => {
     );
     const dialog = screen.getByRole("dialog");
     expect(dialog.className).toContain("touch-pan-y");
+    expect(dialog.className).toContain("overscroll-contain"); // no pull-to-refresh from the sheet
     expect(dialog.className).not.toContain("touch-none");
   });
 });

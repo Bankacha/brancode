@@ -77,6 +77,15 @@ describe("EditSheet actions by source", () => {
     expect(h.onSaveNext).toHaveBeenCalledTimes(1);
   });
 
+  it("doesn't save on an Enter that is held down or only confirms a word being typed", () => {
+    const h = handlers();
+    setup({ source: "scan", sessionCount: 1, editor: found, ...h });
+    const price = screen.getByLabelText(/Cena/);
+    fireEvent.keyDown(price, { key: "Enter", repeat: true });
+    fireEvent.keyDown(price, { key: "Enter", isComposing: true });
+    expect(h.onSaveNext).not.toHaveBeenCalled();
+  });
+
   it("saves a list row from Enter too, but not while the price isn't valid", () => {
     const h = handlers();
     setup({ source: "list", ...h });
