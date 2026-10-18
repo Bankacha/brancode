@@ -18,6 +18,8 @@ paths:
 - Sizes are Excel column-width units and row heights in points, with mm constants for the physical tag holders (e.g. the fridge format pads top and bottom because the holder hides those edges). These numbers are print-layout tuning — don't "simplify" them without checking printed output.
 - Manual page breaks keep each tag's rows on one A4 page (Excel paginates purely by height). The fit calculation relies on the explicit `PAGE_MARGINS_IN`, so change them together.
 - The `fruit` format (`barcode: "row"`) embeds a horizontal CODE128 barcode image (JsBarcode on a canvas) in a third row. Images are positioned with native EMU offsets (`nativeColOff`/`nativeRowOff`) because ExcelJS computes fractional anchor offsets in the wrong units.
+- The shelf/fridge barcodes are read by the shop's phones (this app's scanner), not by the POS till — tune them for phone cameras.
+- The sheet hides Excel's on-screen grid (`views: [{ showGridLines: false }]`), so only tag outlines show; without it Excel draws a grey line between a price and its barcode column.
 - Prices are formatted with the `sr-RS` locale (`1.249,99`); the shelf format picks its font size from the length of that text.
 - Fonts `Bahnschrift SemiBold` and `Oswald` are referenced by name and must be installed on the machine that prints the sheet.
 - File names follow `cenovnik-<fileSlug>-<YYYY-MM-DD>.xlsx`.

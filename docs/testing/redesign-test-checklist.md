@@ -5,6 +5,7 @@ Ovo nije provereno na pravom telefonu i papiru, pa ostaje za zajednički test. �
 ## 1. Na računaru (dev server, `npm run dev`)
 
 - [ ] Prijava: pogrešna lozinka pokazuje grešku, a ispravna ulazi.
+- [ ] Na vrhu početnog ekrana je logo umesto natpisa „brancode“.
 - [ ] Meni (☰ gore desno) se otvara odozdo: Cenovnici (označeno), Podešavanja, Odjavi se i email. „Nazad“ zatvara meni, a iz Podešavanja „nazad“ ne vraća meni.
 - [ ] Odjava iz menija.
 - [ ] Početna:
@@ -99,6 +100,8 @@ Ovo nije provereno na pravom telefonu i papiru, pa ostaje za zajednički test. �
   - drugi prenos istih stavki ne pravi duplikate;
   - „nazad“ izlazi iz biranja.
 - [ ] **PDF:** kolone Naziv, Barkod, Cena, Količina i kvadratić za štikliranje desno. Prazne vrednosti su prazne.
+- [ ] Naziv skeniranog artikla iz baze može da se promeni, a cena je zaključana.
+- [ ] Podešavanja → „Redosled stavki u PDF-u“: „Po nazivu“ i „Redom dodavanja“ menjaju redosled u PDF-u, posebno za Popis i Trebovanje.
 
 ## 3. Štampa
 
@@ -108,8 +111,9 @@ Ovo nije provereno na pravom telefonu i papiru, pa ostaje za zajednički test. �
   - [ ] duga cena („12.499,99“) je smanjena i staje, a dug naziv se prelama;
   - [ ] barkod na cenovniku za voće se očitava na kasi.
 - [ ] **Novi cenovnici za raf i frižider** (uspravan barkod i manje decimale):
-  - [ ] barkod na rafu se očitava na kasi, i za artikal sa 13 cifara i za artikal iz baze sa 12 cifara (štampa se pun EAN-13);
-  - [ ] barkod na frižideru se očitava i ostaje u vidljivom delu kad je cenovnik u držaču;
+  - [ ] barkod na rafu se očitava **telefonom** (skeniranje u aplikaciji), i za artikal sa 13 cifara i za artikal iz baze sa 12 cifara (štampa se pun EAN-13);
+  - [ ] barkod na frižideru se očitava telefonom i ostaje u vidljivom delu kad je cenovnik u držaču;
+  - [ ] u Excel-u nema sive linije između cene i barkoda;
   - [ ] decimale u Excel-u su otprilike upola manje i gore, kao u pregledu;
   - [ ] dug naziv se prelama preko cele širine cenovnika;
   - [ ] cena od 5 cifara („12.499,99“) se smanjuje i ne ulazi u barkod.

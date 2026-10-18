@@ -1,24 +1,20 @@
-# Pitanja za sutra
+# Pitanja i odluke
 
-Odluke koje sam doneo sam dok smo radili meni, cene, popis i trebovanje. Za svaku napiši „ostaje“ ili kako da se promeni, pa to rešavamo na grani `fixes`.
+Odluke koje sam doneo sam dok smo radili meni, cene, popis i trebovanje, i tvoji odgovori na njih.
 
-## ⚠️ Prvo: Vercel ne objavljuje ništa od redizajna
+## Odgovori (18.10.) i šta je urađeno na grani `fixes`
 
-Od spajanja redizajna (PR #8) **svaki deploy na Vercel-u pada**, i na `main` i u pregledima grana. Produkcija (`brancode.vercel.app`) i dalje pokazuje staru aplikaciju. Poslednji uspešan deploy je `a987b4b` (pre redizajna).
-
-Šta sam proverio:
-- isti kod se čisto instalira i builduje na Linux-u (Docker) sa Node 20, 22 i 24;
-- `vercel.json` je ispravan;
-- `api/` je nepromenjen;
-- lockfile ima Linux pakete;
-- putanje se poklapaju po velikim i malim slovima.
-
-Greška je u nekom koraku koji radi samo Vercel, a log ne mogu da vidim bez prijave. Treba jedno od ovoga:
-1. Otvori Vercel → projekat brancode → Deployments → poslednji crveni → **Build Logs** i pošalji mi grešku. Usput proveri Settings → General → **Node.js Version**.
-2. Ili u Claude Code uključi Vercel konektor (`/mcp` → vercel → authorize), pa ću log pročitati sam.
-3. Brza proba: na poslednjem deploy-u „Redeploy“ **bez** „Use existing Build Cache“.
-
-Dok se ovo ne reši, sve testiraj lokalno (`npm run dev`, telefon na istoj mreži).
+- **Vercel:** ✅ rešeno.
+  - Uzrok: build je prolazio, ali je Vercel tražio izlaz u folderu `build` (podrazumevani za React Router), a Vite pravi `dist`.
+  - `vercel.json` sada kaže `framework: vite` i `outputDirectory: dist`. Preview na `fixes` je prošao.
+- **Cene:**
+  - Barkod na cenovniku čitaju telefoni (aplikacija), ne kasa, pa je čitljivost na kasi nebitna.
+  - ✅ Linija između cene i barkoda u Excel-u je bila Excel-ova siva mreža na ekranu (ne štampa se). Sada je isključena u izvozu.
+  - Kodovi, cifre i ostalo ostaju ovako do testa u radnji.
+- **Popis i trebovanje:** ✅ Podešavanja → „Redosled stavki u PDF-u“, posebno za Popis i Trebovanje. Izbor je „Po nazivu“ (podrazumevano, po srpskoj abecedi: c č ć, d dž đ, l lj) ili „Redom dodavanja“ (prvo dodato prvo). Pamti se na telefonu.
+- **Trebovanje:** ✅ naziv artikla iz baze može da se menja. Cena ostaje zaključana.
+- **UI:** ✅ logo umesto natpisa „brancode“ na vrhu početnog ekrana.
+- Sve ostalo ispod ostaje kako je urađeno.
 
 ## Meni (hamburger)
 
