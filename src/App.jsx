@@ -11,6 +11,8 @@ import InventoryLists from "./screens/InventoryLists.jsx";
 import Inventory from "./screens/Inventory.jsx";
 import InventoryScan from "./screens/InventoryScan.jsx";
 import InventoryManualEntry from "./screens/InventoryManualEntry.jsx";
+import RequisitionLists from "./screens/RequisitionLists.jsx";
+import Requisition from "./screens/Requisition.jsx";
 
 export default function App({ session }) {
   const [queue, setQueue] = usePrintQueue();
@@ -29,6 +31,8 @@ export default function App({ session }) {
             <Route path="/popis/:id" element={<Inventory />} />
             <Route path="/popis/:id/skeniranje" element={<InventoryScan />} />
             <Route path="/popis/:id/rucni-unos" element={<InventoryManualEntry />} />
+            <Route path="/trebovanje" element={<RequisitionLists />} />
+            <Route path="/trebovanje/:id" element={<Requisition />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </div>

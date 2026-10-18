@@ -96,6 +96,7 @@ describe("AppMenu", () => {
     const popis = screen.getByRole("link", { name: /Popis/ });
     expect(popis.getAttribute("aria-current")).toBe("page");
     expect(screen.getByRole("link", { name: /Cenovnici/ }).getAttribute("aria-current")).toBeNull();
+    expect(screen.getByRole("link", { name: /Trebovanje/ }).getAttribute("href")).toBe("/trebovanje");
     fireEvent.click(popis);
     expect(await screen.findByText("SPISAK POPISA")).toBeTruthy();
   });
