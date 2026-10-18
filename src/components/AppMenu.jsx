@@ -2,6 +2,7 @@ import { Link, useLocation, useNavigate } from "react-router";
 import { LogOut, Menu, Settings, Tag } from "lucide-react";
 import { supabase } from "../supabaseClient";
 import { useSession } from "../auth/session.jsx";
+import { useToast } from "./Toast.jsx";
 import { useSheet } from "../lib/useSheet.js";
 import BottomSheet from "./BottomSheet.jsx";
 import IconButton from "./IconButton.jsx";
@@ -33,6 +34,7 @@ export default function AppMenu() {
   const sheet = useSheet();
   const location = useLocation();
   const navigate = useNavigate();
+  const toast = useToast();
 
   const go = (e, path) => {
     e.preventDefault();
@@ -40,9 +42,11 @@ export default function AppMenu() {
     else navigate(path, { replace: true }); // the menu's history entry becomes the section
   };
 
-  const signOut = () => {
+  // Offline, Supabase keeps the session and only returns an error.
+  const signOut = async () => {
     sheet.close();
-    supabase.auth.signOut();
+    const { error } = await supabase.auth.signOut();
+    if (error) toast.show({ kind: "error", text: "Odjava nije uspela. Proveri internet pa probaj ponovo." });
   };
 
   return (

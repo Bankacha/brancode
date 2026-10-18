@@ -3,10 +3,11 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useNavigate } from "react-router";
 import { SessionProvider } from "../auth/session.jsx";
+import { ToastProvider } from "./Toast.jsx";
 import AppMenu from "./AppMenu.jsx";
 import { supabase } from "../supabaseClient";
 
-vi.mock("../supabaseClient", () => ({ supabase: { auth: { signOut: vi.fn() } } }));
+vi.mock("../supabaseClient", () => ({ supabase: { auth: { signOut: vi.fn(async () => ({ error: null })) } } }));
 
 function Back() {
   const navigate = useNavigate();
@@ -17,10 +18,12 @@ const setup = (path = "/") =>
   render(
     <SessionProvider value={{ user: { email: "b@b.com" } }}>
       <MemoryRouter initialEntries={[path]}>
-        <Routes>
-          <Route path="/" element={<><p>CENOVNICI</p><Back /><AppMenu /></>} />
-          <Route path="/drugo" element={<><p>DRUGO</p><Back /><AppMenu /></>} />
-        </Routes>
+        <ToastProvider>
+          <Routes>
+            <Route path="/" element={<><p>CENOVNICI</p><Back /><AppMenu /></>} />
+            <Route path="/drugo" element={<><p>DRUGO</p><Back /><AppMenu /></>} />
+          </Routes>
+        </ToastProvider>
       </MemoryRouter>
     </SessionProvider>
   );
@@ -75,5 +78,13 @@ describe("AppMenu", () => {
     fireEvent.click(screen.getByRole("button", { name: "Nazad" }));
     await new Promise((r) => setTimeout(r, 300));
     expect(screen.queryByRole("link", { name: /Cenovnici/ })).toBeNull();
+  });
+
+  it("says so when signing out fails, e.g. offline", async () => {
+    supabase.auth.signOut.mockResolvedValueOnce({ error: new Error("Failed to fetch") });
+    setup();
+    openMenu();
+    fireEvent.click(screen.getByRole("button", { name: /Odjavi se/ }));
+    await waitFor(() => expect(screen.getByRole("status").textContent).toContain("Odjava nije uspela"));
   });
 });
