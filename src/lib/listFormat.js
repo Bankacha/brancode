@@ -23,6 +23,17 @@ const withText = (title, rest, separator) => {
 // "Magacin · 01.10.2026 – 18.10.2026", or just the period.
 export const inventoryTitle = ({ title, dateFrom, dateTo }) => withText(title, `${formatDate(dateFrom)} – ${formatDate(dateTo)}`, " · ");
 
+// "Pekara 18.10.2026", or just the date.
+export const requisitionTitle = ({ title, date }) => withText(title, formatDate(date), " ");
+
+// Trebovanja older than this go to "Arhiva" (nothing is deleted).
+const RECENT_DAYS = 20;
+const dayNumber = (iso) => {
+  const [y, m, d] = iso.split("-").map(Number);
+  return Date.UTC(y, m - 1, d) / 86400000; // calendar days, not affected by clock changes
+};
+export const isArchived = (dateIso, now = new Date()) => dayNumber(todayIso(now)) - dayNumber(dateIso) > RECENT_DAYS;
+
 // A typed quantity: digits with an optional comma or dot and up to three
 // decimals (goods sold by weight). Zero only where it means "none on the shelf".
 export const parseQuantity = (text, { allowZero = false } = {}) => {
