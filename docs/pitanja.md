@@ -31,11 +31,12 @@ Dok se ovo ne reši, sve testiraj lokalno (`npm run dev`, telefon na istoj mrež
 ## Cene (barkod na rafu i frižideru)
 
 1. **Barkod je u svojoj uskoj koloni** (oko 9 mm) desno od cene, a naziv ide preko cele širine. Cena se sada centrira i smanjuje u preostalih 40 mm. Ukupna širina, visina i broj po strani su isti. Da li je širina barkoda dobra ili treba uža/šira?
-2. **Čitljivost na kasi je glavni rizik.** Kod sebe sam proverio da se svi barkodovi očitavaju u štampanoj veličini na 300 dpi. Na rafu se očitava i na 200 dpi, a **barkod za frižider (21,6 mm) na 200 dpi ne**. Odštampaj stranu Raf i stranu Frižider i probaj na kasi. Ako frižider ne prolazi, opcije su:
-   - barkod vodoravno ispod cene;
-   - viši red cene;
-   - bez barkoda na frižideru.
+2. **Čitljivost na kasi je glavni rizik.** Kod sebe sam proverio da se svi barkodovi očitavaju u štampanoj veličini i na 300 i na 200 dpi. To je savršeno poravnata slika, a pravi skener na kasi je druga priča.
+   - **Kakav skener je na kasi?** Laserski „pištolj“ (crvena linija) mora da prođe celom dužinom barkoda, a visina linija je samo oko 6,5 mm, pa ga treba držati prilično pravo. Kamera (2D) je mnogo manje osetljiva.
+   - Odštampaj stranu Raf i stranu Frižider i probaj na kasi, i iskosa.
+   - Ako frižider ne prolazi, opcije su: barkod vodoravno ispod cene, viši red cene ili bez barkoda na frižideru.
 3. **Kodovi sa 12 cifara** (iz baze, bez kontrolne cifre) štampaju se kao pun EAN-13 sa izračunatom 13. cifrom, kao na ambalaži. Ako neki takav kod nije pravi EAN, kasa ga neće prepoznati. Javi ako vidiš takav artikal.
 4. **Decimale:** u Excel-u su „superscript“ na 0,75 veličine cene, pa ih Excel crta otprilike upola manje. Tačnu veličinu na papiru nisam mogao da vidim. Ako su premale ili prevelike, to je jedan broj (`DECIMALS_SUPERSCRIPT_SCALE`).
-5. **Sitne cifre uz barkod** su uvek tu, jer ima mesta. Okrenute su da se čitaju odozdo nagore.
+5. **Sitne cifre uz barkod** su uvek tu, ali zauzimaju najviše petinu debljine, da linije ostanu što više. Okrenute su da se čitaju odozdo nagore. Ako na kasi bolje prolazi bez cifara, uklanjanje je jedan broj.
+7. **Vrlo dugi kodovi** (npr. ručno ukucano 20 cifara) dobijaju CODE128 sa jako tankim linijama, koje verovatno neće moći da se pročitaju. Ostavio sam tako. Ako to smeta, na takvim cenovnicima ide samo broj, bez barkoda.
 6. **Probnu stranu nisam pravio** (spec je predlagao da se prvo štampa probna strana sa više veličina). Prava strana za Raf i Frižider sada služi kao proba.

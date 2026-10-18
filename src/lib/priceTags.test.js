@@ -11,6 +11,7 @@ import {
   sheetFilename,
   shrinkFontPt,
   sideBarcodeBox,
+  sideBarcodeLayout,
   tagGeometry,
   tagRowsPerPage,
 } from "./priceTags.js";
@@ -248,5 +249,24 @@ describe("priceParts", () => {
     expect(priceParts(1249.99)).toEqual({ whole: "1.249", decimals: ",99" });
     expect(priceParts(99)).toEqual({ whole: "99", decimals: ",00" });
     expect(priceParts(12499.5)).toEqual({ whole: "12.499", decimals: ",50" });
+  });
+});
+
+describe("sideBarcodeLayout", () => {
+  // EAN-13 drawn at 4 px a module with 7-module quiet zones: 109 modules.
+  const lengthPx = 109 * 4;
+
+  it("leaves most of the thickness to the bars, so a laser can sweep them at an angle", () => {
+    for (const format of ["shelf", "fridge"]) {
+      const box = sideBarcodeBox(format);
+      const thickness = (lengthPx * box.widthMm) / box.heightMm;
+      const { barHeight } = sideBarcodeLayout(lengthPx, box, 13);
+      expect(barHeight / thickness).toBeGreaterThanOrEqual(0.75);
+    }
+  });
+
+  it("keeps the small digits within the barcode's length", () => {
+    const { fontSize } = sideBarcodeLayout(lengthPx, sideBarcodeBox("shelf"), 20);
+    expect(fontSize * 0.6 * 20).toBeLessThanOrEqual(lengthPx * 0.9);
   });
 });

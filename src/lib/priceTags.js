@@ -144,6 +144,18 @@ export const makeBarcodeDataUrl = (value) => {
 // stretched. Reads bottom to top. Null when there is nothing to draw.
 const SIDE_MODULE_PX = 4; // drawn large, scaled down by the image size
 const SIDE_QUIET_MODULES = 7;
+// The digits are a courtesy; the bars' height is what lets a laser scanner
+// sweep the barcode at an angle, so they get at most a fifth of it.
+const SIDE_DIGITS_SHARE = 0.2;
+
+// Sizes for an upright barcode `lengthPx` long (along the bars' run) in the
+// proportions of `box`: digit size and bar height, in canvas px.
+export const sideBarcodeLayout = (lengthPx, box, digits) => {
+  const thickness = (lengthPx * box.widthMm) / box.heightMm;
+  const fontSize = Math.min(thickness * SIDE_DIGITS_SHARE, (lengthPx * 0.9) / (digits * 0.6));
+  return { fontSize, barHeight: Math.max(1, thickness - fontSize - SIDE_MODULE_PX) };
+};
+
 export const makeSideBarcodeDataUrl = (code, box) => {
   const format = barcodeSymbology(code);
   if (!format) return null;
@@ -166,10 +178,8 @@ export const makeSideBarcodeDataUrl = (code, box) => {
   };
   // First pass for the barcode's length, then the bar height that gives the
   // box's proportions once the digits are added.
-  const length = draw(10, 10).width;
-  const thickness = (length * box.widthMm) / box.heightMm;
-  const fontSize = Math.min(thickness * 0.3, (length * 0.9) / (value.length * 0.6));
-  const bars = draw(Math.max(1, thickness - fontSize - SIDE_MODULE_PX), fontSize);
+  const { fontSize, barHeight } = sideBarcodeLayout(draw(10, 10).width, box, value.length);
+  const bars = draw(barHeight, fontSize);
 
   const upright = document.createElement("canvas");
   upright.width = bars.height;

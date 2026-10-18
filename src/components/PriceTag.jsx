@@ -75,7 +75,7 @@ export function PriceCell({ price, format }) {
     const measure = () => {
       if (cancelled || !el) return;
       const drawnPt = parseFloat(el.style.fontSize) || basePt;
-      const widthAtBasePx = (el.scrollWidth * basePt) / drawnPt;
+      const widthAtBasePx = (el.offsetWidth * basePt) / drawnPt; // layout width: not 0 like an inline scrollWidth, not scaled like a bounding rect
       setFontPt(shrinkFontPt(basePt, widthAtBasePx, priceWidthMm * PX_PER_MM));
     };
     measure();

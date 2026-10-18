@@ -77,18 +77,20 @@ describe("PrintPage", () => {
 describe("PriceTag shrink to fit", () => {
   // jsdom has no layout: make text width proportional to its font size (and
   // length), and give it a fonts.ready promise like a browser.
-  const original = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "scrollWidth");
+  // Like a browser: the laid-out width of the text, before the preview's
+  // scale transform (a bounding rect would be scaled; an inline span's
+  // scrollWidth is 0 in Chromium).
+  const original = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "offsetWidth");
   const fontsReady = () => Object.defineProperty(document, "fonts", { configurable: true, value: { ready: Promise.resolve() } });
   const textWidth = () =>
-    Object.defineProperty(HTMLElement.prototype, "scrollWidth", {
+    Object.defineProperty(HTMLElement.prototype, "offsetWidth", {
       configurable: true,
       get() {
         return parseFloat(this.style.fontSize || "0") * this.textContent.length * 0.6;
       },
     });
   afterEach(() => {
-    if (original) Object.defineProperty(HTMLElement.prototype, "scrollWidth", original);
-    else delete HTMLElement.prototype.scrollWidth;
+    Object.defineProperty(HTMLElement.prototype, "offsetWidth", original);
     delete document.fonts;
   });
 
