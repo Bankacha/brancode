@@ -17,18 +17,20 @@ const editor = (overrides = {}) => ({
   ...overrides,
 });
 
+// Shelf prices are drawn in two pieces ("79" and a smaller ",00").
+const tagPrice = (text) => (_, el) => el?.tagName === "SPAN" && el.children.length === 2 && el.textContent === text;
 const setup = (props) => render(<EditSheet open onClose={() => {}} onSave={() => {}} format="shelf" editor={editor()} {...props} />);
 
 describe("EditSheet tag preview", () => {
   it("shows the tag as it will print on the shelf", () => {
     setup();
     expect(screen.getByText("Ovako izgleda cenovnik na rafu")).toBeTruthy();
-    expect(screen.getByText("79,00")).toBeTruthy();
+    expect(screen.getByText(tagPrice("79,00"))).toBeTruthy();
   });
 
   it("shows 0,00 while the typed price isn't a valid price yet", () => {
     setup({ editor: editor({ price: "abc", canSave: false }) });
-    expect(screen.getByText("0,00")).toBeTruthy();
+    expect(screen.getByText(tagPrice("0,00"))).toBeTruthy();
   });
 
   it("follows the chosen format", () => {

@@ -70,6 +70,12 @@ Ovo nije provereno na pravom telefonu i papiru, pa ostaje za zajednički test. �
   - [ ] broj cenovnika po strani i prelomi strana (Raf 18, Frižider 15, Voće 8);
   - [ ] duga cena („12.499,99“) je smanjena i staje, a dug naziv se prelama;
   - [ ] barkod na cenovniku za voće se očitava na kasi.
+- [ ] **Novi cenovnici za raf i frižider** (uspravan barkod i manje decimale):
+  - [ ] barkod na rafu se očitava na kasi, i za artikal sa 13 cifara i za artikal iz baze sa 12 cifara (štampa se pun EAN-13);
+  - [ ] barkod na frižideru se očitava i ostaje u vidljivom delu kad je cenovnik u držaču;
+  - [ ] decimale u Excel-u su otprilike upola manje i gore, kao u pregledu;
+  - [ ] dug naziv se prelama preko cele širine cenovnika;
+  - [ ] cena od 5 cifara („12.499,99“) se smanjuje i ne ulazi u barkod.
 - [ ] Ako pregled ne odgovara papiru: po odluci 4 iz spec-a pregled se uklanja, a ne podešava odvojeno od Excel-a.
 
 ## 4. Posle testa
