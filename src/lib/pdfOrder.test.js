@@ -16,6 +16,11 @@ describe("orderForPdf", () => {
     expect(orderForPdf(newestFirst, "added").map((i) => i.name)).toEqual(["A", "B", "C"]);
   });
 
+  it("keeps a whole second before a fraction of the same second, as the database writes them", () => {
+    const items = [item("later", "2026-10-18T09:00:00.5+00:00"), item("first", "2026-10-18T09:00:00+00:00")];
+    expect(orderForPdf(items, "added").map((i) => i.name)).toEqual(["first", "later"]);
+  });
+
   it("doesn't change the list it was given", () => {
     const items = [item("B", "2"), item("A", "1")];
     orderForPdf(items, "name");

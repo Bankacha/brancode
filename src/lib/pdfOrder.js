@@ -50,7 +50,10 @@ export const usePdfOrder = () => {
 // before "Mleko 10".
 const byName = new Intl.Collator("sr-Latn", { sensitivity: "base", numeric: true });
 
+// Creation times as the database writes them ("…:00+00:00", "…:00.5+00:00")
+// don't sort as text, so they're compared as moments.
+const addedAt = (item) => Date.parse(item.createdAt ?? "") || 0;
+export const byAdded = (a, b) => addedAt(a) - addedAt(b);
+
 export const orderForPdf = (items, order) =>
-  order === "added"
-    ? [...items].sort((a, b) => (a.createdAt ?? "").localeCompare(b.createdAt ?? ""))
-    : [...items].sort((a, b) => byName.compare(a.name, b.name));
+  order === "added" ? [...items].sort(byAdded) : [...items].sort((a, b) => byName.compare(a.name, b.name));

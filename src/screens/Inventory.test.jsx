@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor, act, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { ToastProvider } from "../components/Toast.jsx";
@@ -42,6 +42,7 @@ const longPress = async (el) => {
 };
 
 describe("Inventory", () => {
+  afterEach(() => localStorage.removeItem("pdf-order"));
   beforeEach(() => {
     vi.clearAllMocks();
     inventoryStore.get.mockResolvedValue(popis);
@@ -122,7 +123,6 @@ describe("Inventory", () => {
     localStorage.setItem("pdf-order", JSON.stringify({ popis: "added" }));
     setup();
     expect(await exportRows()).toEqual(["MAJONEZ 175", "Hleb"]); // MAJONEZ was added first
-    localStorage.removeItem("pdf-order");
   });
 
   it("emails the PDF with a popis subject, and says when it is too big", async () => {
