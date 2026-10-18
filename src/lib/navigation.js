@@ -4,8 +4,12 @@
 // link or refresh) with key "default" — there is no in-app page behind it.
 // `home` is the screen these routes belong to: "/" for price tags, the list
 // for a Popis or Trebovanje.
+// The same holds for the first entry of the app's history (React Router's
+// `idx` 0), e.g. the list that `putHomeBehind` laid under a deep link.
+const firstEntry = () => typeof window !== "undefined" && window.history?.state?.idx === 0;
+
 export const leaveScreen = (navigate, location, home = "/") => {
-  if (location.key === "default") navigate(home, { replace: true });
+  if (location.key === "default" || firstEntry()) navigate(home, { replace: true });
   else navigate(-1);
 };
 

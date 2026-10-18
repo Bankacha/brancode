@@ -56,6 +56,7 @@ export default function InventoryItemSheet({ flow, open, onClose, source, onSubm
     submit(actions[kind][0][1]);
   };
   const field = (key) => ({ value: state[key], onChange: (e) => flow.setField(key, e.target.value) });
+  const fromProducts = state.kind === "new" ? state.inProducts : state.item?.inProducts;
 
   return (
     <BottomSheet open={open} onClose={onClose} dismissible={!saving}>
@@ -70,13 +71,13 @@ export default function InventoryItemSheet({ flow, open, onClose, source, onSubm
         <form onSubmit={onFormSubmit("item")} className="flex flex-col gap-3">
           <div className="flex items-center justify-between gap-3">
             <p className="font-mono text-[13px] text-ink-3">{state.kind === "new" ? state.barcode : state.item.barcode}</p>
-            <span className={`rounded-full px-2.5 py-1 text-[12px] font-semibold ${state.locked ? "bg-success-bg text-ink-2" : "bg-danger-bg text-danger-ink"}`}>
-              {state.locked ? "Iz baze artikala" : "Nije u bazi"}
+            <span className={`rounded-full px-2.5 py-1 text-[12px] font-semibold ${fromProducts ? "bg-success-bg text-ink-2" : "bg-danger-bg text-danger-ink"}`}>
+              {fromProducts ? "Iz baze artikala" : "Nije u bazi"}
             </span>
           </div>
-          <Field label="Naziv" {...field("name")} readOnly={state.locked} suffix={state.locked ? <Lock size={16} /> : null} autoComplete="off" />
+          <Field label="Naziv" {...field("name")} readOnly={state.lockName} suffix={state.lockName ? <Lock size={16} /> : null} autoComplete="off" />
           <FieldError text={state.errors.name} />
-          <Field label="Cena" {...field("price")} readOnly={state.locked} inputMode="decimal" suffix={state.locked ? <Lock size={16} /> : "din"} autoComplete="off" />
+          <Field label="Cena" {...field("price")} readOnly={state.lockPrice} inputMode="decimal" suffix={state.lockPrice ? <Lock size={16} /> : "din"} autoComplete="off" />
           <FieldError text={state.errors.price} />
           <Field label="Količina na stanju" {...field("quantity")} inputMode="decimal" autoFocus autoComplete="off" />
           <FieldError text={state.errors.quantity} />

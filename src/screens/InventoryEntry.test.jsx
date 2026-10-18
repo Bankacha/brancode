@@ -34,6 +34,7 @@ const setup = (entries, index = entries.length - 1) =>
     <MemoryRouter initialEntries={entries} initialIndex={index}>
       <ToastProvider>
         <Routes>
+          <Route path="/popis" element={<p>SPISAK POPISA</p>} />
           <Route path="/popis/:id" element={<p>LISTA POPISA</p>} />
           <Route path="/popis/:id/rucni-unos" element={<InventoryManualEntry />} />
           <Route path="/popis/:id/skeniranje" element={<InventoryScan />} />
@@ -76,6 +77,20 @@ describe("typing codes into a popis", () => {
     await waitFor(() => expect(inventoryStore.addItem).toHaveBeenCalledWith("p1", expect.objectContaining({ quantity: 3 })));
     await waitFor(() => expect(screen.getByTestId("code").textContent).toBe(""));
     expect(screen.getByRole("status").textContent).toContain("Dodato: MAJONEZ 175");
+  });
+
+  it("goes to the list of popisi when this popis was deleted on another phone", async () => {
+    inventoryStore.findItem.mockResolvedValue(null);
+    lookupArticle.mockResolvedValue({ barcode: "8600005000122", name: "MAJONEZ 175", price: 85 });
+    inventoryStore.addItem.mockResolvedValue({ listGone: true });
+    setup(["/popis/p1", "/popis/p1/rucni-unos"]);
+    type("8600005000122");
+    fireEvent.click(screen.getByRole("button", { name: "Nastavi" }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.change(await within(dialog).findByLabelText(/Količina/), { target: { value: "1" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Sačuvaj i upiši sledeći" }));
+    expect(await screen.findByText("SPISAK POPISA")).toBeTruthy();
+    expect(screen.getByRole("status").textContent).toContain("Popis više ne postoji");
   });
 
   it("goes back to the popis when opened directly", async () => {

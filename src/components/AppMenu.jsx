@@ -22,7 +22,7 @@ function MenuRow({ icon: Icon, children, active, ...props }) {
   const As = props.to ? Link : "button";
   return (
     <As
-      {...(Tag === "button" ? { type: "button" } : {})}
+      {...(As === "button" ? { type: "button" } : {})}
       {...props}
       className={`flex h-14 w-full items-center gap-3.5 rounded-field px-4 text-left text-[17px] font-semibold text-ink transition-transform duration-100 active:scale-[.98] ${
         active ? "bg-surface-muted" : ""

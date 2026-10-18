@@ -1,6 +1,7 @@
 import { sameArticleCodes } from "./ean.js";
 
 const UNIQUE_VIOLATION = "23505";
+const FOREIGN_KEY_VIOLATION = "23503"; // the list itself was deleted
 
 const run = async (query) => {
   const { data, error } = await query;
@@ -45,9 +46,15 @@ export const createListStore = (config, client) => {
     // Another phone may have added the same code a moment ago: the unique
     // barcode index refuses the second insert, and the caller gets the item
     // that is already there instead of an error.
+    // A list deleted on another phone answers with `listGone`.
     addItem: async (listId, item) => {
       const { data, error } = await items().insert({ [parentKey]: listId, ...itemToRow(item) }).select(itemColumns).single();
-      if (error?.code === UNIQUE_VIOLATION) return { duplicate: await findItem(listId, item.barcode) };
+      if (error?.code === FOREIGN_KEY_VIOLATION) return { listGone: true };
+      if (error?.code === UNIQUE_VIOLATION) {
+        const duplicate = await findItem(listId, item.barcode);
+        if (!duplicate) throw error; // removed again in between: a retry will add it
+        return { duplicate };
+      }
       if (error) throw error;
       return { item: itemFromRow(data) };
     },
@@ -63,7 +70,10 @@ export const createListStore = (config, client) => {
     removeItem: async (itemId) => {
       await run(items().delete().eq("id", itemId));
     },
+    // Same id and creation time, so it goes back to its place in the list.
     restoreItem: async (listId, item) =>
-      itemFromRow(await run(items().insert({ id: item.id, [parentKey]: listId, ...itemToRow(item) }).select(itemColumns).single())),
+      itemFromRow(
+        await run(items().insert({ id: item.id, [parentKey]: listId, ...itemToRow(item), created_at: item.createdAt }).select(itemColumns).single())
+      ),
   };
 };

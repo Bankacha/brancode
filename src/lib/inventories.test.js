@@ -87,4 +87,20 @@ describe("inventory store", () => {
     const client = fakeClient({ data: null, error: null });
     expect(await createInventoryStore(client).get("gone")).toBeNull();
   });
+
+  it("tells a deleted popis apart from a lost connection when adding to it", async () => {
+    const client = fakeClient({ data: null, error: { code: "23503", message: "violates foreign key constraint" } });
+    expect(await createInventoryStore(client).addItem("gone", { barcode: "1", name: "A", price: 1, quantity: 1, inProducts: false })).toEqual({ listGone: true });
+  });
+
+  it("treats a clash whose item vanished again as a failed request, not as no item", async () => {
+    const client = fakeClient({ data: null, error: { code: "23505", message: "duplicate key" } }, { data: [], error: null });
+    await expect(createInventoryStore(client).addItem("p1", { barcode: "1", name: "A", price: 1, quantity: 1, inProducts: false })).rejects.toMatchObject({ code: "23505" });
+  });
+
+  it("puts a removed item back where it was in the list", async () => {
+    const client = fakeClient({ data: itemRow, error: null });
+    await createInventoryStore(client).restoreItem("p1", { id: "it1", barcode: "4006381333931", name: "Čokolada", price: 120, quantity: 2, inProducts: true, createdAt: "2026-10-18T10:00:00Z" });
+    expect(client.calls[0].steps[0][1]).toMatchObject({ id: "it1", created_at: "2026-10-18T10:00:00Z" });
+  });
 });

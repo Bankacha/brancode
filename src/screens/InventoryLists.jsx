@@ -59,7 +59,7 @@ export default function InventoryLists() {
       toast.show({ kind: "success", text: `Obrisan popis: ${inventoryTitle(toDelete)}` });
       lists.reload();
     } catch (e) {
-      toast.show({ kind: "error", icon: WifiOff, text: "Nema veze. Popis nije obrisan." });
+      toast.show({ kind: "error", icon: WifiOff, text: "Nema veze. Popis nije obrisan.", action: { label: "Ponovi", run: remove } });
     } finally {
       setSaving(false);
     }

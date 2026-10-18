@@ -69,6 +69,15 @@ describe("Inventory", () => {
     await waitFor(() => expect(inventoryStore.restoreItem).toHaveBeenCalledWith("p1", items[1]));
   });
 
+  it("offers to try again when an item can't be removed", async () => {
+    inventoryStore.removeItem.mockRejectedValueOnce(new Error("Failed to fetch")).mockResolvedValueOnce();
+    setup();
+    const hleb = (await screen.findByText("Hleb")).closest("li");
+    fireEvent.click(within(hleb).getByRole("button", { name: "Ukloni" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Ponovi" }));
+    await waitFor(() => expect(inventoryStore.removeItem).toHaveBeenCalledTimes(2));
+  });
+
   it("edits an item on a long press, with the name and price of a database article locked", async () => {
     inventoryStore.updateItem.mockResolvedValue({ ...items[0], quantity: 5 });
     setup();

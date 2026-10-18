@@ -88,6 +88,29 @@ describe("InventoryLists", () => {
     await waitFor(() => expect(screen.queryByText("Magacin · 01.10.2026 – 18.10.2026")).toBeNull());
   });
 
+  it("offers to try again when a popis can't be deleted", async () => {
+    inventoryStore.list.mockResolvedValue([popis("a", 2, "Magacin")]);
+    inventoryStore.remove.mockRejectedValueOnce(new Error("Failed to fetch")).mockResolvedValueOnce();
+    setup();
+    await longPress(await screen.findByText("Magacin · 01.10.2026 – 18.10.2026"));
+    fireEvent.click(screen.getByRole("button", { name: "Obriši popis" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Ponovi" }));
+    await waitFor(() => expect(inventoryStore.remove).toHaveBeenCalledTimes(2));
+  });
+
+  it("opens a popis with the next tap after a long press was let go", async () => {
+    inventoryStore.list.mockResolvedValue([popis("a", 2, "Magacin")]);
+    setup();
+    const card = await screen.findByText("Magacin · 01.10.2026 – 18.10.2026");
+    await longPress(card);
+    fireEvent.click(screen.getByRole("button", { name: "Zadrži" }));
+    // the long press ended on the sheet, so no click reached the card
+    fireEvent.pointerDown(card, { clientX: 5, clientY: 5 });
+    fireEvent.pointerUp(card);
+    fireEvent.click(card);
+    expect(await screen.findByText("OTVOREN a")).toBeTruthy();
+  });
+
   it("offers to try again when the popisi can't be loaded", async () => {
     inventoryStore.list.mockRejectedValueOnce(new Error("Failed to fetch")).mockResolvedValue([popis("a", 0, "Magacin")]);
     setup();

@@ -21,7 +21,7 @@ describe("useInventoryItemFlow", () => {
     lookupArticle.mockResolvedValue({ barcode: "8600005000122", name: "MAJONEZ 175", price: 85 });
     const flow = flowFor();
     await act(() => flow.current.start("860000500012"));
-    expect(flow.current.state).toMatchObject({ kind: "new", barcode: "8600005000122", name: "MAJONEZ 175", price: "85", quantity: "", locked: true });
+    expect(flow.current.state).toMatchObject({ kind: "new", barcode: "8600005000122", name: "MAJONEZ 175", price: "85", quantity: "", lockName: true, lockPrice: true });
   });
 
   it("leaves name and price to type for an article that isn't in the database", async () => {
@@ -29,7 +29,7 @@ describe("useInventoryItemFlow", () => {
     lookupArticle.mockResolvedValue(null);
     const flow = flowFor();
     await act(() => flow.current.start("12345"));
-    expect(flow.current.state).toMatchObject({ kind: "new", barcode: "12345", name: "", price: "", locked: false });
+    expect(flow.current.state).toMatchObject({ kind: "new", barcode: "12345", name: "", price: "", lockName: false, lockPrice: false });
   });
 
   it("asks what to do when the article is already on the popis", async () => {
@@ -99,7 +99,7 @@ describe("useInventoryItemFlow", () => {
     inventoryStore.updateItem.mockResolvedValue({ ...onList, quantity: 7 });
     const flow = flowFor();
     act(() => flow.current.edit(onList));
-    expect(flow.current.state).toMatchObject({ kind: "edit", quantity: "2", locked: true });
+    expect(flow.current.state).toMatchObject({ kind: "edit", quantity: "2", lockName: true, lockPrice: true });
     act(() => flow.current.setField("quantity", "7"));
     await act(() => flow.current.save());
     expect(inventoryStore.updateItem).toHaveBeenCalledWith("it1", { name: "MAJONEZ 175", price: 85, quantity: 7 });
@@ -126,6 +126,61 @@ describe("useInventoryItemFlow", () => {
     let result;
     await act(async () => (result = await flow.current.start("12345")));
     expect(result).toEqual({ ok: false, reason: "network" });
+    expect(flow.current.state.kind).toBe("idle");
+  });
+
+  it("ignores a lookup that finishes after it was cancelled and another code started", async () => {
+    let finishFirst;
+    inventoryStore.findItem.mockImplementationOnce(() => new Promise((r) => (finishFirst = r))).mockResolvedValueOnce(null);
+    lookupArticle.mockResolvedValue({ barcode: "222", name: "DRUGI", price: 10 });
+    const flow = flowFor();
+    let first;
+    act(() => {
+      first = flow.current.start("111");
+    });
+    act(() => flow.current.cancel());
+    await act(() => flow.current.start("222"));
+    await act(async () => {
+      finishFirst(onList);
+      await first;
+    });
+    expect(flow.current.state).toMatchObject({ kind: "new", barcode: "222", name: "DRUGI" });
+  });
+
+  it("lets the price be typed for a database article that has none", async () => {
+    inventoryStore.findItem.mockResolvedValue(null);
+    lookupArticle.mockResolvedValue({ barcode: "8600005000122", name: "MAJONEZ 175", price: null });
+    inventoryStore.addItem.mockResolvedValue({ item: { id: "n1", name: "MAJONEZ 175", quantity: 1 } });
+    const flow = flowFor();
+    await act(() => flow.current.start("8600005000122"));
+    expect(flow.current.state).toMatchObject({ price: "", lockName: true, lockPrice: false });
+    act(() => flow.current.setField("price", "90"));
+    act(() => flow.current.setField("quantity", "1"));
+    let result;
+    await act(async () => (result = await flow.current.save()));
+    expect(result.ok).toBe(true);
+    expect(inventoryStore.addItem).toHaveBeenCalledWith("p1", expect.objectContaining({ price: 90, inProducts: true }));
+  });
+
+  it("does nothing when a retry comes after the sheet was cancelled", async () => {
+    const flow = flowFor();
+    let result;
+    await act(async () => (result = await flow.current.save()));
+    expect(result).toEqual({ ok: false, reason: "cancelled" });
+  });
+
+  it("says when the popis itself was deleted on another phone", async () => {
+    inventoryStore.findItem.mockResolvedValue(null);
+    lookupArticle.mockResolvedValue(null);
+    inventoryStore.addItem.mockResolvedValue({ listGone: true });
+    const flow = flowFor();
+    await act(() => flow.current.start("12345"));
+    act(() => flow.current.setField("name", "Hleb"));
+    act(() => flow.current.setField("price", "80"));
+    act(() => flow.current.setField("quantity", "1"));
+    let result;
+    await act(async () => (result = await flow.current.save()));
+    expect(result).toEqual({ ok: false, reason: "list-gone" });
     expect(flow.current.state.kind).toBe("idle");
   });
 });

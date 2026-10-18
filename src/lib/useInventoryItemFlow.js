@@ -19,41 +19,65 @@ export const useInventoryItemFlow = (listId) => {
     stateRef.current = next;
     setState(next);
   };
+  // Every start or cancel bumps this; a lookup that comes back for an older
+  // code (cancelled, or another code scanned since) is dropped.
+  const request = useRef(0);
 
   const start = async (code) => {
+    const id = ++request.current;
+    const current = () => id === request.current;
     set({ kind: "loading", code });
     try {
       const existing = await inventoryStore.findItem(listId, code);
+      if (!current()) return { ok: true };
       if (existing) {
         set({ kind: "duplicate", item: existing });
         return { ok: true };
       }
       const product = await lookupArticle(code);
+      if (!current()) return { ok: true };
       // typed 12 digits of an article stored under its full code: keep the full one
       const barcode = product?.barcode?.length === 13 && code.length === 12 ? product.barcode : code;
+      const hasPrice = product?.price !== null && product?.price !== undefined;
       set({
         kind: "new",
         barcode,
         name: product?.name ?? "",
-        price: product ? toPriceInput(product.price) : "",
+        price: hasPrice ? toPriceInput(product.price) : "",
         quantity: "",
-        locked: Boolean(product),
+        // what the database has is locked; a missing name or price is typed
+        lockName: Boolean(product?.name),
+        lockPrice: hasPrice,
+        inProducts: Boolean(product),
         errors: {},
       });
       return { ok: true };
     } catch (e) {
+      if (!current()) return { ok: true };
       set(IDLE);
       return { ok: false, reason: "network" };
     }
   };
 
   const edit = (item) =>
-    set({ kind: "edit", item, name: item.name, price: toPriceInput(item.price), quantity: quantityInput(item.quantity), locked: item.inProducts, errors: {} });
+    set({
+      kind: "edit",
+      item,
+      name: item.name,
+      price: toPriceInput(item.price),
+      quantity: quantityInput(item.quantity),
+      lockName: item.inProducts,
+      lockPrice: item.inProducts,
+      errors: {},
+    });
 
   const chooseAdd = () => set({ kind: "add", item: stateRef.current.item, amount: "", errors: {} });
   const chooseEdit = () => edit(stateRef.current.item);
   const setField = (key, value) => set({ ...stateRef.current, [key]: value, errors: { ...stateRef.current.errors, [key]: undefined } });
-  const cancel = () => set(IDLE);
+  const cancel = () => {
+    request.current++;
+    set(IDLE);
+  };
 
   const validItem = (s) => {
     const name = s.name.trim();
@@ -68,6 +92,7 @@ export const useInventoryItemFlow = (listId) => {
 
   const save = async () => {
     const s = stateRef.current;
+    if (s.kind !== "new" && s.kind !== "edit" && s.kind !== "add") return { ok: false, reason: "cancelled" };
     try {
       if (s.kind === "add") {
         const amount = parseQuantity(s.amount);
@@ -87,7 +112,11 @@ export const useInventoryItemFlow = (listId) => {
         return { ok: false, reason: "invalid" };
       }
       if (s.kind === "new") {
-        const result = await inventoryStore.addItem(listId, { barcode: s.barcode, name, price, quantity, inProducts: s.locked });
+        const result = await inventoryStore.addItem(listId, { barcode: s.barcode, name, price, quantity, inProducts: s.inProducts });
+        if (result.listGone) {
+          set(IDLE);
+          return { ok: false, reason: "list-gone" };
+        }
         if (result.duplicate) {
           set({ kind: "duplicate", item: result.duplicate });
           return { ok: false, reason: "duplicate" };

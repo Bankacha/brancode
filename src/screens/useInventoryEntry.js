@@ -56,6 +56,9 @@ export const useInventoryEntry = (id, { onNext } = {}) => {
     } else if (result.reason === "gone") {
       toast.show({ kind: "info", text: "Stavka je u međuvremenu obrisana." });
       sheet.close();
+    } else if (result.reason === "list-gone") {
+      toast.show({ kind: "info", text: "Popis više ne postoji. Obrisan je na drugom telefonu." });
+      navigate("/popis", { replace: true });
     }
   };
   const submitRef = useRef(submit);

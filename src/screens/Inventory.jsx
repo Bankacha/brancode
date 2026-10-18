@@ -69,7 +69,7 @@ export default function Inventory() {
         action: { label: "Vrati", run: () => restore(item) },
       });
     } catch (e) {
-      offline("Nema veze. Stavka nije uklonjena.");
+      offline("Nema veze. Stavka nije uklonjena.", () => remove(item));
     }
     await data.reload();
     setHidden((h) => {

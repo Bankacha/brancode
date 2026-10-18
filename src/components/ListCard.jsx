@@ -16,8 +16,14 @@ export default function ListCard({ to, title, meta, onLongPress }) {
     longPressed.current = false;
     e.preventDefault();
   };
+  // A long press that ended on the sheet it opened never clicks the card, so
+  // the flag is cleared on the next press instead of eating that tap.
+  const onPointerDown = (e) => {
+    longPressed.current = false;
+    press.onPointerDown(e);
+  };
   return (
-    <li {...press} className="select-none [-webkit-touch-callout:none]">
+    <li {...press} onPointerDown={onPointerDown} className="select-none [-webkit-touch-callout:none]">
       <Link
         to={to}
         onClick={onClick}
