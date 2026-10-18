@@ -28,7 +28,7 @@ export default function PrintPage({ rows, format, barcodeImage }) {
                   <PriceCell key={item.id} price={item.price} format={format} />
                 ))}
               </tr>
-              {style.hasBarcode && (
+              {style.barcode === "row" && (
                 <tr>
                   {row.map((item) => (
                     <BarcodeCell key={item.id} code={item.barcode} format={format} barcodeImage={barcodeImage} />

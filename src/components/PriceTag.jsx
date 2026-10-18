@@ -143,7 +143,7 @@ export default function PriceTag({ item, format, barcodeImage }) {
         <tr>
           <PriceCell price={item.price} format={format} />
         </tr>
-        {PRICE_TAG_STYLES[format].hasBarcode && (
+        {PRICE_TAG_STYLES[format].barcode === "row" && (
           <tr>
             <BarcodeCell code={item.barcode} format={format} barcodeImage={barcodeImage} />
           </tr>
