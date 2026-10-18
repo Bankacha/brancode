@@ -4,6 +4,7 @@ import { ArrowLeft, Check, CopyPlus, Pencil, WifiOff } from "lucide-react";
 import { downloadBlob } from "../lib/download.js";
 import { sendFileByEmail } from "../lib/email.js";
 import { buildPdfBlob } from "../lib/listPdf.js";
+import { orderForPdf, readPdfOrder } from "../lib/pdfOrder.js";
 import { formatQuantity, itemCount } from "../lib/listFormat.js";
 import { plural } from "../lib/plural.js";
 import { leaveScreen } from "../lib/navigation.js";
@@ -145,7 +146,8 @@ export default function ListDetail({ screen }) {
     toast.show({ kind: "loading", text: "Pravim PDF…" });
     try {
       const latest = (await data.reload()) ?? data.data;
-      const blob = await buildPdfBlob(screen.pdf.definition(latest.list, latest.items));
+      const rows = orderForPdf(latest.items, readPdfOrder(section)); // as chosen in Podešavanja
+      const blob = await buildPdfBlob(screen.pdf.definition(latest.list, rows));
       const filename = screen.pdf.filename(latest.list);
       if (how === "download") {
         downloadBlob(blob, filename);

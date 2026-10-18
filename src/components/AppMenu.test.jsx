@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useNavigate } from "react-router";
 import { SessionProvider } from "../auth/session.jsx";
 import { ToastProvider } from "./Toast.jsx";
@@ -48,6 +48,16 @@ describe("AppMenu", () => {
     fireEvent.click(screen.getByRole("button", { name: "zxing" }));
     expect(screen.getByRole("button", { name: "zxing" }).getAttribute("aria-pressed")).toBe("true");
     expect(localStorage.getItem("scanner-reader")).toBe("zxing");
+  });
+
+  it("chooses the PDF order for each list kind in settings", () => {
+    setup();
+    openMenu();
+    fireEvent.click(screen.getByRole("button", { name: /Podešavanja/ }));
+    const trebovanje = screen.getByRole("group", { name: "Trebovanje" });
+    expect(within(trebovanje).getByRole("button", { name: "Po nazivu" }).getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(within(trebovanje).getByRole("button", { name: "Redom dodavanja" }));
+    expect(JSON.parse(localStorage.getItem("pdf-order"))).toEqual({ popis: "name", trebovanje: "added" });
   });
 
   it("signs out", () => {
