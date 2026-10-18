@@ -14,6 +14,11 @@ Odluke koje sam doneo sam dok smo radili meni, cene, popis i trebovanje, i tvoji
 - **Popis i trebovanje:** ✅ Podešavanja → „Redosled stavki u PDF-u“, posebno za Popis i Trebovanje. Izbor je „Po nazivu“ (podrazumevano, po srpskoj abecedi: c č ć, d dž đ, l lj) ili „Redom dodavanja“ (prvo dodato prvo). Pamti se na telefonu.
 - **Trebovanje:** ✅ naziv artikla iz baze može da se menja. Cena ostaje zaključana.
 - **UI:** ✅ logo umesto natpisa „brancode“ na vrhu početnog ekrana.
+- **Podešavanja:** ✅ dva odeljka sa naslovima, „Izvoz u PDF“ i „Skeniranje“, a na dnu verzija aplikacije.
+- **Verzija:** ✅ trenutno **0.9.0**.
+  - Uz svaki deploy (merge na `main`) se podiže: popravke 0.9.1, nove funkcije 0.10.0.
+  - 1.0.0 je dan kad radnja počne da se oslanja na aplikaciju.
+  - Pravilo je zapisano u `CLAUDE.md`.
 - Sve ostalo ispod ostaje kako je urađeno.
 
 ## Meni (hamburger)

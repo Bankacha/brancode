@@ -6,6 +6,7 @@ Ovo nije provereno na pravom telefonu i papiru, pa ostaje za zajednički test. �
 
 - [ ] Prijava: pogrešna lozinka pokazuje grešku, a ispravna ulazi.
 - [ ] Na vrhu početnog ekrana je logo umesto natpisa „brancode“.
+- [ ] Podešavanja imaju odeljke „Izvoz u PDF“ i „Skeniranje“, a na dnu piše „Verzija 0.9.0“.
 - [ ] Meni (☰ gore desno) se otvara odozdo: Cenovnici (označeno), Podešavanja, Odjavi se i email. „Nazad“ zatvara meni, a iz Podešavanja „nazad“ ne vraća meni.
 - [ ] Odjava iz menija.
 - [ ] Početna:

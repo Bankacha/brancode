@@ -5,6 +5,7 @@ import { MemoryRouter, Route, Routes, useNavigate } from "react-router";
 import { SessionProvider } from "../auth/session.jsx";
 import { ToastProvider } from "./Toast.jsx";
 import AppMenu from "./AppMenu.jsx";
+import { version } from "../../package.json";
 import { supabase } from "../supabaseClient";
 
 vi.mock("../supabaseClient", () => ({ supabase: { auth: { signOut: vi.fn(async () => ({ error: null })) } } }));
@@ -48,6 +49,18 @@ describe("AppMenu", () => {
     fireEvent.click(screen.getByRole("button", { name: "zxing" }));
     expect(screen.getByRole("button", { name: "zxing" }).getAttribute("aria-pressed")).toBe("true");
     expect(localStorage.getItem("scanner-reader")).toBe("zxing");
+  });
+
+  it("groups settings into PDF and scanning, and shows the app's version", () => {
+    setup();
+    openMenu();
+    fireEvent.click(screen.getByRole("button", { name: /Podešavanja/ }));
+    const pdf = screen.getByRole("region", { name: "Izvoz u PDF" });
+    expect(within(pdf).getByRole("group", { name: "Popis" })).toBeTruthy();
+    expect(within(pdf).queryByRole("group", { name: /Čitač/ })).toBeNull();
+    const scanning = screen.getByRole("region", { name: "Skeniranje" });
+    expect(within(scanning).getByRole("group", { name: "Čitač barkoda (test)" })).toBeTruthy();
+    expect(screen.getByText(`Verzija ${version}`)).toBeTruthy();
   });
 
   it("chooses the PDF order for each list kind in settings", () => {
