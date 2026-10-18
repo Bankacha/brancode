@@ -40,3 +40,18 @@ Dok se ovo ne reši, sve testiraj lokalno (`npm run dev`, telefon na istoj mrež
 5. **Sitne cifre uz barkod** su uvek tu, ali zauzimaju najviše petinu debljine, da linije ostanu što više. Okrenute su da se čitaju odozdo nagore. Ako na kasi bolje prolazi bez cifara, uklanjanje je jedan broj.
 7. **Vrlo dugi kodovi** (npr. ručno ukucano 20 cifara) dobijaju CODE128 sa jako tankim linijama, koje verovatno neće moći da se pročitaju. Ostavio sam tako. Ako to smeta, na takvim cenovnicima ide samo broj, bez barkoda.
 6. **Probnu stranu nisam pravio** (spec je predlagao da se prvo štampa probna strana sa više veličina). Prava strana za Raf i Frižider sada služi kao proba.
+
+## Popis
+
+1. **Brisanje celog popisa** je dugim pritiskom na popis u spisku, uz potvrdu sa brojem stavki. Da li je to dovoljno vidljivo, ili da dodam i dugme u samoj listi?
+2. **Izgled stavke:** levo naziv, ispod barkod i cena, a desno krupno količina. Bez jedinice mere (kom/kg), jer je baza nema.
+3. **Redosled stavki:** najnovija je na vrhu, da se odmah vidi šta je upravo dodato. PDF ima isti redosled. Da li bi u PDF-u bolje bilo po nazivu?
+4. **Sheet za stavku:** „nazad“ iz „Dodaj količinu“ zatvara ceo sheet umesto da se vrati na pitanje „Dodaj / Izmeni“.
+5. **„Dodaj količinu“ traži broj veći od 0.** Količina stavke može biti 0, ali dodavanje nule nema smisla.
+6. **PDF:**
+   - naslov je „Popis · tekst“, a period i datum izrade su u redovima ispod;
+   - kolone su #, Naziv, Barkod, Cena, Količina;
+   - ime fajla je `popis-2026-10-01_2026-10-18.pdf`.
+7. **Meni na ekranu jednog popisa** se ne vidi (tu su „nazad“ i olovčica). Meni je na spisku popisa.
+8. **Probni podaci:** napravio sam popis „Proba (Claude)“ u tvojoj bazi, sa dve stavke, proverio sve i **obrisao ga**. Tabele popisa su ponovo prazne. U `products` nisam ništa pisao.
+9. **PWA:** PDF biblioteka (oko 1,9 MB) se čuva za rad bez interneta, pa je prva instalacija aplikacije nešto veća.
