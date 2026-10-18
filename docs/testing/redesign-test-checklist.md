@@ -5,7 +5,8 @@ Ovo nije provereno na pravom telefonu i papiru, pa ostaje za zajednički test. �
 ## 1. Na računaru (dev server, `npm run dev`)
 
 - [ ] Prijava: pogrešna lozinka pokazuje grešku, a ispravna ulazi.
-- [ ] Odjava iz menija „…“.
+- [ ] Meni (☰ gore desno) se otvara odozdo: Cenovnici (označeno), Podešavanja, Odjavi se i email. „Nazad“ zatvara meni, a iz Podešavanja „nazad“ ne vraća meni.
+- [ ] Odjava iz menija.
 - [ ] Početna:
   - [ ] grupe „Za proveru · nije u bazi“ i „Spremno · N“;
   - [ ] brojevi i množina („1 cenovnik“, „2 traže proveru“);
@@ -49,7 +50,7 @@ Ovo nije provereno na pravom telefonu i papiru, pa ostaje za zajednički test. �
 - [ ] Da li se tastatura za cenu otvara sama posle skeniranja.
 - [ ] Kamera se gasi kad napustiš ekran ili aplikacija ode u pozadinu (indikator kamere nestaje).
 - [ ] Odbijena dozvola za kameru daje status „Nema dozvole za kameru.“ sa „Upiši ručno“.
-- [ ] **Poređenje čitača:** meni → „Čitač barkoda (test)“ → Ugrađeni, pa zxing. Koji brže i pouzdanije hvata? Posle odluke se ovaj izbor uklanja iz menija.
+- [ ] **Poređenje čitača:** meni → Podešavanja → „Čitač barkoda (test)“ → Ugrađeni, pa zxing. Koji brže i pouzdanije hvata? Posle odluke se ovaj izbor uklanja.
 
 ### iPhone (ako je dostupan)
 - [ ] Skeniranje radi (zxing).
@@ -73,7 +74,7 @@ Ovo nije provereno na pravom telefonu i papiru, pa ostaje za zajednički test. �
 
 ## 4. Posle testa
 
-- Ukloniti privremeni izbor čitača iz menija (`useScannerReader`, „Čitač barkoda (test)“) i zadržati čitač koji je bolji.
+- Ukloniti privremeni izbor čitača iz Podešavanja (`useScannerReader`, „Čitač barkoda (test)“) i zadržati čitač koji je bolji.
 - Proći odložene sitne nalaze iz pregleda (spisak je u završnim porukama faza 2–4), na primer:
   - više barkodova u kadru;
   - „N. u nizu“ broji i odustajanja;

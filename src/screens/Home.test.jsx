@@ -4,6 +4,7 @@ import { useState } from "react";
 import { render, screen, fireEvent, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { ToastProvider } from "../components/Toast.jsx";
+import { SessionProvider } from "../auth/session.jsx";
 import Home from "./Home.jsx";
 import { supabase } from "../supabaseClient";
 
@@ -15,11 +16,13 @@ const list = (n, notInDb = 0) => Array.from({ length: n }, (_, i) => item(i, i <
 function Harness({ initial }) {
   const [queue, setQueue] = useState(initial);
   return (
-    <MemoryRouter>
-      <ToastProvider>
-        <Home queue={queue} setQueue={setQueue} editor={{ openItem: vi.fn() }} session={{ user: { email: "b@b.com" } }} />
-      </ToastProvider>
-    </MemoryRouter>
+    <SessionProvider value={{ user: { email: "b@b.com" } }}>
+      <MemoryRouter>
+        <ToastProvider>
+          <Home queue={queue} setQueue={setQueue} editor={{ openItem: vi.fn() }} />
+        </ToastProvider>
+      </MemoryRouter>
+    </SessionProvider>
   );
 }
 
