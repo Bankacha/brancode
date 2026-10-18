@@ -65,17 +65,41 @@ export const useListItemFlow = (listId, kind) => {
     set({ kind: "new", barcode: null, name: "", price: "", quantity: "", lockName: false, lockPrice: false, inProducts: false, errors: {} });
   };
 
-  const edit = (item) =>
-    set({
-      kind: "edit",
-      item,
-      name: item.name,
-      price: item.price === null ? "" : toPriceInput(item.price),
-      quantity: numberInput(item.quantity),
-      lockName: item.inProducts,
-      lockPrice: item.inProducts,
-      errors: {},
-    });
+  const editState = (item, inProducts) => ({
+    kind: "edit",
+    item,
+    name: item.name,
+    price: item.price === null ? "" : toPriceInput(item.price),
+    quantity: numberInput(item.quantity),
+    lockName: inProducts,
+    lockPrice: inProducts && item.price !== null,
+    inProducts,
+    errors: {},
+  });
+
+  // A popis item knows whether it came from `products`; a trebovanje item
+  // doesn't store it, so its barcode is looked up again — name and price stay
+  // locked on edit as they were when it was added.
+  const edit = (item) => {
+    if (item.inProducts !== undefined || !item.barcode) {
+      request.current++;
+      set(editState(item, Boolean(item.inProducts)));
+      return { ok: true };
+    }
+    const id = ++request.current;
+    set({ kind: "loading", code: item.barcode });
+    return lookupArticle(item.barcode).then(
+      (product) => {
+        if (id === request.current) set(editState(item, Boolean(product)));
+        return { ok: true };
+      },
+      () => {
+        if (id !== request.current) return { ok: true };
+        set(IDLE);
+        return { ok: false, reason: "network" };
+      }
+    );
+  };
 
   const chooseAdd = () => set({ kind: "add", item: stateRef.current.item, amount: "", errors: {} });
   const chooseEdit = () => edit(stateRef.current.item);

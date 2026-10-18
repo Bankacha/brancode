@@ -61,6 +61,7 @@ export const transferItems = async (store, items, targetId) => {
         continue;
       }
       const added = await store.addItem(targetId, { barcode: item.barcode, name: item.name, price: item.price, quantity: item.quantity });
+      if (added.listGone) throw Object.assign(new Error("list-gone"), { listGone: true });
       if (added.duplicate) await addTo(added.duplicate, item.quantity);
       else {
         result.copied++;

@@ -242,4 +242,33 @@ describe("useListItemFlow on a trebovanje", () => {
     await save(flow);
     expect(requisitionStore.updateItem).toHaveBeenCalledWith("r3", { name: "Jaja", price: null, quantity: 30 });
   });
+
+  it("locks a database article on edit too, looking it up since trebovanje doesn't store that", async () => {
+    lookupArticle.mockResolvedValue({ barcode: "8600005000122", name: "MAJONEZ 175", price: 85 });
+    const flow = flowFor();
+    let result;
+    await act(async () => (result = await flow.current.edit({ id: "r4", barcode: "8600005000122", name: "MAJONEZ 175", price: 85, quantity: 2 })));
+    expect(result).toEqual({ ok: true });
+    expect(flow.current.state).toMatchObject({ kind: "edit", lockName: true, lockPrice: true, inProducts: true });
+  });
+
+  it("leaves an item that isn't in the database editable, and doesn't look up one without a barcode", async () => {
+    lookupArticle.mockResolvedValue(null);
+    const flow = flowFor();
+    await act(() => flow.current.edit({ id: "r5", barcode: "12345", name: "Mleko", price: null, quantity: null }));
+    expect(flow.current.state).toMatchObject({ lockName: false, lockPrice: false, inProducts: false });
+    lookupArticle.mockClear();
+    await act(() => flow.current.edit({ id: "r6", barcode: null, name: "Hleb", price: null, quantity: null }));
+    expect(lookupArticle).not.toHaveBeenCalled();
+    expect(flow.current.state).toMatchObject({ kind: "edit", lockName: false });
+  });
+
+  it("reports a failed lookup on edit instead of opening it unlocked", async () => {
+    lookupArticle.mockRejectedValue(new Error("Failed to fetch"));
+    const flow = flowFor();
+    let result;
+    await act(async () => (result = await flow.current.edit({ id: "r4", barcode: "8600005000122", name: "MAJONEZ 175", price: 85, quantity: 2 })));
+    expect(result).toEqual({ ok: false, reason: "network" });
+    expect(flow.current.state.kind).toBe("idle");
+  });
 });

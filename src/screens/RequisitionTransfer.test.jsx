@@ -90,12 +90,62 @@ describe("Prenesi stavke", () => {
     await waitFor(() => expect(requisitionStore.addItem).toHaveBeenCalledTimes(2));
   });
 
-  it("says how many were copied when the connection drops halfway", async () => {
+  it("opens the target when the connection drops halfway, so nothing is copied twice", async () => {
     requisitionStore.addItem.mockResolvedValueOnce({ item: {} }).mockRejectedValueOnce(new Error("Failed to fetch"));
     setup();
     await selectAllAndOpen();
     fireEvent.click(await within(await screen.findByRole("dialog")).findByText("18.10.2026"));
-    await waitFor(() => expect(screen.getByRole("status").textContent).toContain("Preneseno 1 od 2"));
+    expect(await screen.findByText("CILJ t2")).toBeTruthy();
+    expect(screen.getByRole("status").textContent).toContain("Preneseno 1 od 2");
+  });
+
+  it("offers to try again when nothing was copied yet", async () => {
+    requisitionStore.addItem.mockRejectedValueOnce(new Error("Failed to fetch"));
+    setup();
+    await selectAllAndOpen();
+    fireEvent.click(await within(await screen.findByRole("dialog")).findByText("18.10.2026"));
+    fireEvent.click(await screen.findByRole("button", { name: "Ponovi" }));
+    expect(await screen.findByText("CILJ t2")).toBeTruthy();
+  });
+
+  it("says so when the target was deleted meanwhile, without opening it", async () => {
+    requisitionStore.addItem.mockResolvedValue({ listGone: true });
+    setup();
+    await selectAllAndOpen();
+    fireEvent.click(await within(await screen.findByRole("dialog")).findByText("18.10.2026"));
+    await waitFor(() => expect(screen.getByRole("status").textContent).toContain("više ne postoji"));
     expect(screen.queryByText("CILJ t2")).toBeNull();
+  });
+
+  it("counts what was already there with the right word", async () => {
+    requisitionStore.findItem.mockResolvedValue({ id: "x", quantity: null });
+    const withoutQuantity = [{ ...items[0], quantity: null }, items[1]];
+    requisitionStore.items.mockImplementation(async (id) => (id === "t1" ? withoutQuantity : [{ id: "h", barcode: null, name: "Hleb za sendviče" }]));
+    setup();
+    await selectAllAndOpen();
+    fireEvent.click(await within(await screen.findByRole("dialog")).findByText("18.10.2026"));
+    expect(await screen.findByText("CILJ t2")).toBeTruthy();
+    expect(screen.getByRole("status").textContent).toContain("2 već postoje");
+  });
+});
+
+describe("Prenesi stavke after a refresh", () => {
+  it("doesn't reopen an empty transfer sheet", async () => {
+    vi.clearAllMocks();
+    requisitionStore.get.mockResolvedValue(t1);
+    requisitionStore.items.mockResolvedValue(items);
+    requisitionStore.list.mockResolvedValue([]);
+    render(
+      <MemoryRouter initialEntries={[{ pathname: "/trebovanje/t1", state: { sheet: "transfer" } }]}>
+        <ToastProvider>
+          <Routes>
+            <Route path="/trebovanje/:id" element={<Screen />} />
+          </Routes>
+        </ToastProvider>
+      </MemoryRouter>
+    );
+    expect(await screen.findByText("Mleko")).toBeTruthy();
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(screen.getByRole("button", { name: "Skeniraj" })).toBeTruthy();
   });
 });

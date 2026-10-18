@@ -5,6 +5,7 @@ import { downloadBlob } from "../lib/download.js";
 import { sendFileByEmail } from "../lib/email.js";
 import { buildPdfBlob } from "../lib/listPdf.js";
 import { formatQuantity, itemCount } from "../lib/listFormat.js";
+import { plural } from "../lib/plural.js";
 import { leaveScreen } from "../lib/navigation.js";
 import { useListItemFlow } from "../lib/useListItemFlow.js";
 import { useLoad } from "../lib/useLoad.js";
@@ -59,9 +60,11 @@ export default function ListDetail({ screen }) {
     }
   }, [data.data]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // A refreshed page has no flow in progress: drop a stale "item" entry.
+  // A refreshed page has no flow in progress and no items picked: drop a
+  // stale "item" or picking/transfer entry.
   useEffect(() => {
-    if (sheet.name === "item" && flow.state.kind === "idle") navigate(".", { replace: true, state: null });
+    const stale = (sheet.name === "item" && flow.state.kind === "idle") || ["select", "transfer", "transfer-new"].includes(sheet.name);
+    if (stale) navigate(".", { replace: true, state: null });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const offline = (text, retry) => toast.show({ kind: "error", icon: WifiOff, text, action: retry && { label: "Ponovi", run: retry } });
@@ -96,9 +99,12 @@ export default function ListDetail({ screen }) {
     data.reload();
   };
 
-  const edit = (item) => {
-    flow.edit(item);
+  const edit = async (item) => {
     sheet.open("item");
+    const result = await flow.edit(item);
+    if (result.ok) return;
+    sheet.close();
+    offline("Nema veze. Stavka nije otvorena.", () => edit(item));
   };
 
   const closeItem = () => {
@@ -182,11 +188,21 @@ export default function ListDetail({ screen }) {
         kind: "success",
         icon: Check,
         text: `Preneseno: ${copied + added}`,
-        detail: skipped ? `${skipped} već postoji` : undefined,
+        detail: skipped ? plural(skipped, `${skipped} već postoji`, `${skipped} već postoje`, `${skipped} već postoji`) : undefined,
       });
       navigate(`/${section}/${targetId}`, { replace: true });
     } catch (e) {
-      offline(`Nema veze. Preneseno ${e.done ?? 0} od ${chosen.length}.`);
+      if (e.listGone) {
+        toast.show({ kind: "info", text: "Trebovanje u koje prenosiš više ne postoji." });
+        sheet.close();
+      } else if (e.done > 0) {
+        // Part of it is there: open the target rather than offer a second
+        // run, which would add the copied quantities again.
+        toast.show({ kind: "error", icon: WifiOff, text: `Nema veze. Preneseno ${e.done} od ${chosen.length}; ostale prenesi ponovo.` });
+        navigate(`/${section}/${targetId}`, { replace: true });
+      } else {
+        offline(`Nema veze. Ništa nije preneseno.`, () => transfer(targetId));
+      }
     } finally {
       setTransferring(false);
     }

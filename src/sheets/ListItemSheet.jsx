@@ -59,7 +59,7 @@ export default function ListItemSheet({ flow, texts, open, onClose, source, onSu
     submit(actions[kind][0][1]);
   };
   const field = (key) => ({ value: state[key], onChange: (e) => flow.setField(key, e.target.value) });
-  const fromProducts = state.kind === "new" ? state.inProducts : state.item?.inProducts;
+  const fromProducts = state.inProducts;
   const barcode = state.kind === "new" ? state.barcode : state.item?.barcode;
 
   return (

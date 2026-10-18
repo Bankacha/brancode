@@ -41,6 +41,13 @@ describe("typing into a trebovanje", () => {
     expect(requisitionStore.findItem).not.toHaveBeenCalled();
   });
 
+  it("clears digits typed before choosing Bez barkoda", async () => {
+    setup();
+    for (const d of "123") fireEvent.click(screen.getByRole("button", { name: d }));
+    fireEvent.click(screen.getByRole("button", { name: "Bez barkoda" }));
+    expect(screen.getByTestId("code").textContent).toBe("");
+  });
+
   it("asks what to do with a code that is already on the trebovanje", async () => {
     requisitionStore.findItem.mockResolvedValue({ id: "r2", barcode: "12345", name: "Mleko", price: null, quantity: null });
     setup();

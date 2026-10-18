@@ -84,6 +84,13 @@ describe("transferItems", () => {
     expect(s.addQuantity).toHaveBeenCalledWith("x9", 2);
   });
 
+  it("stops when the target trebovanje was deleted meanwhile, saying so", async () => {
+    const s = store();
+    s.addItem.mockResolvedValueOnce({ item: { id: "n1" } }).mockResolvedValueOnce({ listGone: true });
+    const items = [{ barcode: "1", name: "A", price: null, quantity: null }, { barcode: null, name: "B", price: null, quantity: null }];
+    await expect(transferItems(s, items, "t2")).rejects.toMatchObject({ listGone: true, done: 1 });
+  });
+
   it("says how many were done when the connection drops halfway", async () => {
     const s = store();
     s.addItem.mockResolvedValueOnce({ item: {} }).mockRejectedValueOnce(new Error("Failed to fetch"));

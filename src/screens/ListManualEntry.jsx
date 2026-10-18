@@ -19,6 +19,12 @@ export default function ListManualEntry({ kind, withoutBarcode = false }) {
     if (code) entry.begin(code);
   };
 
+  // digits typed so far would otherwise wait under the sheet
+  const withoutCode = () => {
+    setCode("");
+    entry.beginWithoutBarcode();
+  };
+
   return (
     <BarcodeKeypad
       code={code}
@@ -26,7 +32,7 @@ export default function ListManualEntry({ kind, withoutBarcode = false }) {
       onSubmit={submit}
       onBack={() => leaveScreen(navigate, location, entry.home)}
       listening={!entry.sheet.name}
-      extraAction={withoutBarcode ? { label: "Bez barkoda", run: entry.beginWithoutBarcode } : null}
+      extraAction={withoutBarcode ? { label: "Bez barkoda", run: withoutCode } : null}
     >
       <ListItemSheet flow={entry.flow} texts={kind.texts} open={entry.open} onClose={entry.close} source="manual" onSubmit={entry.submit} />
     </BarcodeKeypad>
