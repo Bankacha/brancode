@@ -8,7 +8,7 @@ Aplikacija danas služi samo za cenovnike. U radnji se radi i:
 - **popis:** prebrojavanje robe na stanju za neki period;
 - **trebovanje:** spisak šta treba nabaviti za dan.
 
-Oba se rade na papiru ili ponovnim kucanjem. Cilj je da se i jedno i drugo radi istim skeniranjem kao cenovnici, da se liste čuvaju i da se lepo štampaju i šalju. Uz to, cenovnici za raf i frižider dobijaju broj barkoda i manje decimale, da bi mu oslobodili mesto.
+Oba se rade na papiru ili ponovnim kucanjem. Cilj je da se i jedno i drugo radi istim skeniranjem kao cenovnici, da se liste čuvaju i da se lepo štampaju i šalju. Uz to, cenovnici za raf i frižider dobijaju barkod, kao oni za voće, i manje decimale, da bi mu oslobodili mesto.
 
 ## Odluke (iz razgovora)
 
@@ -20,7 +20,7 @@ Oba se rade na papiru ili ponovnim kucanjem. Cilj je da se i jedno i drugo radi 
 4. **Artikal koji nije u bazi artikala ostaje samo na listi** (popisa ili trebovanja) i ne upisuje se u `products`. U `products` upisuje samo tok za cenovnike.
 5. **Popis i Trebovanje nikad ne menjaju cene niti nazive u `products`.**
 6. **Izvoz:** uredan PDF (tabela, više strana) za preuzimanje i slanje mejlom, preko postojećeg `api/send-email.js`.
-7. **Cenovnici:** raf i frižider dobijaju **broj barkoda** (samo cifre, bez linija), uspravno uz desnu ivicu ćelije cene, a decimale („,50“) upola manjim fontom, poravnate na vrh. Voće ostaje kakvo jeste.
+7. **Cenovnici:** raf i frižider dobijaju **pravi barkod** (linije, kao na cenovniku za voće), uspravno uz desnu ivicu ćelije cene. Ako ima mesta, ispod idu i sitne cifre. Decimale („,50“) su upola manjim fontom, poravnate na vrh. Voće ostaje kakvo jeste.
 8. **Novo u bazi:** tabele pravi SQL koji pripremi graditelj, a korisnik ga pokreće u Supabase konzoli.
 
 ## Ne-ciljevi
@@ -34,7 +34,7 @@ Oba se rade na papiru ili ponovnim kucanjem. Cilj je da se i jedno i drugo radi 
 - Skeniranje u Popisu ili Trebovanju slučajno promeni cenu ili naziv u bazi artikala.
 - Lista se izgubi ili obriše bez jasnog upozorenja.
 - Odštampan PDF od više strana je nepregledan: bez zaglavlja tabele na svakoj strani, bez broja strane, sa iseckanim nazivima ili sa pokvarenim slovima č, ć, š, ž, đ.
-- Na cenovniku broj barkoda uguši cenu, ili je toliko sitan da se ne može pročitati.
+- Na cenovniku barkod uguši cenu, ili se ne može očitati.
 
 ## Meni
 
@@ -112,12 +112,16 @@ Isto kao Popis, osim:
 ## Nadogradnja cenovnika (raf i frižider)
 
 - **Cena:** celi deo ostaje kao danas. Decimalni deo sa zarezom („,50“) je upola manji i poravnat na vrh celog dela, kao eksponent. U Excel-u to je rich text u ćeliji. Tačan način je stvar graditelja, ali na papiru mora izgledati tako.
-- **Broj barkoda:** samo cifre barkoda artikla, bez linija (odluka korisnika: linije ne bi stale čitljive). Okrenut je uspravno uz desnu ivicu ćelije cene (moje tumačenje „uz ivicu, uspravno, da zauzme što manje mesta“). Sitan, ali da se lako pročita.
+- **Barkod:** pravi barkod sa linijama, kao na cenovniku za voće (odluka korisnika), okrenut uspravno uz desnu ivicu ćelije cene. Sitne cifre idu uz njega samo ako ima mesta.
   - U frižideru mora biti u vidljivom delu ćelije, koji držač ne pokriva.
-  - Cena i broj se ne preklapaju. Ako cena ne staje, smanjuje se (postojeći „shrink to fit“).
-  - U Excel-u ćelija ne može imati dva različito okrenuta teksta, pa broj može biti slika (cifre iscrtane na canvasu i okrenute) postavljena kao barkod za voće, ili uska dodatna kolona sa okrenutim tekstom. Izbor je stvar graditelja, ali raspored i broj cenovnika po strani ne smeju da se promene.
-- **Pregled štampe prati Excel** (odluka 3 iz prethodnog spec-a): `PriceTag` crta iste decimale i isti broj, iz iste geometrije.
-- **Testovi u `priceTags.test.js`** se ažuriraju: rich text vrednosti i broj barkoda na rafu i frižideru. Pravilo da se dimenzije menjaju samo kroz `PRICE_TAG_STYLES` i dalje važi.
+  - Cena i barkod se ne preklapaju. Ako cena ne staje, smanjuje se (postojeći „shrink to fit“).
+  - Barkod je slika iscrtana na canvasu i okrenuta, postavljena kao barkod za voće. Raspored i broj cenovnika po strani se ne menjaju.
+- **Čitljivost na kasi je glavni rizik.** Uspravno ima samo oko 27 mm (raf) i oko 22 mm vidljivog dela (frižider), a čitljiv barkod od 13 cifara je obično dug 28–30 mm.
+  - Predlog: za EAN kodove (12 ili 13 cifara) koristiti EAN-13 simbologiju, koja je kraća od CODE128, a CODE128 samo za ostale kodove. Kasa svakako čita EAN-13 sa ambalaže.
+  - Faza 3 počinje probnom stranom sa nekoliko veličina. Korisnik je skenira na kasi, a Excel i pregled se menjaju tek kad se zna šta se čita.
+  - Ako ništa ne prolazi, korisnik bira između većeg reda cene i barkoda vodoravno ispod cene.
+- **Pregled štampe prati Excel** (odluka 3 iz prethodnog spec-a): `PriceTag` crta iste decimale i isti barkod, iz iste geometrije.
+- **Testovi u `priceTags.test.js`** se ažuriraju: rich text vrednosti i slike barkoda na rafu i frižideru. Pravilo da se dimenzije menjaju samo kroz `PRICE_TAG_STYLES` i dalje važi.
 
 ## Baza (novo)
 
@@ -130,7 +134,8 @@ Isto kao Popis, osim:
 | `requisitions` (trebovanja) | `id`, `title`, `date`, `created_at`, `created_by` |
 | `requisition_items` | `id`, `requisition_id` (cascade), `barcode` (može null), `name` (obavezan), `price` (može null), `quantity` (može null), `created_at`, `updated_at`; jedinstven par (`requisition_id`, `barcode`) kad barkod postoji |
 
-- Konkretni tipovi, indeksi i SQL su stvar graditelja. SQL ide u `supabase/migrations/` i u uputstvo za korisnika.
+- SQL je u `supabase/migrations/20261018_popis_trebovanje.sql`, a korisnik ga pokreće u Supabase SQL Editoru.
+- Uz tabele idu i dve funkcije, `add_inventory_quantity` i `add_requisition_quantity`, koje sabiraju količinu u bazi, zbog više telefona.
 - `products` se ne menja.
 
 ## Slanje mejlom
@@ -143,14 +148,14 @@ Svaka faza ima svoj plan, izvršavanje i pregled, kao kod redizajna. Na `main` i
 
 1. **Meni + Popis:** meni, rute sekcija, tabele za popis, spisak, lista, stavke, duplikati, skeniranje u nizu, PDF i mejl.
 2. **Trebovanje:** tabele, spisak sa arhivom, lista, stavke, prenos stavki i PDF. Koristi što je moguće više delova Popisa.
-3. **Nadogradnja cenovnika:** decimale i uspravan broj barkoda na rafu i frižideru, u Excel-u i pregledu.
+3. **Nadogradnja cenovnika:** probna strana za čitljivost, pa decimale i uspravan barkod na rafu i frižideru, u Excel-u i pregledu.
 
 ## Provera
 
 - Vitest za čistu logiku: nazivi lista, validacija, sabiranje količina, izbor i prenos stavki bez duplikata, raspored PDF-a gde je moguće, rich text cene i položaj barkoda.
 - Ručna provera u browseru kao do sada.
 - Na telefonu i papiru se testira kasnije, zajedno sa redizajnom. Sve se dopisuje u `docs/testing/redesign-test-checklist.md` (ili u novi spisak pored njega), naročito:
-  - da li je uspravan broj barkoda na rafu i frižideru čitljiv i da li ostaje u vidljivom delu držača;
+  - da li se uspravan barkod na rafu i frižideru očitava na kasi i da li ostaje u vidljivom delu držača;
   - da li PDF od više strana izgleda uredno na papiru.
 
 ## Ostavljeno graditelju
@@ -169,8 +174,8 @@ Svaka faza ima svoj plan, izvršavanje i pregled, kao kod redizajna. Na `main` i
 - Količina na popisu dozvoljava 0 i decimale.
 - Trebovanja starija od 20 dana idu u „Arhivu“ na istom ekranu. Ništa se ne briše automatski.
 - Čuva se pun skenirani barkod. Isti artikal sa 12 ili 13 cifara je isti duplikat.
-- Broj barkoda na cenovniku je uspravan, uz desnu ivicu ćelije cene.
+- EAN-13 simbologija za EAN kodove (kraća), i probna strana pre izmene cenovnika.
 
 ## Otvorena pitanja
 
-Nema. Odgovori iz provere su uneti iznad: količina u trebovanju, samo broj barkoda na cenovniku, prenos kopira, više telefona na popisu.
+Nema. Odgovori iz provere su uneti iznad: količina u trebovanju, pravi barkod uspravno (cifre ako ima mesta), prenos kopira, više telefona na popisu.
