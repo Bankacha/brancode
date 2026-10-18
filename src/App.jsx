@@ -8,6 +8,7 @@ import Scan from "./screens/Scan.jsx";
 import ManualEntry from "./screens/ManualEntry.jsx";
 import PrintPreview from "./screens/PrintPreview.jsx";
 import InventoryLists from "./screens/InventoryLists.jsx";
+import Inventory from "./screens/Inventory.jsx";
 
 export default function App({ session }) {
   const [queue, setQueue] = usePrintQueue();
@@ -23,6 +24,7 @@ export default function App({ session }) {
             <Route path="/skeniranje" element={<Scan editor={editor} />} />
             <Route path="/rucni-unos" element={<ManualEntry editor={editor} />} />
             <Route path="/popis" element={<InventoryLists />} />
+            <Route path="/popis/:id" element={<Inventory />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </div>
