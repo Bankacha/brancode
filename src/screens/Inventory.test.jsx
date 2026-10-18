@@ -101,7 +101,7 @@ describe("Inventory", () => {
     setup();
     fireEvent.click(await screen.findByRole("button", { name: "Izvoz" }));
     fireEvent.click(screen.getByRole("button", { name: /Preuzmi PDF/ }));
-    await waitFor(() => expect(downloadBlob).toHaveBeenCalledWith(expect.any(Blob), "popis-2026-10-01_2026-10-18.pdf"));
+    await waitFor(() => expect(downloadBlob).toHaveBeenCalledWith(expect.any(Blob), "popis-01.10.2026-18.10.2026.pdf"));
     expect(inventoryStore.items).toHaveBeenCalledTimes(2); // loaded again before export
     const [definition] = buildPdfBlob.mock.calls[0];
     expect(JSON.stringify(definition)).toContain("MAJONEZ 175");
@@ -130,7 +130,7 @@ describe("Inventory", () => {
     setup();
     fireEvent.click(await screen.findByRole("button", { name: "Izvoz" }));
     fireEvent.click(screen.getByRole("button", { name: /Pošalji mejlom/ }));
-    await waitFor(() => expect(sendFileByEmail).toHaveBeenCalledWith("popis-2026-10-01_2026-10-18.pdf", expect.any(Blob), { subject: "Popis – Magacin · 01.10.2026 – 18.10.2026" }));
+    await waitFor(() => expect(sendFileByEmail).toHaveBeenCalledWith("popis-01.10.2026-18.10.2026.pdf", expect.any(Blob), { subject: "Popis – Magacin · 01.10.2026 – 18.10.2026" }));
     await waitFor(() => expect(screen.getByRole("status").textContent).toContain("prevelik za mejl"));
   });
 });

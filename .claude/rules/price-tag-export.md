@@ -22,4 +22,4 @@ paths:
 - The sheet hides Excel's on-screen grid (`views: [{ showGridLines: false }]`), so only tag outlines show; without it Excel draws a grey line between a price and its barcode column.
 - Prices are formatted with the `sr-RS` locale (`1.249,99`); the shelf format picks its font size from the length of that text.
 - Fonts `Bahnschrift SemiBold` and `Oswald` are referenced by name and must be installed on the machine that prints the sheet.
-- File names follow `cenovnik-<fileSlug>-<YYYY-MM-DD>.xlsx`.
+- File names follow `cenovnik-<fileSlug>-<dd.mm.yyyy>.xlsx`, by the local date (all dates the shop sees are day first).

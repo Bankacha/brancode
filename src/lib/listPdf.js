@@ -40,7 +40,7 @@ export const inventoryPdfDefinition = (inventory, items, now = new Date()) =>
     rows: items.map((item, i) => [String(i + 1), item.name, item.barcode, right(formatPrice(item.price)), right(formatQuantity(item.quantity))]),
   });
 
-export const inventoryPdfFilename = (inventory) => `popis-${inventory.dateFrom}_${inventory.dateTo}.pdf`;
+export const inventoryPdfFilename = (inventory) => `popis-${formatDate(inventory.dateFrom)}-${formatDate(inventory.dateTo)}.pdf`;
 
 // An empty square to tick by hand after printing.
 const tickBox = { canvas: [{ type: "rect", x: 2, y: 1, w: 9, h: 9, lineWidth: 0.8, lineColor: "#333333" }] };
@@ -61,7 +61,7 @@ export const requisitionPdfDefinition = (requisition, items, now = new Date()) =
     ]),
   });
 
-export const requisitionPdfFilename = (requisition) => `trebovanje-${requisition.date}.pdf`;
+export const requisitionPdfFilename = (requisition) => `trebovanje-${formatDate(requisition.date)}.pdf`;
 
 // Browser only.
 export const buildPdfBlob = async (definition) => {

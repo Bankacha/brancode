@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import BottomSheet from "../components/BottomSheet.jsx";
 import Button from "../components/Button.jsx";
 import Field from "../components/Field.jsx";
+import DateField from "../components/DateField.jsx";
 import { inventoryTitle, monthStartIso, todayIso } from "../lib/listFormat.js";
 
 const emptyForm = () => ({ title: "", dateFrom: monthStartIso(), dateTo: todayIso() });
@@ -33,8 +34,8 @@ export default function InventoryFormSheet({ open, onClose, initial, heading, su
       <h2 className="font-display text-[26px] font-extrabold text-ink">{heading}</h2>
       <Field label="Tekst (nije obavezno)" value={form.title} onChange={set("title")} maxLength={60} autoComplete="off" />
       <div className="grid grid-cols-2 gap-2">
-        <Field label="Od" type="date" value={form.dateFrom} onChange={set("dateFrom")} />
-        <Field label="Do" type="date" value={form.dateTo} onChange={set("dateTo")} />
+        <DateField label="Od" value={form.dateFrom} onChange={set("dateFrom")} />
+        <DateField label="Do" value={form.dateTo} onChange={set("dateTo")} />
       </div>
       {complete && (
         <p className="text-[14px] text-ink-3">

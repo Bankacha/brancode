@@ -131,7 +131,12 @@ describe("buildWorkbook cells", () => {
 
 describe("sheetFilename", () => {
   it("names the file after the format and the date", () => {
-    expect(sheetFilename("fridge", new Date("2026-10-17T10:00:00Z"))).toBe("cenovnik-frizider-2026-10-17.xlsx");
+    expect(sheetFilename("fridge", new Date(2026, 9, 17, 10, 0))).toBe("cenovnik-frizider-17.10.2026.xlsx");
+  });
+
+  it("uses the shop's local date, not UTC (late evening is still today)", () => {
+    expect(sheetFilename("shelf", new Date(2026, 9, 17, 23, 59))).toBe("cenovnik-raf-17.10.2026.xlsx");
+    expect(sheetFilename("shelf", new Date(2026, 9, 18, 0, 30))).toBe("cenovnik-raf-18.10.2026.xlsx");
   });
 });
 

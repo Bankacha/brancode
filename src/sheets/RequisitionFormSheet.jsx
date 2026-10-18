@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import BottomSheet from "../components/BottomSheet.jsx";
 import Button from "../components/Button.jsx";
 import Field from "../components/Field.jsx";
+import DateField from "../components/DateField.jsx";
 import { requisitionTitle, todayIso } from "../lib/listFormat.js";
 
 const emptyForm = () => ({ title: "", date: todayIso() });
@@ -30,7 +31,7 @@ export default function RequisitionFormSheet({ open, onClose, initial, heading, 
     <BottomSheet open={open} onClose={onClose} dismissible={!saving}>
       <h2 className="font-display text-[26px] font-extrabold text-ink">{heading}</h2>
       <Field label="Tekst (nije obavezno)" value={form.title} onChange={set("title")} maxLength={60} autoComplete="off" />
-      <Field label="Datum" type="date" value={form.date} onChange={set("date")} />
+      <DateField label="Datum" value={form.date} onChange={set("date")} />
       {form.date && (
         <p className="text-[14px] text-ink-3">
           Naziv: <span className="font-semibold text-ink">{requisitionTitle(form)}</span>

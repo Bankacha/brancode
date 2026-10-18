@@ -40,7 +40,7 @@ describe("inventoryPdfDefinition", () => {
 
 describe("inventoryPdfFilename", () => {
   it("names the file after the period", () => {
-    expect(inventoryPdfFilename(popis)).toBe("popis-2026-10-01_2026-10-18.pdf");
+    expect(inventoryPdfFilename(popis)).toBe("popis-01.10.2026-18.10.2026.pdf");
   });
 });
 
@@ -70,6 +70,6 @@ describe("requisitionPdfDefinition", () => {
   });
 
   it("names the file after the date", () => {
-    expect(requisitionPdfFilename(trebovanje)).toBe("trebovanje-2026-10-18.pdf");
+    expect(requisitionPdfFilename(trebovanje)).toBe("trebovanje-18.10.2026.pdf");
   });
 });

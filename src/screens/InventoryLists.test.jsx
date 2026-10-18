@@ -59,6 +59,9 @@ describe("InventoryLists", () => {
     fireEvent.click(await screen.findByRole("button", { name: /Novi popis/ }));
     expect(screen.getByLabelText("Od").value).toBe("2026-10-01");
     expect(screen.getByLabelText("Do").value).toBe("2026-10-18");
+    // shown day first, whatever the browser's own date format is
+    expect(screen.getByText("01.10.2026")).toBeTruthy();
+    expect(screen.getByText("18.10.2026")).toBeTruthy();
     fireEvent.change(screen.getByLabelText(/Tekst/), { target: { value: "Magacin" } });
     expect(screen.getByText("Magacin · 01.10.2026 – 18.10.2026")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Napravi popis" }));
