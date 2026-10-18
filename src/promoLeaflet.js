@@ -1,9 +1,5 @@
 import { supabase } from "./supabaseClient.js";
-
-// About half of the imported product list stores EAN-13 barcodes without their
-// trailing check digit (12 digits), so a real 13-digit code won't string-match
-// them. Candidates are tried in order: the exact code first, then that prefix.
-export const barcodeCandidates = (code) => (/^\d{13}$/.test(code) ? [code, code.slice(0, 12)] : [code]);
+import { barcodeCandidates } from "./lib/products.js";
 
 // Leaflet row: Šifra, EAN, Naziv, Finalna cena na lifletu, Marža %, … — the
 // price is the first decimal number that is immediately followed by the Marža
@@ -39,7 +35,7 @@ export const rowsFromTextItems = (items) => {
 
 const userFacingError = (message) => Object.assign(new Error(message), { userFacing: true });
 
-export const parseLeafletPdf = async (arrayBuffer) => {
+export const parseLeafletPdf = async (arrayBuffer, onProgress) => {
   const pdfjs = await import("pdfjs-dist");
   const { default: workerUrl } = await import("pdfjs-dist/build/pdf.worker.min.mjs?url");
   pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
@@ -49,6 +45,7 @@ export const parseLeafletPdf = async (arrayBuffer) => {
   try {
     const byEan = new Map();
     for (let pageNumber = 1; pageNumber <= doc.numPages; pageNumber++) {
+      onProgress?.(pageNumber, doc.numPages);
       const page = await doc.getPage(pageNumber);
       const { items } = await page.getTextContent();
       for (const row of rowsFromTextItems(items)) byEan.set(row.ean, row);

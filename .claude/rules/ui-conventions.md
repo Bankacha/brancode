@@ -5,9 +5,10 @@ paths:
 
 # UI conventions
 
-- All styling is inline style objects — no CSS files, CSS modules or framework. The `<style>` blocks only load the IBM Plex fonts and a few global resets.
-- Colors and fonts are exported from `src/App.jsx` (`PAPER`, `INK`, `RED`, `GREEN`, `MUTE`, `BORDER`, `CARD`, `FONT_SANS`, `FONT_MONO`) and imported by `AuthGate` and `Login`. Use them instead of new hex values.
-- Modals and menus use the `BottomSheet` component in `App.jsx` with the `sheet*Button` style objects. A sheet without `onClose` can't be dismissed by tapping the backdrop; that is used while work is in progress.
+- New UI is styled only with Tailwind v4 classes built from the design tokens in `src/index.css` (`@theme`: `bg-bg`, `text-ink-2`, `bg-accent`, `rounded-field`, `shadow-toast`, `font-display`…). No hex values or inline styles in components, except values computed at runtime (e.g. tag dimensions in the print preview). Token values come from `docs/design/redesign-handoff/README.md`.
+- Fonts are fontsource packages: the UI fonts (Bricolage Grotesque, DM Sans, DM Mono) are imported in `src/main.jsx`, the print fonts (Oswald, Barlow Semi Condensed) in `components/PriceTag.jsx`. They ship with the build and the service worker caches them, so don't load fonts from Google.
+- Reuse the shared pieces instead of new variants: `components/Button.jsx` (accent/dark/outline/muted/text, lg/md), `Field.jsx`, `BottomSheet.jsx`, `Logo.jsx`, and `useToast()` for every status message. Open sheets only through `useSheet()` so system back closes them; switching sheet to sheet replaces the history entry.
+- Any text with a count goes through `plural()` (`src/lib/plural.js`) — Serbian has three forms.
+- Long-press uses `useLongPress` (500 ms, cancelled by movement/scroll); rows that can be long-pressed get `select-none` and `[-webkit-touch-callout:none]`.
 - Layout is phone-first: one column, `maxWidth: 480`.
-- Errors show as a red banner (`AlertCircle`, `RED` on `#FBEAE8`). Success shows as a short green line that clears itself with `setTimeout`.
 - Icons come from `lucide-react`.
