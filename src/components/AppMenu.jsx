@@ -10,7 +10,7 @@ import SettingsSheet from "../sheets/SettingsSheet.jsx";
 
 // The app's sections; each new feature adds its entry here.
 export const SECTIONS = [
-  { path: "/", label: "Cenovnici", icon: Tag },
+  { path: "/", label: "Cene", icon: Tag },
   { path: "/popis", label: "Popis", icon: ClipboardList },
   { path: "/trebovanje", label: "Trebovanje", icon: ShoppingCart },
 ];

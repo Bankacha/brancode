@@ -22,6 +22,16 @@ Odluke koje sam doneo sam dok smo radili meni, cene, popis i trebovanje, i tvoji
 - **Prijava:** ✅ pozdrav prati doba dana na telefonu: „Dobro jutro.“ od 5 do 11, „Dobar dan.“ od 11 do 18 i „Dobro veče.“ od 18 pa kroz noć do 5.
 - Sve ostalo ispod ostaje kako je urađeno.
 
+## 0.9.1
+
+- **Ikonica PWA** je posle ažuriranja i dalje stara. Produkcija služi novu ikonicu, pa je razlog na telefonu:
+  - Android/Chrome menja ikonicu instalirane aplikacije tek kad sam proveri manifest, najviše jednom dnevno, pri otvaranju aplikacije, i tada ponekad pita da li se slaže;
+  - iPhone ikonicu nikad ne menja sam.
+  - Odmah: ukloniti aplikaciju sa početnog ekrana i ponovo je dodati iz browser-a. Podaci (prijava, lista) ostaju.
+- **Naziv sekcije:** ✅ „Cene“ umesto „Cenovnici“.
+  - Brojač kaže „76 cena“ („1 cena“, „3 cene“), a brisanje „Obrisati sve 3 cene?“.
+  - „Cenovnik“ je ostao tamo gde se misli na sam papirni cenovnik: pregled „Ovako izgleda cenovnik na rafu“, ime Excel fajla i naslov mejla.
+
 ## Meni (hamburger)
 
 1. **Meni se otvara odozdo** (sheet), da bude pod palcem, a dugme ☰ je gore desno, gde je bilo „…“. Može i obrnuto (dugme dole ili meni koji izlazi sa strane), ako ti je tako prirodnije.

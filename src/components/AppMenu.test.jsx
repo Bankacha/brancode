@@ -38,7 +38,7 @@ describe("AppMenu", () => {
   it("lists the sections and marks the current one", () => {
     setup();
     openMenu();
-    expect(screen.getByRole("link", { name: /Cenovnici/ }).getAttribute("aria-current")).toBe("page");
+    expect(screen.getByRole("link", { name: "Cene" }).getAttribute("aria-current")).toBe("page");
     expect(screen.getByText("b@b.com")).toBeTruthy();
   });
 
@@ -83,26 +83,26 @@ describe("AppMenu", () => {
   it("goes to a section and closes the menu", async () => {
     setup("/drugo");
     openMenu();
-    fireEvent.click(screen.getByRole("link", { name: /Cenovnici/ }));
+    fireEvent.click(screen.getByRole("link", { name: "Cene" }));
     expect(screen.getByText("CENOVNICI")).toBeTruthy();
-    await waitFor(() => expect(screen.queryByRole("link", { name: /Cenovnici/ })).toBeNull());
+    await waitFor(() => expect(screen.queryByRole("link", { name: "Cene" })).toBeNull());
     // Back returns to the previous section, not to its open menu.
     fireEvent.click(screen.getByRole("button", { name: "Nazad" }));
     expect(screen.getByText("DRUGO")).toBeTruthy();
     await new Promise((r) => setTimeout(r, 300));
-    expect(screen.queryByRole("link", { name: /Cenovnici/ })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Cene" })).toBeNull();
   });
 
   it("just closes the menu when the current section is picked", async () => {
     setup("/");
     openMenu();
-    fireEvent.click(screen.getByRole("link", { name: /Cenovnici/ }));
+    fireEvent.click(screen.getByRole("link", { name: "Cene" }));
     expect(screen.getByText("CENOVNICI")).toBeTruthy();
-    await waitFor(() => expect(screen.queryByRole("link", { name: /Cenovnici/ })).toBeNull());
+    await waitFor(() => expect(screen.queryByRole("link", { name: "Cene" })).toBeNull());
     // No extra history entry: back doesn't bring the menu up again.
     fireEvent.click(screen.getByRole("button", { name: "Nazad" }));
     await new Promise((r) => setTimeout(r, 300));
-    expect(screen.queryByRole("link", { name: /Cenovnici/ })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Cene" })).toBeNull();
   });
 
   it("says so when signing out fails, e.g. offline", async () => {
@@ -118,7 +118,7 @@ describe("AppMenu", () => {
     openMenu();
     const popis = screen.getByRole("link", { name: /Popis/ });
     expect(popis.getAttribute("aria-current")).toBe("page");
-    expect(screen.getByRole("link", { name: /Cenovnici/ }).getAttribute("aria-current")).toBeNull();
+    expect(screen.getByRole("link", { name: "Cene" }).getAttribute("aria-current")).toBeNull();
     expect(screen.getByRole("link", { name: /Trebovanje/ }).getAttribute("href")).toBe("/trebovanje");
     fireEvent.click(popis);
     expect(await screen.findByText("SPISAK POPISA")).toBeTruthy();
