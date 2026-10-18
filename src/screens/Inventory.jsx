@@ -8,17 +8,18 @@ import { buildPdfBlob, inventoryPdfDefinition, inventoryPdfFilename } from "../l
 import { formatPrice } from "../lib/format.js";
 import { formatQuantity, inventoryTitle, itemCount } from "../lib/listFormat.js";
 import { leaveScreen } from "../lib/navigation.js";
-import { useInventoryItemFlow } from "../lib/useInventoryItemFlow.js";
+import { popisKind } from "../lib/listKinds.js";
+import { useListItemFlow } from "../lib/useListItemFlow.js";
 import { useLoad } from "../lib/useLoad.js";
 import { useSheet } from "../lib/useSheet.js";
 import { useToast } from "../components/Toast.jsx";
 import IconButton from "../components/IconButton.jsx";
 import ListItemRow from "../components/ListItemRow.jsx";
 import InventoryFormSheet from "../sheets/InventoryFormSheet.jsx";
-import InventoryItemSheet from "../sheets/InventoryItemSheet.jsx";
+import ListItemSheet from "../sheets/ListItemSheet.jsx";
 import ExportSheet from "../sheets/ExportSheet.jsx";
 import { LoadError } from "./InventoryLists.jsx";
-import { savedToast } from "./inventoryToasts.js";
+import { savedToast } from "./listToasts.js";
 
 const UNDO_MS = 4000;
 
@@ -31,7 +32,7 @@ export default function Inventory() {
   const location = useLocation();
   const sheet = useSheet();
   const toast = useToast();
-  const flow = useInventoryItemFlow(id);
+  const flow = useListItemFlow(id, popisKind);
   const data = useLoad(async () => {
     const [inventory, items] = await Promise.all([inventoryStore.get(id), inventoryStore.items(id)]);
     return { inventory, items };
@@ -214,7 +215,7 @@ export default function Inventory() {
         </div>
       </nav>
 
-      <InventoryItemSheet flow={flow} open={sheet.name === "item" && flow.state.kind !== "idle"} onClose={closeItem} source="list" onSubmit={saveItem} />
+      <ListItemSheet flow={flow} texts={popisKind.texts} open={sheet.name === "item" && flow.state.kind !== "idle"} onClose={closeItem} source="list" onSubmit={saveItem} />
       <ExportSheet
         open={sheet.name === "export"}
         onClose={sheet.close}

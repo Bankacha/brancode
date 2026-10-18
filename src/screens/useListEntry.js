@@ -2,23 +2,24 @@ import { useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { WifiOff } from "lucide-react";
 import { finishScreen, putHomeBehind } from "../lib/navigation.js";
-import { useInventoryItemFlow } from "../lib/useInventoryItemFlow.js";
+import { useListItemFlow } from "../lib/useListItemFlow.js";
 import { useSheet } from "../lib/useSheet.js";
 import { useToast } from "../components/Toast.jsx";
-import { savedToast } from "./inventoryToasts.js";
+import { savedToast } from "./listToasts.js";
 
-// Shared by the popis camera and keypad screens: a code starts the item flow
-// in the "item" sheet; saving either continues with the next code or goes
-// back to the popis. The popis is "home" for both screens.
-export const useInventoryEntry = (id, { onNext } = {}) => {
+// Shared by the camera and keypad screens of a list (`kind` from
+// listKinds.js): a code starts the item flow in the "item" sheet; saving
+// either continues with the next code or goes back to the list, which is
+// "home" for both screens.
+export const useListEntry = (id, kind, { onNext } = {}) => {
   const navigate = useNavigate();
   const location = useLocation();
   const sheet = useSheet();
   const toast = useToast();
-  const flow = useInventoryItemFlow(id);
-  const home = `/popis/${id}`;
+  const flow = useListItemFlow(id, kind);
+  const home = `/${kind.section}/${id}`;
 
-  // Opened as the first page: put the popis behind (once — StrictMode runs effects twice).
+  // Opened as the first page: put the list behind (once — StrictMode runs effects twice).
   const homeBehind = useRef(false);
   useEffect(() => {
     if (homeBehind.current) return;
@@ -57,17 +58,22 @@ export const useInventoryEntry = (id, { onNext } = {}) => {
       toast.show({ kind: "info", text: "Stavka je u međuvremenu obrisana." });
       sheet.close();
     } else if (result.reason === "list-gone") {
-      toast.show({ kind: "info", text: "Popis više ne postoji. Obrisan je na drugom telefonu." });
-      navigate("/popis", { replace: true });
+      toast.show({ kind: "info", text: kind.texts.listGone });
+      navigate(`/${kind.section}`, { replace: true });
     }
   };
   const submitRef = useRef(submit);
   submitRef.current = submit;
+
+  const beginWithoutBarcode = () => {
+    flow.startWithoutBarcode();
+    sheet.open("item");
+  };
 
   const close = () => {
     sheet.close();
     flow.cancel();
   };
 
-  return { flow, sheet, home, begin, submit, close, open: sheet.name === "item" && flow.state.kind !== "idle" };
+  return { flow, sheet, home, begin, beginWithoutBarcode, submit, close, open: sheet.name === "item" && flow.state.kind !== "idle" };
 };

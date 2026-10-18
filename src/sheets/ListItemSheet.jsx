@@ -35,9 +35,12 @@ function Buttons({ actions, saving, onSubmit }) {
   ));
 }
 
-// The popis item flow in one sheet: its content follows the flow's state
-// (looking up → fill in, or already on the popis → add a quantity / edit).
-export default function InventoryItemSheet({ flow, open, onClose, source, onSubmit }) {
+const onListText = (texts, quantity) => `${texts.onList}: ${quantity === null ? "bez količine" : formatQuantity(quantity)}`;
+
+// The list item flow in one sheet: its content follows the flow's state
+// (looking up → fill in, or already on the list → add a quantity / edit).
+// `texts` come from the list kind (listKinds.js).
+export default function ListItemSheet({ flow, texts, open, onClose, source, onSubmit }) {
   const { state } = flow;
   const [saving, setSaving] = useState(false);
   const actions = ACTIONS[source];
@@ -57,6 +60,7 @@ export default function InventoryItemSheet({ flow, open, onClose, source, onSubm
   };
   const field = (key) => ({ value: state[key], onChange: (e) => flow.setField(key, e.target.value) });
   const fromProducts = state.kind === "new" ? state.inProducts : state.item?.inProducts;
+  const barcode = state.kind === "new" ? state.barcode : state.item?.barcode;
 
   return (
     <BottomSheet open={open} onClose={onClose} dismissible={!saving}>
@@ -70,16 +74,16 @@ export default function InventoryItemSheet({ flow, open, onClose, source, onSubm
       {(state.kind === "new" || state.kind === "edit") && (
         <form onSubmit={onFormSubmit("item")} className="flex flex-col gap-3">
           <div className="flex items-center justify-between gap-3">
-            <p className="font-mono text-[13px] text-ink-3">{state.kind === "new" ? state.barcode : state.item.barcode}</p>
-            <span className={`rounded-full px-2.5 py-1 text-[12px] font-semibold ${fromProducts ? "bg-success-bg text-ink-2" : "bg-danger-bg text-danger-ink"}`}>
+            <p className="font-mono text-[13px] text-ink-3">{barcode ?? "Bez barkoda"}</p>
+            {barcode && <span className={`rounded-full px-2.5 py-1 text-[12px] font-semibold ${fromProducts ? "bg-success-bg text-ink-2" : "bg-danger-bg text-danger-ink"}`}>
               {fromProducts ? "Iz baze artikala" : "Nije u bazi"}
-            </span>
+            </span>}
           </div>
-          <Field label="Naziv" {...field("name")} readOnly={state.lockName} suffix={state.lockName ? <Lock size={16} /> : null} autoComplete="off" />
+          <Field label="Naziv" {...field("name")} readOnly={state.lockName} autoFocus={!barcode} suffix={state.lockName ? <Lock size={16} /> : null} autoComplete="off" />
           <FieldError text={state.errors.name} />
-          <Field label="Cena" {...field("price")} readOnly={state.lockPrice} inputMode="decimal" suffix={state.lockPrice ? <Lock size={16} /> : "din"} autoComplete="off" />
+          <Field label={texts.priceLabel} {...field("price")} readOnly={state.lockPrice} inputMode="decimal" suffix={state.lockPrice ? <Lock size={16} /> : "din"} autoComplete="off" />
           <FieldError text={state.errors.price} />
-          <Field label="Količina na stanju" {...field("quantity")} inputMode="decimal" autoFocus autoComplete="off" />
+          <Field label={texts.quantityLabel} {...field("quantity")} inputMode="decimal" autoFocus={Boolean(barcode)} autoComplete="off" />
           <FieldError text={state.errors.quantity} />
           <Buttons actions={actions.item} saving={saving} onSubmit={submit} />
         </form>
@@ -87,9 +91,9 @@ export default function InventoryItemSheet({ flow, open, onClose, source, onSubm
 
       {state.kind === "duplicate" && (
         <>
-          <h2 className="font-display text-[24px] leading-tight font-extrabold text-ink">Artikal je već na popisu</h2>
+          <h2 className="font-display text-[24px] leading-tight font-extrabold text-ink">{texts.duplicateTitle}</h2>
           <p className="text-[15px] text-ink-2">
-            <span className="font-semibold text-ink">{state.item.name}</span> · na popisu: {formatQuantity(state.item.quantity)}
+            <span className="font-semibold text-ink">{state.item.name}</span> · {onListText(texts, state.item.quantity)}
           </p>
           <p className="text-[14px] text-ink-3">Dodati količinu ili izmeniti stavku?</p>
           <Button onClick={flow.chooseAdd} className="w-full">
@@ -108,7 +112,7 @@ export default function InventoryItemSheet({ flow, open, onClose, source, onSubm
         <form onSubmit={onFormSubmit("add")} className="flex flex-col gap-3">
           <h2 className="font-display text-[24px] font-extrabold text-ink">Dodaj količinu</h2>
           <p className="text-[15px] text-ink-2">
-            <span className="font-semibold text-ink">{state.item.name}</span> · na popisu: {formatQuantity(state.item.quantity)}
+            <span className="font-semibold text-ink">{state.item.name}</span> · {onListText(texts, state.item.quantity)}
           </p>
           <Field label="Koliko dodaješ" {...field("amount")} inputMode="decimal" autoFocus autoComplete="off" />
           <FieldError text={state.errors.amount} />
