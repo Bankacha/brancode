@@ -126,7 +126,8 @@ Prijava je po handoff-u. Greška se prikazuje samo posle neuspele prijave.
   - „Pregled“ vodi na `/pregled` i onemogućeno je kad je lista prazna.
 - **Grupe:**
   - „Za proveru · nije u bazi“ (`notInDb`) pojavljuje se samo kad postoji. Redovi su na danger-bg, sa X.
-  - „Spremno · N“ ima link „Obriši sve“ (otvara 08).
+  - „Spremno · N“.
+  - Link „Obriši sve“ (otvara 08) stoji u naslovu prve grupe na listi, koja god da je. Tako je dostupan i kad su posle lifleta svi artikli „Za proveru“. Izmena posle redizajna, 2026-10-18.
 - **Red:** naziv, barkod, cena u formatu sr-RS („1.249,99“) i X.
   - Dugi pritisak od oko 500 ms otvara izmenu (04), uz `navigator.vibrate(10)` gde postoji. Pomeranje prsta otkazuje dugi pritisak (skrol).
   - Sistemski meni i selekcija teksta su isključeni na redovima.
@@ -138,7 +139,6 @@ Prijava je po handoff-u. Greška se prikazuje samo posle neuspele prijave.
 
 Meni nije dizajniran. To je sheet sa:
 - emailom prijavljenog korisnika;
-- „Obriši listu“ (otvara 08, onemogućeno kad je lista prazna);
 - „Odjavi se“.
 
 U fazi 4 privremeno dobija i izbor čitača (ugrađeni ili zxing), koji se uklanja posle poređenja.

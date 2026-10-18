@@ -72,4 +72,22 @@ describe("Home", () => {
     fireEvent.click(screen.getByText("Vrati"));
     expect(names()).toEqual(["Artikal 0", "Artikal 1", "Artikal 2"]);
   });
+
+  it("offers Obriši sve on the first group, even when every article still needs checking", () => {
+    render(<Harness initial={list(3, 3)} />);
+    fireEvent.click(screen.getByRole("button", { name: "Obriši sve" }));
+    expect(screen.getByText("Obrisati sva 3 cenovnika?")).toBeTruthy();
+  });
+
+  it("shows Obriši sve only once, on the first group", () => {
+    render(<Harness initial={list(4, 2)} />);
+    expect(screen.getAllByRole("button", { name: "Obriši sve" })).toHaveLength(1);
+  });
+
+  it("keeps clearing the list out of the menu", () => {
+    render(<Harness initial={list(2)} />);
+    fireEvent.click(screen.getByRole("button", { name: "Meni" }));
+    expect(screen.queryByRole("button", { name: /Obriši listu/ })).toBeNull();
+  });
 });
+

@@ -169,6 +169,14 @@ export default function Home({ queue, setQueue, editor, session }) {
     sheet.close();
   };
 
+  // "Obriši sve" sits on whichever group comes first, so it's always at the top
+  // of the list — also after a leaflet import where nothing is "Spremno" yet.
+  const clearAll = (
+    <button type="button" onClick={() => sheet.open("confirm-clear")} className="text-[13px] font-medium text-ink-3">
+      Obriši sve
+    </button>
+  );
+
   const rows = (items, tone) => (
     <ul className="flex flex-col gap-2">
       {items.map((item) => (
@@ -208,7 +216,7 @@ export default function Home({ queue, setQueue, editor, session }) {
 
       {m > 0 && (
         <section className="mt-5">
-          <GroupTitle dot="bg-accent" className="text-accent">
+          <GroupTitle dot="bg-accent" className="text-accent" action={clearAll}>
             Za proveru · nije u bazi
           </GroupTitle>
           {rows(check, "check")}
@@ -220,11 +228,7 @@ export default function Home({ queue, setQueue, editor, session }) {
           <GroupTitle
             dot="bg-success"
             className="text-ink"
-            action={
-              <button type="button" onClick={() => sheet.open("confirm-clear")} className="text-[13px] font-medium text-ink-3">
-                Obriši sve
-              </button>
-            }
+            action={m === 0 ? clearAll : null}
           >
             Spremno · {ready.length}
           </GroupTitle>
@@ -266,8 +270,6 @@ export default function Home({ queue, setQueue, editor, session }) {
         open={sheet.name === "menu"}
         onClose={sheet.close}
         email={session.user.email}
-        canClear={n > 0}
-        onClear={() => sheet.open("confirm-clear")}
         onSignOut={signOut}
         reader={reader}
         onReaderChange={setReader}
