@@ -110,6 +110,13 @@ describe("buildWorkbook cells", () => {
     expect(sheet.getImages()).toHaveLength(4);
   });
 
+  it("hides Excel's on-screen grid, so only the tag outlines show (no line between price and barcode)", async () => {
+    const workbook = buildWorkbook(items(2), "shelf", { sideBarcodeImage: () => PNG_1PX });
+    const reread = new ExcelJS.Workbook();
+    await reread.xlsx.load(await workbook.xlsx.writeBuffer());
+    expect(reread.getWorksheet("Cenovnici").views[0].showGridLines).toBe(false);
+  });
+
   it("keeps fruit tags as they were: one column each, plain price text", () => {
     const sheet = sheetFor("fruit", items(2));
     expect(sheet.columns.map((c) => c.width)).toEqual([40, 40]);

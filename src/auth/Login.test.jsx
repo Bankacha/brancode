@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import Login from "./Login.jsx";
 import { supabase } from "../supabaseClient";
@@ -10,8 +10,16 @@ vi.mock("../supabaseClient", () => ({
 
 const submit = () => screen.getByRole("button", { name: /Prijavi se/ });
 
+const at = (hour) => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date(2026, 9, 18, hour, 0));
+};
+
 describe("Login", () => {
+  afterEach(() => vi.useRealTimers());
+
   it("greets the user and waits for both fields before allowing sign-in", () => {
+    at(9);
     render(<Login />);
     expect(screen.getByText("Dobro jutro.")).toBeTruthy();
     expect(screen.queryByText("Pogrešan email ili lozinka.")).toBeNull();
@@ -20,6 +28,12 @@ describe("Login", () => {
     expect(submit().disabled).toBe(true);
     fireEvent.change(screen.getByLabelText("Lozinka"), { target: { value: "tajna" } });
     expect(submit().disabled).toBe(false);
+  });
+
+  it("greets by the time of day", () => {
+    at(20);
+    render(<Login />);
+    expect(screen.getByText("Dobro veče.")).toBeTruthy();
   });
 
   it("shows the error only after a failed sign-in", async () => {

@@ -1,5 +1,6 @@
 import { supabase } from "../supabaseClient.js";
 import { createListStore } from "./listStore.js";
+import { byAdded } from "./pdfOrder.js";
 
 // Trebovanje: what to order for a day. Items need only a name; barcode,
 // price and quantity are optional (null). Never writes to `products`.
@@ -51,7 +52,8 @@ export const transferItems = async (store, items, targetId) => {
       result.skipped++;
     }
   };
-  for (const item of items) {
+  // oldest first, so the target lists them in the source's order
+  for (const item of [...items].sort(byAdded)) {
     try {
       const existing = item.barcode
         ? await store.findItem(targetId, item.barcode)

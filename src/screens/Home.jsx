@@ -11,6 +11,7 @@ import { useToast } from "../components/Toast.jsx";
 import QueueRow from "../components/QueueRow.jsx";
 import IconButton from "../components/IconButton.jsx";
 import AppHeader from "../components/AppHeader.jsx";
+import Logo from "../components/Logo.jsx";
 import ConfirmClearSheet from "../sheets/ConfirmClearSheet.jsx";
 import EditSheet from "../sheets/EditSheet.jsx";
 import LeafletImportSheet from "../sheets/LeafletImportSheet.jsx";
@@ -168,7 +169,7 @@ export default function Home({ queue, setQueue, editor }) {
   return (
     <div className="flex min-h-dvh flex-col px-5 pt-[calc(16px+env(safe-area-inset-top))] pb-[calc(160px+env(safe-area-inset-bottom))]">
       <AppHeader
-        title={<span className="font-display text-[22px] font-extrabold tracking-[-0.02em] text-ink">brancode</span>}
+        title={<Logo size={40} />}
         actions={<IconButton label="Uvezi akcijski liflet" icon={FileUp} onClick={() => leafletInputRef.current.click()} />}
       />
       <input ref={leafletInputRef} type="file" accept="application/pdf" onChange={onLeafletChosen} className="hidden" />

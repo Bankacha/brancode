@@ -77,6 +77,16 @@ describe("transferItems", () => {
     expect(s.addItem).not.toHaveBeenCalled();
   });
 
+  it("copies the oldest item first, so the target keeps the source's order", async () => {
+    const s = store();
+    const newestFirst = [
+      { barcode: "2", name: "Drugi", price: null, quantity: null, createdAt: "2026-10-18T10:00:00Z" },
+      { barcode: "1", name: "Prvi", price: null, quantity: null, createdAt: "2026-10-18T09:00:00Z" },
+    ];
+    await transferItems(s, newestFirst, "t2");
+    expect(s.addItem.mock.calls.map(([, item]) => item.name)).toEqual(["Prvi", "Drugi"]);
+  });
+
   it("adds to the item another phone put there in the meantime", async () => {
     const s = store();
     s.addItem.mockResolvedValueOnce({ duplicate: { id: "x9" } });

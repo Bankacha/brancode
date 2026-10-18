@@ -4,6 +4,7 @@ import { supabase } from "../supabaseClient";
 import Button from "../components/Button.jsx";
 import Field from "../components/Field.jsx";
 import Logo from "../components/Logo.jsx";
+import { greeting } from "../lib/greeting.js";
 
 // Handoff "01 · Prijava".
 export default function Login() {
@@ -28,7 +29,7 @@ export default function Login() {
     <div className="mx-auto flex min-h-dvh w-full max-w-[480px] flex-col px-6 pt-[calc(66px+env(safe-area-inset-top))] pb-[calc(40px+env(safe-area-inset-bottom))]">
       <Logo size={64} />
       <h1 className="mt-7 font-display text-[44px] leading-none font-extrabold tracking-[-0.03em] text-ink">
-        <span className="block">Dobro jutro.</span>
+        <span className="block">{greeting()}</span>
         <span className="block">Prijavi se u radnju.</span>
       </h1>
 

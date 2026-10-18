@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor, act, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { ToastProvider } from "../components/Toast.jsx";
@@ -19,8 +19,8 @@ vi.mock("../lib/download.js", () => ({ downloadBlob: vi.fn() }));
 
 const popis = { id: "p1", title: "Magacin", dateFrom: "2026-10-01", dateTo: "2026-10-18", createdAt: "x" };
 const items = [
-  { id: "a", barcode: "8600005000122", name: "MAJONEZ 175", price: 85, quantity: 2, inProducts: true },
-  { id: "b", barcode: "12345", name: "Hleb", price: 79.5, quantity: 1.5, inProducts: false },
+  { id: "a", barcode: "8600005000122", name: "MAJONEZ 175", price: 85, quantity: 2, inProducts: true, createdAt: "2026-10-18T09:00:00Z" },
+  { id: "b", barcode: "12345", name: "Hleb", price: 79.5, quantity: 1.5, inProducts: false, createdAt: "2026-10-18T10:00:00Z" },
 ];
 
 const setup = (path = "/popis/p1") =>
@@ -42,6 +42,7 @@ const longPress = async (el) => {
 };
 
 describe("Inventory", () => {
+  afterEach(() => localStorage.removeItem("pdf-order"));
   beforeEach(() => {
     vi.clearAllMocks();
     inventoryStore.get.mockResolvedValue(popis);
@@ -104,6 +105,24 @@ describe("Inventory", () => {
     expect(inventoryStore.items).toHaveBeenCalledTimes(2); // loaded again before export
     const [definition] = buildPdfBlob.mock.calls[0];
     expect(JSON.stringify(definition)).toContain("MAJONEZ 175");
+  });
+
+  it("orders the PDF by name, or by when items were added if chosen in settings", async () => {
+    const exportRows = async () => {
+      fireEvent.click(await screen.findByRole("button", { name: "Izvoz" }));
+      fireEvent.click(screen.getByRole("button", { name: /Preuzmi PDF/ }));
+      await waitFor(() => expect(buildPdfBlob).toHaveBeenCalled());
+      const table = buildPdfBlob.mock.calls.at(-1)[0].content.find((node) => node.table).table;
+      return table.body.slice(1).map((row) => row[1]);
+    };
+    localStorage.removeItem("pdf-order");
+    const first = setup();
+    expect(await exportRows()).toEqual(["Hleb", "MAJONEZ 175"]);
+    first.unmount();
+    buildPdfBlob.mockClear();
+    localStorage.setItem("pdf-order", JSON.stringify({ popis: "added" }));
+    setup();
+    expect(await exportRows()).toEqual(["MAJONEZ 175", "Hleb"]); // MAJONEZ was added first
   });
 
   it("emails the PDF with a popis subject, and says when it is too big", async () => {

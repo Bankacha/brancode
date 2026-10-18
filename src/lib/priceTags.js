@@ -276,7 +276,10 @@ export const buildWorkbook = (queue, format, { barcodeImage = makeBarcodeDataUrl
   const rowsPerItem = style.barcode === "row" ? 3 : 2;
 
   const workbook = new ExcelJS.Workbook();
-  const sheet = workbook.addWorksheet("Cenovnici");
+  // Excel draws its grey grid on screen wherever a cell has no border of its
+  // own — e.g. between a shelf price and its barcode column. Only the tag
+  // outlines should show (the grid never prints anyway).
+  const sheet = workbook.addWorksheet("Cenovnici", { views: [{ showGridLines: false }] });
   sheet.columns = Array.from({ length: style.columns }).flatMap(() => style.columnWidths.map((width) => ({ width })));
   sheet.pageSetup = { paperSize: 9, orientation: "portrait", margins: PAGE_MARGINS_IN }; // 9 = A4
 

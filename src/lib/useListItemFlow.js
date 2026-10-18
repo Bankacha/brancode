@@ -46,7 +46,7 @@ export const useListItemFlow = (listId, kind) => {
         price: hasPrice ? toPriceInput(product.price) : "",
         quantity: "",
         // what the database has is locked; a missing name or price is typed
-        lockName: Boolean(product?.name),
+        lockName: rules.lockProductName && Boolean(product?.name),
         lockPrice: hasPrice,
         inProducts: Boolean(product),
         errors: {},
@@ -71,7 +71,7 @@ export const useListItemFlow = (listId, kind) => {
     name: item.name,
     price: item.price === null ? "" : toPriceInput(item.price),
     quantity: numberInput(item.quantity),
-    lockName: inProducts,
+    lockName: rules.lockProductName && inProducts,
     lockPrice: inProducts && item.price !== null,
     inProducts,
     errors: {},
