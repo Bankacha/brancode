@@ -1,3 +1,5 @@
+import { plural } from "./plural.js";
+
 // Names, dates and quantities for the Popis and Trebovanje lists. Dates are
 // ISO "yyyy-mm-dd" strings (Postgres `date`), shown as dd.mm.yyyy.
 
@@ -31,3 +33,5 @@ export const parseQuantity = (text, { allowZero = false } = {}) => {
 };
 
 export const formatQuantity = (n) => n.toLocaleString("sr-RS", { maximumFractionDigits: 3 });
+
+export const itemCount = (n) => plural(n, `${n} stavka`, `${n} stavke`, `${n} stavki`);

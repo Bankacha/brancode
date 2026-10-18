@@ -2,8 +2,11 @@ import { useEffect, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router";
 import { ArrowLeft, Check, FileDown, Keyboard, Pencil, ScanBarcode, WifiOff } from "lucide-react";
 import { inventoryStore } from "../lib/inventories.js";
+import { downloadBlob } from "../lib/download.js";
+import { sendFileByEmail } from "../lib/email.js";
+import { buildPdfBlob, inventoryPdfDefinition, inventoryPdfFilename } from "../lib/listPdf.js";
 import { formatPrice } from "../lib/format.js";
-import { formatQuantity, inventoryTitle } from "../lib/listFormat.js";
+import { formatQuantity, inventoryTitle, itemCount } from "../lib/listFormat.js";
 import { leaveScreen } from "../lib/navigation.js";
 import { useInventoryItemFlow } from "../lib/useInventoryItemFlow.js";
 import { useLoad } from "../lib/useLoad.js";
@@ -11,9 +14,9 @@ import { useSheet } from "../lib/useSheet.js";
 import { useToast } from "../components/Toast.jsx";
 import IconButton from "../components/IconButton.jsx";
 import ListItemRow from "../components/ListItemRow.jsx";
-import { itemCount } from "../sheets/ConfirmDeleteListSheet.jsx";
 import InventoryFormSheet from "../sheets/InventoryFormSheet.jsx";
 import InventoryItemSheet from "../sheets/InventoryItemSheet.jsx";
+import ExportSheet from "../sheets/ExportSheet.jsx";
 import { LoadError } from "./InventoryLists.jsx";
 import { savedToast } from "./inventoryToasts.js";
 
@@ -35,6 +38,7 @@ export default function Inventory() {
   }, [id]);
   const [hidden, setHidden] = useState(() => new Set()); // removed here, waiting for the database
   const [saving, setSaving] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const inventory = data.data?.inventory;
   const items = (data.data?.items ?? []).filter((item) => !hidden.has(item.id));
@@ -120,6 +124,32 @@ export default function Inventory() {
     }
   };
 
+  // Made from the latest items (other phones may have added some); offline
+  // the download still works from what is on screen.
+  const exportPdf = async (how) => {
+    setExporting(true);
+    toast.show({ kind: "loading", text: "Pravim PDF…" });
+    try {
+      const latest = (await data.reload()) ?? data.data;
+      const blob = await buildPdfBlob(inventoryPdfDefinition(latest.inventory, latest.items));
+      const filename = inventoryPdfFilename(latest.inventory);
+      if (how === "download") {
+        downloadBlob(blob, filename);
+        toast.show({ kind: "success", icon: Check, text: "PDF je preuzet." });
+      } else {
+        await sendFileByEmail(filename, blob, { subject: `Popis – ${inventoryTitle(latest.inventory)}` });
+        toast.show({ kind: "success", icon: Check, text: "PDF je poslat mejlom." });
+      }
+      sheet.close();
+    } catch (e) {
+      if (e.message === "file-too-large")
+        toast.show({ kind: "error", text: "PDF je prevelik za mejl. Preuzmi ga i pošalji ručno.", action: { label: "Preuzmi", run: () => exportPdf("download") } });
+      else offline("Nema veze. PDF nije poslat.", () => exportPdf(how));
+    } finally {
+      setExporting(false);
+    }
+  };
+
   if (data.error && !data.data) {
     return (
       <div className="px-5 pt-[calc(16px+env(safe-area-inset-top))]">
@@ -185,6 +215,14 @@ export default function Inventory() {
       </nav>
 
       <InventoryItemSheet flow={flow} open={sheet.name === "item" && flow.state.kind !== "idle"} onClose={closeItem} source="list" onSubmit={saveItem} />
+      <ExportSheet
+        open={sheet.name === "export"}
+        onClose={sheet.close}
+        count={items.length}
+        busy={exporting}
+        onDownload={() => exportPdf("download")}
+        onEmail={() => exportPdf("email")}
+      />
       <InventoryFormSheet
         open={sheet.name === "edit-list" && Boolean(inventory)}
         onClose={sheet.close}

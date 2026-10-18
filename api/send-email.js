@@ -20,7 +20,7 @@ export default async function handler(req, res) {
     return res.status(401).json({ ok: false, error: "invalid-token" });
   }
 
-  const { filename, base64 } = req.body || {};
+  const { filename, base64, subject } = req.body || {};
   if (!filename || !base64 || typeof base64 !== "string") {
     return res.status(400).json({ ok: false, error: "missing-file" });
   }
@@ -28,13 +28,16 @@ export default async function handler(req, res) {
     return res.status(413).json({ ok: false, error: "file-too-large" });
   }
 
+  // Popis and Trebovanje send their own subject; price-tag sheets don't.
+  const customSubject = typeof subject === "string" ? subject.replace(/\s+/g, " ").trim().slice(0, 150) : "";
+
   try {
     const resend = new Resend(process.env.RESEND_API_KEY);
     const { error } = await resend.emails.send({
       from: "Shelf Price Scanner <onboarding@resend.dev>",
       to: process.env.EMAIL_TO,
-      subject: `Cenovnik – ${filename}`,
-      text: "U prilogu je generisan cenovnik.",
+      subject: customSubject || `Cenovnik – ${filename}`,
+      text: customSubject ? `U prilogu je ${filename}.` : "U prilogu je generisan cenovnik.",
       attachments: [{ filename, content: base64 }],
     });
     if (error) {

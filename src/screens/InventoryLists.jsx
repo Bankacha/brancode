@@ -2,14 +2,14 @@ import { useState } from "react";
 import { useNavigate } from "react-router";
 import { Plus, WifiOff } from "lucide-react";
 import { inventoryStore } from "../lib/inventories.js";
-import { inventoryTitle } from "../lib/listFormat.js";
+import { inventoryTitle, itemCount } from "../lib/listFormat.js";
 import { useLoad } from "../lib/useLoad.js";
 import { useSheet } from "../lib/useSheet.js";
 import { useToast } from "../components/Toast.jsx";
 import AppHeader from "../components/AppHeader.jsx";
 import Button from "../components/Button.jsx";
 import ListCard from "../components/ListCard.jsx";
-import ConfirmDeleteListSheet, { itemCount } from "../sheets/ConfirmDeleteListSheet.jsx";
+import ConfirmDeleteListSheet from "../sheets/ConfirmDeleteListSheet.jsx";
 import InventoryFormSheet from "../sheets/InventoryFormSheet.jsx";
 
 export function LoadError({ text, onRetry }) {

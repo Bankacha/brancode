@@ -1,9 +1,7 @@
 import { Trash2 } from "lucide-react";
 import BottomSheet from "../components/BottomSheet.jsx";
 import Button from "../components/Button.jsx";
-import { plural } from "../lib/plural.js";
-
-export const itemCount = (n) => plural(n, `${n} stavka`, `${n} stavke`, `${n} stavki`);
+import { itemCount } from "../lib/listFormat.js";
 
 // Deleting a whole Popis or Trebovanje: it's shared by every phone and can't
 // be undone, so the sheet names it and says how many items go with it.
