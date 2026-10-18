@@ -13,3 +13,10 @@ it("serves the app for every page route", () => {
 it("never rewrites the email endpoint", () => {
   expect(served("/api/send-email")).toBe(false);
 });
+
+it("tells Vercel it is a Vite app that builds into dist", () => {
+  // Without this Vercel looked for a "build" folder (React Router's default)
+  // and failed every deploy after react-router was added.
+  expect(vercel.framework).toBe("vite");
+  expect(vercel.outputDirectory).toBe("dist");
+});
