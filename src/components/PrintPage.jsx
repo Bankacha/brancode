@@ -1,12 +1,12 @@
 import { Fragment } from "react";
 import { PAGE_MARGINS_IN, PRICE_TAG_STYLES, tagGeometry } from "../lib/priceTags.js";
-import { BarcodeCell, NameCell, PriceCell, TagColumns } from "./PriceTag.jsx";
+import { BarcodeCell, NameCell, PriceCell, SideBarcodeCell, TagColumns } from "./PriceTag.jsx";
 
 const MM_PER_IN = 25.4;
 
 // One A4 sheet as Excel prints it: tags from the top-left margin, in one grid
 // so neighbouring tags share their border lines.
-export default function PrintPage({ rows, format, barcodeImage }) {
+export default function PrintPage({ rows, format, barcodeImage, sideBarcodeImage }) {
   const style = PRICE_TAG_STYLES[format];
   return (
     <div
@@ -25,7 +25,10 @@ export default function PrintPage({ rows, format, barcodeImage }) {
               </tr>
               <tr>
                 {row.map((item) => (
-                  <PriceCell key={item.id} price={item.price} format={format} />
+                  <Fragment key={item.id}>
+                    <PriceCell price={item.price} format={format} />
+                    {style.barcode === "side" && <SideBarcodeCell code={item.barcode} format={format} sideBarcodeImage={sideBarcodeImage} />}
+                  </Fragment>
                 ))}
               </tr>
               {style.barcode === "row" && (
