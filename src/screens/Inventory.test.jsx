@@ -58,6 +58,12 @@ describe("Inventory", () => {
     expect(screen.getByText("2 stavke")).toBeTruthy();
   });
 
+  it("exports with the printer icon, as on the price list", async () => {
+    setup();
+    const exportButton = await screen.findByRole("button", { name: "Izvoz" });
+    expect(exportButton.querySelector("svg.lucide-printer")).toBeTruthy();
+  });
+
   it("removes an item with X and puts it back with Vrati", async () => {
     inventoryStore.removeItem.mockResolvedValue();
     inventoryStore.restoreItem.mockResolvedValue(items[1]);

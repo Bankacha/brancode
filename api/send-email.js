@@ -37,7 +37,9 @@ export default async function handler(req, res) {
       from: "Shelf Price Scanner <onboarding@resend.dev>",
       to: process.env.EMAIL_TO,
       subject: customSubject || `Cenovnik – ${filename}`,
-      text: customSubject ? `U prilogu je ${filename}.` : "U prilogu je generisan cenovnik.",
+      text: customSubject
+        ? `U prilogu je ${filename}.`
+        : "U prilogu je generisan cenovnik. Otvorite prilog u Excel-u: pregled priloga u mejlu ne prikazuje barkodove.",
       attachments: [{ filename, content: base64 }],
     });
     if (error) {

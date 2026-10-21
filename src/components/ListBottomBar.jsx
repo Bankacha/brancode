@@ -1,4 +1,4 @@
-import { FileDown, Keyboard, ScanBarcode } from "lucide-react";
+import { Keyboard, Printer, ScanBarcode } from "lucide-react";
 
 // The bottom bar of a Popis or Trebovanje, like the home screen's: type a
 // code, scan (the big button), export the PDF.
@@ -29,7 +29,7 @@ export default function ListBottomBar({ onType, onScan, onExport, canExport }) {
           onClick={onExport}
           className="pointer-events-auto flex size-[52px] items-center justify-center rounded-full bg-ink text-bg transition-transform duration-100 active:scale-[.97] disabled:opacity-50"
         >
-          <FileDown size={22} />
+          <Printer size={22} />
         </button>
       </div>
     </nav>
