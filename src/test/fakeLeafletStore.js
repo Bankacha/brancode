@@ -61,11 +61,6 @@ export const fakeLeafletStore = ({ leaflets = [], items = [], products = [] } = 
         if (existing) existing.restoreResult = restoreResult;
       }
     },
-    async setItemRegularPrice(leafletId, barcode, regularPrice) {
-      guard("setItemRegularPrice");
-      const existing = item(leafletId, barcode);
-      if (existing) existing.regularPrice = regularPrice;
-    },
     async markLeaflet(id, fields) {
       guard("markLeaflet");
       Object.assign(db.leaflets.find((l) => l.id === id), fields);

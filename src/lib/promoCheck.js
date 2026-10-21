@@ -25,9 +25,17 @@ const period = (leaflet) => `${day(leaflet.dateFrom)} – ${day(leaflet.dateTo)}
 const shownPrice = (price) => (price === null ? "bez cene" : formatPrice(price));
 const articleLines = (items) => [...items].sort((a, b) => a.name.localeCompare(b.name, "sr")).map((i) => `- ${i.name} (${i.barcode})`);
 
+// Codes to ask for, and a match, by article: a scan may have moved a row from
+// 12 to 13 digits, so two leaflets can hold the same article under either.
+const codesOf = (items) => [...new Set(items.flatMap((i) => sameArticleCodes(i.barcode)))];
+const findSame = (list, barcode) => {
+  const codes = sameArticleCodes(barcode);
+  return list.find((entry) => codes.includes(entry.barcode));
+};
+
 // The products row of an article, also after a scan moved it to its full code.
 const productsOf = async (store, items) => {
-  const found = await store.products([...new Set(items.flatMap((i) => sameArticleCodes(i.barcode)))]);
+  const found = await store.products(codesOf(items));
   const byBarcode = new Map(found.map((p) => [p.barcode, p]));
   return (barcode) => sameArticleCodes(barcode).map((code) => byBarcode.get(code)).find(Boolean) ?? null;
 };
@@ -77,15 +85,18 @@ export const runPromoCheck = async ({ store, sendMail, today, now = new Date() }
   for (const leaflet of open.filter((l) => !l.pricesAppliedAt && l.dateFrom <= today && today <= l.dateTo)) {
     const items = await store.leafletItems([leaflet.id]);
     const others = open.filter((l) => l.id !== leaflet.id && l.pricesAppliedAt);
-    const elsewhere = others.length ? await store.leafletItems(others.map((l) => l.id), items.map((i) => i.barcode)) : [];
+    const elsewhere = others.length ? await store.leafletItems(others.map((l) => l.id), codesOf(items)) : [];
     const productOf = await productsOf(store, items);
     const prices = [];
     const regular = [];
     for (const item of items) {
       const product = productOf(item.barcode);
       if (!product) continue;
-      const onOther = elsewhere.find((e) => e.barcode === item.barcode);
-      regular.push({ ...item, regularPrice: onOther ? onOther.regularPrice : product.price });
+      const onOther = findSame(elsewhere, item.barcode);
+      // A price equal to this leaflet's promo price is a run that broke off
+      // after writing it: the remembered regular price stays.
+      const current = samePrice(product.price, item.promoPrice) ? item.regularPrice : product.price;
+      regular.push({ ...item, regularPrice: onOther ? onOther.regularPrice : current });
       prices.push({ barcode: product.barcode, name: product.name, price: item.promoPrice });
     }
     await store.saveItems(leaflet.id, regular);
@@ -103,15 +114,16 @@ export const runPromoCheck = async ({ store, sendMail, today, now = new Date() }
     }
     const items = (await store.leafletItems([leaflet.id])).filter((i) => !i.restoreResult);
     const others = open.filter((l) => l.id !== leaflet.id && running(l));
-    const elsewhere = others.length && items.length ? await store.leafletItems(others.map((l) => l.id), items.map((i) => i.barcode)) : [];
+    const elsewhere = others.length && items.length ? await store.leafletItems(others.map((l) => l.id), codesOf(items)) : [];
     const productOf = await productsOf(store, items);
     const prices = [];
     const results = [];
     const changed = [];
+    const handedOn = new Map(); // newer leaflet id → its items, carrying this regular price
     for (const item of items) {
-      const newer = elsewhere.find((e) => e.barcode === item.barcode);
+      const newer = findSame(elsewhere, item.barcode);
       if (newer) {
-        await store.setItemRegularPrice(newer.leafletId, item.barcode, item.regularPrice);
+        handedOn.set(newer.leafletId, [...(handedOn.get(newer.leafletId) ?? []), { ...newer, regularPrice: item.regularPrice }]);
         results.push({ barcode: item.barcode, restoreResult: "newer_leaflet" });
         continue;
       }
@@ -125,6 +137,7 @@ export const runPromoCheck = async ({ store, sendMail, today, now = new Date() }
         changed.push({ item, product });
       }
     }
+    for (const [newerId, newerItems] of handedOn) await store.saveItems(newerId, newerItems);
     if (prices.length) await store.setProductPrices(prices);
     if (results.length) await store.setItemResults(leaflet.id, results);
     await store.markLeaflet(leaflet.id, { pricesRestoredAt: stamp });

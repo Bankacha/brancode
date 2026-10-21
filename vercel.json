@@ -12,5 +12,10 @@
       "path": "/api/promo-check",
       "schedule": "0 5 * * *"
     }
-  ]
+  ],
+  "functions": {
+    "api/promo-check.js": {
+      "maxDuration": 60
+    }
+  }
 }

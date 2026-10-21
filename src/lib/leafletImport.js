@@ -1,3 +1,5 @@
+import { sameArticleCodes } from "./ean.js";
+
 // Importing a promo leaflet: the leaflet and, for every article already in
 // `products`, its promo price and the regular price to bring back after the
 // promotion. The promo prices go into `products` now if the promotion has
@@ -9,23 +11,27 @@ export const importLeaflet = async (store, { name, dateFrom, dateTo, matches }, 
 
   // One per database row: two leaflet codes can find the same row.
   const byBarcode = new Map();
-  for (const { price, existing } of matches) {
-    if (existing) byBarcode.set(existing.barcode, { barcode: existing.barcode, name: existing.name, promoPrice: price, dbPrice: existing.price ?? null });
+  for (const { name: leafletName, price, existing } of matches) {
+    // the database's name, or the leaflet's when the database has none
+    if (existing) byBarcode.set(existing.barcode, { barcode: existing.barcode, name: existing.name || leafletName, promoPrice: price, dbPrice: existing.price ?? null });
   }
   const articles = [...byBarcode.values()];
 
   // The database may already hold a promo price: this same leaflet imported
   // again, or another running leaflet. Their remembered regular price wins.
   const open = await store.openLeaflets();
+  // Same article = any of its codes: a scan may have moved the row from 12 to
+  // 13 digits since the other leaflet was imported.
   const known = await store.leafletItems(
     open.map((l) => l.id),
-    articles.map((a) => a.barcode)
+    [...new Set(articles.flatMap((a) => sameArticleCodes(a.barcode)))]
   );
   const appliedElsewhere = new Set(open.filter((l) => l.id !== leaflet.id && l.pricesAppliedAt).map((l) => l.id));
   const regularPrice = ({ barcode, dbPrice }) => {
-    const same = known.find((i) => i.leafletId === leaflet.id && i.barcode === barcode);
+    const codes = sameArticleCodes(barcode);
+    const same = known.find((i) => i.leafletId === leaflet.id && codes.includes(i.barcode));
     if (same) return same.regularPrice;
-    const running = known.find((i) => appliedElsewhere.has(i.leafletId) && i.barcode === barcode);
+    const running = known.find((i) => appliedElsewhere.has(i.leafletId) && codes.includes(i.barcode));
     return running ? running.regularPrice : dbPrice;
   };
 

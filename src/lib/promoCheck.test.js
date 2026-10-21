@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { addDays, belgradeToday, runPromoCheck } from "./promoCheck.js";
 import { fakeLeafletStore } from "../test/fakeLeafletStore.js";
 
@@ -158,5 +158,51 @@ describe("runPromoCheck", () => {
     await run(store, "2026-11-01");
     expect(priceOf(store, "8005276")).toBe(129.99);
     expect(store.db.leaflets[0].pricesRestoredAt).toBeTruthy();
+  });
+
+  it("keeps the regular price when a first-morning run broke off after writing the promo prices", async () => {
+    const store = fakeLeafletStore({
+      leaflets: [{ ...avg, pricesAppliedAt: null }],
+      items: [buenoItem],
+      products: [{ barcode: "8005276", name: "KINDER BUENO", price: 129.99 }],
+    });
+    store.failNext("markLeaflet");
+    await expect(run(store, "2026-09-25", new Date("2026-09-25T05:00:00Z"))).rejects.toThrow();
+    await run(store, "2026-09-25", new Date("2026-09-25T05:30:00Z"));
+    expect(store.db.items[0].regularPrice).toBe(129.99);
+    await run(store, "2026-11-01");
+    expect(priceOf(store, "8005276")).toBe(129.99);
+  });
+
+  it("hands an article on to the next leaflet also after a scan moved its row to the full code", async () => {
+    const store = fakeLeafletStore({
+      leaflets: [avg, { id: "L2", name: "Novembar", dateFrom: "2026-11-01", dateTo: "2026-11-30" }],
+      items: [
+        { ...buenoItem, barcode: "860000500012" },
+        { leafletId: "L2", barcode: "8600005000122", name: "KINDER BUENO", promoPrice: 89.99, regularPrice: 99.99 },
+      ],
+      products: [{ barcode: "8600005000122", name: "KINDER BUENO", price: 99.99 }],
+    });
+    await run(store, "2026-11-01");
+    expect(resultOf(store, "L1", "860000500012")).toBe("newer_leaflet");
+    expect(store.db.items.find((i) => i.leafletId === "L2").regularPrice).toBe(129.99);
+    await run(store, "2026-12-01", new Date("2026-12-01T05:00:00Z"));
+    expect(priceOf(store, "8600005000122")).toBe(129.99);
+  });
+
+  it("hands every shared article on to the next leaflet in one write", async () => {
+    const shared = Array.from({ length: 3 }, (_, i) => `86000000000${i}0`);
+    const store = fakeLeafletStore({
+      leaflets: [avg, { id: "L2", name: "Novembar", dateFrom: "2026-11-01", dateTo: "2026-11-30", pricesAppliedAt: applied }],
+      items: shared.flatMap((barcode) => [
+        { leafletId: "L1", barcode, name: barcode, promoPrice: 1, regularPrice: 3 },
+        { leafletId: "L2", barcode, name: barcode, promoPrice: 2, regularPrice: 1 },
+      ]),
+      products: shared.map((barcode) => ({ barcode, name: barcode, price: 2 })),
+    });
+    const saveItems = vi.spyOn(store, "saveItems");
+    await run(store, "2026-11-01");
+    expect(saveItems).toHaveBeenCalledTimes(1);
+    expect(store.db.items.filter((i) => i.leafletId === "L2").map((i) => i.regularPrice)).toEqual([3, 3, 3]);
   });
 });

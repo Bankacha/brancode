@@ -59,4 +59,21 @@ describe("importLeaflet", () => {
     await importLeaflet(store, { name: "Novembar", dateFrom: "2026-11-01", dateTo: "2026-11-30", matches: [{ ...matches[0], existing: { ...bueno, price: 109.99 } }] }, "2026-10-25", NOW);
     expect(store.db.items.find((i) => i.leafletId !== "L0").regularPrice).toBe(129.99);
   });
+
+  it("finds the running leaflet's regular price after a scan moved the row to its full code", async () => {
+    const store = fakeLeafletStore({
+      leaflets: [{ id: "L0", name: "Septembar", dateFrom: "2026-09-01", dateTo: "2026-10-31", pricesAppliedAt: "2026-09-01T05:00:00Z" }],
+      items: [{ leafletId: "L0", barcode: "860000500012", name: "MAJONEZ", promoPrice: 99.99, regularPrice: 129.99 }],
+      products: [{ barcode: "8600005000122", name: "MAJONEZ", price: 99.99 }],
+    });
+    const moved = { barcode: "8600005000122", name: "MAJONEZ", price: 99.99 };
+    await importLeaflet(store, { name: "Novembar", dateFrom: "2026-11-01", dateTo: "2026-11-30", matches: [{ ean: "8600005000122", name: "MAJONEZ 175", price: 89.99, existing: moved }] }, "2026-10-25", NOW);
+    expect(store.db.items.find((i) => i.leafletId !== "L0").regularPrice).toBe(129.99);
+  });
+
+  it("names an article by the leaflet when the database has no name for it", async () => {
+    const store = fakeLeafletStore({ products: [{ ...bueno, name: null }] });
+    await importLeaflet(store, { ...leaflet, matches: [{ ...matches[0], existing: { ...bueno, name: null } }] }, "2026-09-26", NOW);
+    expect(itemOf(store, "8005276").name).toBe("KINDER BUENO 43G");
+  });
 });

@@ -43,7 +43,7 @@ export default function Home({ queue, setQueue, editor }) {
   const queueRef = useRef(queue);
   queueRef.current = queue;
   const leafletInputRef = useRef(null);
-  const [leaflet, setLeaflet] = useState(null); // { fileName, name, period, matches } once a PDF has been read
+  const [leaflet, setLeaflet] = useState(null); // { readAt, fileName, name, period, matches } once a PDF has been read
   const [leafletSaving, setLeafletSaving] = useState(false);
 
   const check = queue.filter((q) => q.notInDb);
@@ -99,7 +99,7 @@ export default function Home({ queue, setQueue, editor }) {
       toast.hide();
       // The name printed on the leaflet, or the file's when the PDF has none.
       const name = period?.name ?? file.name.replace(/\.pdf$/i, "");
-      setLeaflet({ fileName: file.name, name, period, matches });
+      setLeaflet({ readAt: Date.now(), fileName: file.name, name, period, matches });
       sheet.open("leaflet");
     } catch (err) {
       console.error("leaflet read failed", err);
@@ -124,7 +124,7 @@ export default function Home({ queue, setQueue, editor }) {
       const imported = leaflet.matches.map(({ ean, name, price, existing }, i) => ({
         id: `${ean}-${stamp}-${i}`,
         barcode: ean,
-        name: existing ? existing.name : name,
+        name: existing?.name || name,
         price,
         notInDb: !existing,
         promo: { dateFrom, dateTo },
@@ -264,6 +264,7 @@ export default function Home({ queue, setQueue, editor }) {
       <EditSheet editor={editor} open={sheet.name === "edit" && editor.barcode !== null} onClose={closeEdit} onSave={saveEdit} format={format} source="list" />
       {leaflet && (
         <LeafletImportSheet
+          key={leaflet.readAt} // a new PDF starts from its own dates, not the last one's
           open={sheet.name === "leaflet"}
           onClose={sheet.close}
           fileName={leaflet.fileName}

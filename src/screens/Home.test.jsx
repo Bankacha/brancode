@@ -7,8 +7,13 @@ import { ToastProvider } from "../components/Toast.jsx";
 import { SessionProvider } from "../auth/session.jsx";
 import Home from "./Home.jsx";
 import { supabase } from "../supabaseClient";
+import { parseLeafletPdf } from "../promoLeaflet.js";
 
 vi.mock("../supabaseClient", () => ({ supabase: { auth: { signOut: vi.fn(async () => ({ error: null })) } } }));
+vi.mock("../promoLeaflet.js", () => ({
+  parseLeafletPdf: vi.fn(),
+  matchLeafletRows: vi.fn(async (rows) => rows.map((row) => ({ ...row, existing: null }))),
+}));
 
 const item = (i, notInDb = false) => ({ id: `i${i}`, barcode: `860000000${String(i).padStart(4, "0")}`, name: `Artikal ${i}`, price: 100 + i, ...(notInDb && { notInDb }) });
 const list = (n, notInDb = 0) => Array.from({ length: n }, (_, i) => item(i, i < notInDb));
@@ -132,6 +137,23 @@ describe("Home", () => {
     render(<Harness initial={[{ ...item(0), promo: { dateFrom: "2026-09-25", dateTo: "2026-10-31" } }, item(1)]} />);
     expect(within(screen.getByText("Artikal 0").closest("li")).getByText(/akcija do 31\.10\./)).toBeTruthy();
     expect(within(screen.getByText("Artikal 1").closest("li")).queryByText(/akcija/)).toBeNull();
+  });
+
+  it("shows the dates of the leaflet just picked, after another one was cancelled", async () => {
+    const rows = [{ ean: "8600000000017", name: "A", price: 1 }];
+    vi.mocked(parseLeafletPdf)
+      .mockResolvedValueOnce({ rows, period: { name: "Oktobar", dateFrom: "2026-09-25", dateTo: "2026-10-31" } })
+      .mockResolvedValueOnce({ rows, period: { name: "Novembar", dateFrom: "2026-11-01", dateTo: "2026-11-30" } });
+    const { container } = render(<Harness initial={[]} />);
+    const input = container.querySelector('input[type="file"]');
+    const pdf = (name) => ({ name, arrayBuffer: async () => new ArrayBuffer(1) }); // jsdom's File has no arrayBuffer
+    fireEvent.change(input, { target: { files: [pdf("oktobar.pdf")] } });
+    expect(await screen.findByText("31.10.2026")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Otkaži" }));
+    fireEvent.change(input, { target: { files: [pdf("novembar.pdf")] } });
+    expect(await screen.findByText("novembar.pdf")).toBeTruthy();
+    expect(screen.getByText("30.11.2026")).toBeTruthy();
+    expect(screen.queryByText("31.10.2026")).toBeNull();
   });
 
   it("keeps clearing the list out of the menu", () => {

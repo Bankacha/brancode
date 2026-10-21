@@ -99,9 +99,6 @@ export const createLeafletStore = (client) => {
       }
     },
 
-    async setItemRegularPrice(leafletId, barcode, regularPrice) {
-      check(await client.from("promo_leaflet_items").update({ regular_price: regularPrice }).eq("leaflet_id", leafletId).eq("barcode", barcode));
-    },
 
     async markLeaflet(id, fields) {
       const update = Object.fromEntries(Object.entries(fields).map(([key, value]) => [LEAFLET_COLUMNS[key], value]));
