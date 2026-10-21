@@ -7,6 +7,8 @@ import {
   columnWidthMm,
   layoutTagPages,
   priceParts,
+  promoLineBox,
+  promoLineText,
   ptToMm,
   sheetFilename,
   shrinkFontPt,
@@ -18,8 +20,9 @@ import {
 
 const items = (n) => Array.from({ length: n }, (_, i) => ({ id: `i${i}`, barcode: `86000050001${String(i).padStart(2, "0")}`, name: `Artikal ${i}`, price: 99 }));
 const PNG_1PX = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==";
-const sheetFor = (format, queue) =>
-  buildWorkbook(queue, format, { barcodeImage: () => PNG_1PX, sideBarcodeImage: () => PNG_1PX }).getWorksheet("Cenovnici");
+const sheetFor = (format, queue, promoLineImage = () => PNG_1PX) =>
+  buildWorkbook(queue, format, { barcodeImage: () => PNG_1PX, sideBarcodeImage: () => PNG_1PX, promoLineImage }).getWorksheet("Cenovnici");
+const promo = { dateFrom: "2026-09-25", dateTo: "2026-10-31" };
 const breakRows = (format, n) => sheetFor(format, items(n)).rowBreaks.map((b) => b.id);
 
 describe("tagRowsPerPage", () => {
@@ -308,5 +311,49 @@ describe("sideBarcodeLayout", () => {
   it("keeps the small digits within the barcode's length", () => {
     const { fontSize } = sideBarcodeLayout(lengthPx, sideBarcodeBox("shelf"), 20);
     expect(fontSize * 0.6 * 20).toBeLessThanOrEqual(lengthPx * 0.9);
+  });
+});
+
+describe("promo line", () => {
+  it("says until when the promotion lasts", () => {
+    expect(promoLineText("2026-10-31")).toBe("Akcija važi do 31.10.2026.");
+  });
+
+  it.each(["shelf", "fridge", "fruit"])("sits at the top of the %s price cell, above the digits", (format) => {
+    const box = promoLineBox(format);
+    expect(box.topMm + box.heightMm).toBeLessThanOrEqual(3.2);
+    expect(box.leftMm + box.widthMm).toBeLessThanOrEqual(tagGeometry(format).priceWidthMm);
+  });
+
+  it("adds the line as an image in the price cell, only for leaflet articles", () => {
+    const texts = [];
+    const sheet = sheetFor("shelf", [{ ...items(1)[0], promo }], (text) => (texts.push(text), PNG_1PX));
+    const images = sheet.getImages();
+    expect(images).toHaveLength(2);
+    const line = images.find((img) => img.range.tl.nativeCol === 0);
+    expect(line.range.tl.nativeRow).toBe(1);
+    expect(texts).toEqual(["Akcija važi do 31.10.2026."]);
+    expect(sheetFor("shelf", items(1)).getImages()).toHaveLength(1);
+  });
+
+  it("puts it in the fruit price row, above the barcode row", () => {
+    const images = sheetFor("fruit", [{ ...items(1)[0], promo }]).getImages();
+    expect(images.map((img) => img.range.tl.nativeRow).sort()).toEqual([1, 2]);
+  });
+
+  it.each(["shelf", "fridge", "fruit"])("changes nothing in the %s layout", (format) => {
+    const plain = sheetFor(format, items(20));
+    const marked = sheetFor(format, items(20).map((item) => ({ ...item, promo })));
+    const heights = (sheet) => Array.from({ length: sheet.rowCount }, (_, i) => sheet.getRow(i + 1).height);
+    expect(heights(marked)).toEqual(heights(plain));
+    expect(marked.rowBreaks.map((b) => b.id)).toEqual(plain.rowBreaks.map((b) => b.id));
+  });
+
+  it("still prints a tag whose promo line can't be drawn", () => {
+    const sheet = sheetFor("shelf", [{ ...items(1)[0], promo }], () => {
+      throw new Error("no canvas");
+    });
+    expect(sheet.getImages()).toHaveLength(1);
+    expect(sheet.getCell("A1").value).toBe("Artikal 0");
   });
 });

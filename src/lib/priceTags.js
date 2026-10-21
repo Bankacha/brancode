@@ -191,6 +191,37 @@ export const makeSideBarcodeDataUrl = (code, box) => {
   return upright.toDataURL("image/png");
 };
 
+// "Akcija važi do 31.10.2026." on a leaflet article's tag, in a thin band at
+// the top of the price cell, above the digits (which sit lower in every
+// format), so rows, heights and tags per page stay as they are. Drawn as an
+// image like the upright barcode, so Excel and the preview show the same.
+export const promoLineText = (dateTo) => `Akcija važi do ${formatDate(dateTo)}.`;
+
+export const promoLineBox = (format) => ({ leftMm: 0.6, topMm: 0.7, widthMm: tagGeometry(format).priceWidthMm - 1.2, heightMm: 2.2 });
+
+const PROMO_LINE_PX_PER_MM = 12;
+
+// Browser only: draws on a canvas.
+export const makePromoLineDataUrl = (text, box) => {
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(box.widthMm * PROMO_LINE_PX_PER_MM);
+  canvas.height = Math.round(box.heightMm * PROMO_LINE_PX_PER_MM);
+  const ctx = canvas.getContext("2d");
+  const font = (px) => `600 ${px}px Arial, Helvetica, sans-serif`;
+  let size = canvas.height * 0.8;
+  ctx.font = font(size);
+  const width = ctx.measureText(text).width;
+  if (width > canvas.width) {
+    size = (size * canvas.width) / width;
+    ctx.font = font(size);
+  }
+  ctx.fillStyle = "#000";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+  return canvas.toDataURL("image/png");
+};
+
 // --- Print geometry, shared by the Excel export and the on-screen preview ---
 
 // Excel's column-width → pixel rule at 96 dpi; 7 px is the max digit width of
@@ -279,7 +310,11 @@ const thin = { style: "thin" };
 const thinBorder = { top: thin, bottom: thin, left: thin, right: thin };
 const mmToPx = (mm) => (mm * 96) / 25.4;
 
-export const buildWorkbook = (queue, format, { barcodeImage = makeBarcodeDataUrl, sideBarcodeImage = makeSideBarcodeDataUrl } = {}) => {
+export const buildWorkbook = (
+  queue,
+  format,
+  { barcodeImage = makeBarcodeDataUrl, sideBarcodeImage = makeSideBarcodeDataUrl, promoLineImage = makePromoLineDataUrl } = {}
+) => {
   const style = PRICE_TAG_STYLES[format];
   const rowsPerItem = style.barcode === "row" ? 3 : 2;
 
@@ -303,7 +338,7 @@ export const buildWorkbook = (queue, format, { barcodeImage = makeBarcodeDataUrl
       }
       row.forEach((item, tagIndex) => {
         const col = tagIndex * style.columnWidths.length + 1;
-        addTag(workbook, sheet, format, item, groupIndex, col, rowsPerItem, { barcodeImage, sideBarcodeImage });
+        addTag(workbook, sheet, format, item, groupIndex, col, rowsPerItem, { barcodeImage, sideBarcodeImage, promoLineImage });
       });
       groupIndex++;
     });
@@ -312,7 +347,7 @@ export const buildWorkbook = (queue, format, { barcodeImage = makeBarcodeDataUrl
   return workbook;
 };
 
-const addTag = (workbook, sheet, format, item, groupIndex, col, rowsPerItem, { barcodeImage, sideBarcodeImage }) => {
+const addTag = (workbook, sheet, format, item, groupIndex, col, rowsPerItem, { barcodeImage, sideBarcodeImage, promoLineImage }) => {
   const style = PRICE_TAG_STYLES[format];
   const side = style.barcode === "side";
   const nameRowNumber = groupIndex * rowsPerItem + 1;
@@ -352,6 +387,7 @@ const addTag = (workbook, sheet, format, item, groupIndex, col, rowsPerItem, { b
     priceCell.value = priceText;
     priceCell.border = thinBorder;
   }
+  if (item.promo?.dateTo) addPromoLine(workbook, sheet, format, item, nameRowNumber, col, promoLineImage);
 
   if (style.barcode === "row") {
     const barcodeRow = sheet.getRow(groupIndex * rowsPerItem + 3);
@@ -387,6 +423,27 @@ const addSideBarcode = (workbook, sheet, format, item, nameRowNumber, col, sideB
   sheet.addImage(imageId, {
     tl: {
       nativeCol: col, // 0-indexed: the column after the price
+      nativeColOff: Math.round(mmToPx(box.leftMm) * EMU_PER_PX),
+      nativeRow: nameRowNumber, // 0-indexed: the price row
+      nativeRowOff: Math.round(mmToPx(box.topMm) * EMU_PER_PX),
+    },
+    ext: { width: mmToPx(box.widthMm), height: mmToPx(box.heightMm) },
+  });
+};
+
+const addPromoLine = (workbook, sheet, format, item, nameRowNumber, col, promoLineImage) => {
+  const box = promoLineBox(format);
+  let image = null;
+  try {
+    image = promoLineImage(promoLineText(item.promo.dateTo), box);
+  } catch {
+    // no canvas to draw on; the tag still prints, without the line
+  }
+  if (!image) return;
+  const imageId = workbook.addImage({ base64: image, extension: "png" });
+  sheet.addImage(imageId, {
+    tl: {
+      nativeCol: col - 1, // 0-indexed: the price column
       nativeColOff: Math.round(mmToPx(box.leftMm) * EMU_PER_PX),
       nativeRow: nameRowNumber, // 0-indexed: the price row
       nativeRowOff: Math.round(mmToPx(box.topMm) * EMU_PER_PX),

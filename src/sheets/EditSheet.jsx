@@ -22,7 +22,7 @@ const WHERE = { shelf: "na rafu", fridge: "u frižideru", fruit: "za voće" };
 // (spec decision 4: drop this block if paper and preview ever disagree).
 function TagPreview({ editor, format }) {
   const { widthMm, heightMm } = tagGeometry(format);
-  const item = { name: editor.name || "—", price: parsePrice(editor.price) ?? 0, barcode: editor.barcode ?? "" };
+  const item = { name: editor.name || "—", price: parsePrice(editor.price) ?? 0, barcode: editor.barcode ?? "", promo: editor.promo ?? undefined };
   return (
     <div>
       <div className="flex justify-center rounded-tag-frame bg-surface-muted p-4">

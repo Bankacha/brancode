@@ -6,7 +6,7 @@ const MM_PER_IN = 25.4;
 
 // One A4 sheet as Excel prints it: tags from the top-left margin, in one grid
 // so neighbouring tags share their border lines.
-export default function PrintPage({ rows, format, barcodeImage, sideBarcodeImage }) {
+export default function PrintPage({ rows, format, barcodeImage, sideBarcodeImage, promoLineImage }) {
   const style = PRICE_TAG_STYLES[format];
   return (
     <div
@@ -26,7 +26,7 @@ export default function PrintPage({ rows, format, barcodeImage, sideBarcodeImage
               <tr>
                 {row.map((item) => (
                   <Fragment key={item.id}>
-                    <PriceCell price={item.price} format={format} />
+                    <PriceCell price={item.price} format={format} promoUntil={item.promo?.dateTo} promoLineImage={promoLineImage} />
                     {style.barcode === "side" && <SideBarcodeCell code={item.barcode} format={format} sideBarcodeImage={sideBarcodeImage} />}
                   </Fragment>
                 ))}

@@ -8,6 +8,17 @@ import { tagGeometry } from "../lib/priceTags.js";
 const fakeBarcode = () => "data:image/png;base64,AAA";
 
 describe("PriceTag", () => {
+  it("shows a leaflet article's promo line over the price, and nothing for others", () => {
+    const promo = { dateFrom: "2026-09-25", dateTo: "2026-10-31" };
+    const { container, rerender } = render(
+      <PriceTag item={{ name: "A", price: 99, barcode: "1", promo }} format="shelf" sideBarcodeImage={fakeBarcode} promoLineImage={fakeBarcode} />
+    );
+    const line = screen.getByAltText("Akcija važi do 31.10.2026.");
+    expect(line.closest("td").textContent).toContain("99");
+    rerender(<PriceTag item={{ name: "A", price: 99, barcode: "1" }} format="shelf" sideBarcodeImage={fakeBarcode} promoLineImage={fakeBarcode} />);
+    expect(container.querySelector('img[alt^="Akcija"]')).toBeNull();
+  });
+
   it("prints the name and the price at the export's sizes", () => {
     render(<PriceTag item={{ name: "MAJONEZ 175", price: 1249.99, barcode: "1" }} format="shelf" sideBarcodeImage={fakeBarcode} />);
     const name = screen.getByText("MAJONEZ 175");
