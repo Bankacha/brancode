@@ -94,4 +94,42 @@ describe("useProductEditor", () => {
     ]);
     expect(result.current.editor.barcode).toBeNull();
   });
+
+  it("keeps the copies of an article that is scanned again", async () => {
+    vi.mocked(lookupProduct).mockResolvedValue({ barcode: "1", name: "A", price: 1 });
+    const { result } = setup([{ ...a, copies: 3 }, c]);
+    await act(() => result.current.editor.open("1"));
+    expect(result.current.editor.copies).toBe(3);
+    await act(() => result.current.editor.save());
+    expect(result.current.queue).toEqual([{ id: "a", barcode: "1", name: "A", price: 1, copies: 3 }, c]);
+  });
+
+  it("keeps the copies when a scanned article is skipped", async () => {
+    vi.mocked(lookupProduct).mockResolvedValue({ barcode: "1", name: "A", price: 1 });
+    const { result } = setup([{ ...a, copies: 3 }]);
+    await act(() => result.current.editor.open("1"));
+    act(() => {
+      result.current.editor.skip();
+    });
+    expect(result.current.queue[0].copies).toBe(3);
+  });
+
+  it("starts at one copy for an article that isn't on the list", async () => {
+    const { result } = setup([{ ...a, copies: 3 }]);
+    await act(() => result.current.editor.open("9"));
+    expect(result.current.editor.copies).toBe(1);
+  });
+
+  it("saves the copies chosen in the editor", async () => {
+    const { result } = setup();
+    await act(() => result.current.editor.openItem(b));
+    act(() => result.current.editor.setCopies(4));
+    await act(() => result.current.editor.save());
+    expect(result.current.queue[1].copies).toBe(4);
+    await act(() => result.current.editor.openItem(result.current.queue[1]));
+    expect(result.current.editor.copies).toBe(4);
+    act(() => result.current.editor.setCopies(1));
+    await act(() => result.current.editor.save());
+    expect("copies" in result.current.queue[1]).toBe(false);
+  });
 });
