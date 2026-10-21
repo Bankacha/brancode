@@ -132,4 +132,18 @@ describe("useProductEditor", () => {
     await act(() => result.current.editor.save());
     expect("copies" in result.current.queue[1]).toBe(false);
   });
+
+  it("keeps the leaflet promotion of an article that is scanned again", async () => {
+    const promo = { dateFrom: "2026-09-25", dateTo: "2026-10-31" };
+    vi.mocked(lookupProduct).mockResolvedValue({ barcode: "1", name: "A", price: 1 });
+    const { result } = setup([{ ...a, promo }, c]);
+    await act(() => result.current.editor.open("1"));
+    expect(result.current.editor.promo).toEqual(promo);
+    await act(() => result.current.editor.save());
+    expect(result.current.queue[0].promo).toEqual(promo);
+    await act(() => result.current.editor.openItem(c));
+    expect(result.current.editor.promo).toBeNull();
+    await act(() => result.current.editor.save());
+    expect("promo" in result.current.queue[1]).toBe(false);
+  });
 });

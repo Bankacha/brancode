@@ -128,6 +128,12 @@ describe("Home", () => {
     expect(screen.getByText("Obrisati sve 4 cene?")).toBeTruthy();
   });
 
+  it("marks an article from a leaflet with the promotion's last day", () => {
+    render(<Harness initial={[{ ...item(0), promo: { dateFrom: "2026-09-25", dateTo: "2026-10-31" } }, item(1)]} />);
+    expect(within(screen.getByText("Artikal 0").closest("li")).getByText(/akcija do 31\.10\./)).toBeTruthy();
+    expect(within(screen.getByText("Artikal 1").closest("li")).queryByText(/akcija/)).toBeNull();
+  });
+
   it("keeps clearing the list out of the menu", () => {
     render(<Harness initial={list(2)} />);
     fireEvent.click(screen.getByRole("button", { name: "Meni" }));

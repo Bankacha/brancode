@@ -105,16 +105,3 @@ export const matchLeafletRows = async (rows) => {
     existing: barcodeCandidates(row.ean).map((code) => byBarcode.get(code)).find(Boolean) ?? null,
   }));
 };
-
-// Only products we already carry get the leaflet price — written to the row we
-// actually matched, so legacy 12-digit rows are updated rather than duplicated.
-// Leaflet articles that aren't in the database are never added to it.
-export const saveLeafletPrices = async (matched) => {
-  const byTarget = new Map();
-  for (const { price, existing } of matched) {
-    if (existing) byTarget.set(existing.barcode, { barcode: existing.barcode, name: existing.name, price });
-  }
-  if (byTarget.size === 0) return;
-  const { error } = await supabase.from("products").upsert([...byTarget.values()]);
-  if (error) throw error;
-};

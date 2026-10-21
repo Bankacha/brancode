@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { Check, CircleAlert, Eye, FileUp, Keyboard, Printer, ScanBarcode, WifiOff } from "lucide-react";
-import { parseLeafletPdf, matchLeafletRows, saveLeafletPrices } from "../promoLeaflet.js";
+import { parseLeafletPdf, matchLeafletRows } from "../promoLeaflet.js";
+import { supabase } from "../supabaseClient.js";
+import { createLeafletStore } from "../lib/leafletStore.js";
+import { importLeaflet } from "../lib/leafletImport.js";
 import { plural } from "../lib/plural.js";
 import { formatPrice } from "../lib/format.js";
-import { todayIso } from "../lib/listFormat.js";
+import { formatDate, todayIso } from "../lib/listFormat.js";
 import { tagCount, withoutItem, withItemRestored } from "../lib/printQueue.js";
 import { useSheet } from "../lib/useSheet.js";
 import { usePrintFormat } from "../lib/printFormat.js";
@@ -108,24 +111,32 @@ export default function Home({ queue, setQueue, editor }) {
     }
   };
 
-  const confirmLeaflet = async () => {
+  // The leaflet and its regular prices are remembered, so the morning check
+  // can bring the regular prices back once the promotion is over.
+  const confirmLeaflet = async ({ dateFrom, dateTo }) => {
     setLeafletSaving(true);
     try {
-      await saveLeafletPrices(leaflet.matches);
+      const { applied } = await importLeaflet(createLeafletStore(supabase), { name: leaflet.name, dateFrom, dateTo, matches: leaflet.matches }, todayIso());
       const stamp = Date.now();
       // Every leaflet article goes on the list (the user prunes it with X);
-      // ones we don't carry are flagged so they're easy to spot.
+      // ones we don't carry are flagged so they're easy to spot. Each tag
+      // prints the promotion's last day.
       const imported = leaflet.matches.map(({ ean, name, price, existing }, i) => ({
         id: `${ean}-${stamp}-${i}`,
         barcode: ean,
         name: existing ? existing.name : name,
         price,
         notInDb: !existing,
+        promo: { dateFrom, dateTo },
       }));
       setQueue(imported);
       sheet.close();
       setLeaflet(null);
-      toast.show({ kind: "success", text: `Uvezeno u listu: ${imported.length}` });
+      toast.show({
+        kind: "success",
+        text: `Uvezeno u listu: ${imported.length}`,
+        detail: applied ? undefined : `Akcijske cene od ${formatDate(dateFrom).slice(0, 6)}`,
+      });
     } catch (err) {
       console.error("leaflet save failed", err);
       toast.show({ kind: "error", icon: CircleAlert, text: "Čuvanje akcijskih cena nije uspelo. Proveri internet konekciju i probaj ponovo." });
