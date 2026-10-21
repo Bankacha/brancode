@@ -23,7 +23,7 @@ npx vitest run src/lib/products.test.js   # a single test file
 
 HTTPS in dev is deliberate: camera access (`getUserMedia`) and `BarcodeDetector` require a secure context when opening the dev server from a phone on the LAN. `BarcodeDetector` exists only in Chromium-based browsers, so desktop Firefox/Safari fall back to manual entry.
 
-`npm run dev` does **not** serve `api/send-email.js` — that is a Vercel serverless function. Email sending only works on Vercel (or under `vercel dev`). Deployment is automatic: pushes to the GitHub repo trigger a Vercel build.
+`npm run dev` does **not** serve `api/` — `api/send-email.js` and `api/promo-check.js` are Vercel serverless functions. Email sending and the leaflet morning check only work on Vercel (or under `vercel dev`); the morning check runs from Vercel Cron (`crons` in `vercel.json`). Deployment is automatic: pushes to the GitHub repo trigger a Vercel build.
 
 ## Versions and deploys
 
@@ -34,7 +34,7 @@ Merging to `main` is a production deploy (Vercel builds every push). The app's v
 - **Routing:** `src/main.jsx` renders `BrowserRouter` → `AuthGate` → `App`. `AuthGate` (`src/auth/`) shows `Login` until a Supabase session exists (email/password; there is no sign-up flow — users are created in Supabase) and then renders `App` with the session, which `App` passes down through `SessionProvider` (`auth/session.jsx`, read with `useSession()`). `App.jsx` holds the shared state, the `ToastProvider` and the routes: `/` (`screens/Home.jsx`), `/pregled` (`screens/PrintPreview.jsx`), `/skeniranje` (`screens/Scan.jsx`), `/rucni-unos` (`screens/ManualEntry.jsx`), and the list sections: `/popis` and `/trebovanje` (`screens/InventoryLists.jsx`, `RequisitionLists.jsx`), `/popis/:id` and `/trebovanje/:id` (`screens/ListDetail.jsx` with a config from `screens/listScreens.js`), and `…/:id/skeniranje` / `…/:id/rucni-unos` for each (`screens/ListScan.jsx`, `ListManualEntry.jsx`); unknown paths redirect to `/`. `vercel.json` serves `index.html` for every path except `/api/*`.
 - **Menu:** each section screen starts with `components/AppHeader.jsx` (title, actions, menu button). Its `AppMenu` opens the menu sheet with the app's sections (the `SECTIONS` array; each feature adds its own entry), Podešavanja (`sheets/SettingsSheet.jsx`) and Odjavi se. Picking a section replaces the menu's history entry, so back returns to the previous screen, not to the open menu.
 - **Scanning and editing:** the camera and the keypad are shared pieces (`components/CameraScanner.jsx`, `BarcodeKeypad.jsx`) used by the price-tag screens and the list screens. `/skeniranje` scans in a row — a confirmed read pauses the camera and opens `sheets/EditSheet.jsx` over it; `/rucni-unos` does the same from a keypad; a long-press on a home list row opens the same sheet. `EditSheet` takes a `source` (`scan` / `manual` / `list`) that decides its content (quick price check vs. tag preview) and buttons.
-- **Bottom sheets** (`src/sheets/`, built on `components/BottomSheet.jsx`) are not routes: the open sheet's name lives in the router's history state (`location.state.sheet`, via `lib/useSheet.js`), so system back closes it. Status messages go through `useToast()` (`components/Toast.jsx`).
+- **Bottom sheets** (`src/sheets/`, built on `components/BottomSheet.jsx`) are not routes: the open sheet's name lives in the router's history state (`location.state.sheet`, via `lib/useSheet.js`), so system back closes it. A small window over a sheet ("Broj kopija") uses `useDialog`, which pushes its own history entry, so back closes only that window. Status messages go through `useToast()` (`components/Toast.jsx`).
 - **No state library.** `App` keeps the print queue (`usePrintQueue`) and the product editor (`useProductEditor`) and passes them down; screens keep their own UI state.
 - **`src/lib/`** holds the logic, with tests next to the pure parts:
   - `products.js` — barcode candidates, lookup and save against the `products` table
@@ -45,12 +45,13 @@ Merging to `main` is a production deploy (Vercel builds every push). The app's v
   - `manualCode.js` — keypad input rules (digits only, up to 20)
   - `email.js` — sends a generated sheet through `api/send-email.js`
   - `printFormat.js` — the per-device chosen tag format; `download.js` — saves the Excel file
-  - `useSheet.js`, `useLongPress.js`, `gestures.js`, `navigation.js` — sheet history, long-press, drag-to-close, leaving / finishing full-screen routes
+  - `useSheet.js` (also `useDialog`), `useLongPress.js`, `gestures.js`, `navigation.js` — sheet and dialog history, long-press, drag-to-close, leaving / finishing full-screen routes
+  - `leafletStore.js` — data access for promo leaflets (`promo_leaflets`, `promo_leaflet_items`) and the prices they write, for any Supabase client; `leafletImport.js` — what an import remembers and writes; `promoCheck.js` — the morning check (promo prices on the first day, regular prices back after the last, reminder mails), run by `api/promo-check.js`; `leafletMarks.js` — the "Liflet" mark on a trebovanje
   - `plural.js` — Serbian count forms (1 cenovnik / 2 cenovnika / 5 cenovnika)
   - `listStore.js` + `inventories.js` / `requisitions.js` — shared list data access (Supabase) for Popis and Trebovanje (and `transferItems`); `listKinds.js` — what differs per list kind (store, rules, words); `useListItemFlow.js` — what happens after a code on a list; `listFormat.js` — list names, dates, quantities, the archive rule; `listPdf.js` — PDF exports (pdfmake, loaded on demand); `pdfOrder.js` — per-phone PDF row order (by name / as added); `ean.js` — check digit and "same article" codes; `useLoad.js` — load-on-open data for screens
 - **Print preview:** `components/PriceTag.jsx` and `PrintPage.jsx` draw tags and A4 pages in real millimetres from the same geometry as the Excel export; `ScaledToWidth.jsx` scales them to the screen.
 - **Data split:** the Supabase `products` table is shared across devices; the print list lives only in each device's `localStorage`. Popis and Trebovanje lists (`inventories`, `requisitions` and their items; SQL in `supabase/migrations/`) are shared in Supabase and never write to `products` — see `.claude/rules/lists.md`.
-- `src/promoLeaflet.js` holds leaflet PDF parsing and matching. `api/send-email.js` is the only server code.
+- `src/promoLeaflet.js` holds leaflet PDF parsing (articles and the promotion period) and matching. Server code: `api/send-email.js` and `api/promo-check.js` (which imports its logic from `src/lib/`).
 - The "Pijaca" redesign: spec in `docs/superpowers/specs/`, plans in `docs/superpowers/plans/`, design handoff (tokens, measurements, copy) in `docs/design/redesign-handoff/`.
 
 `src/templates/prices_template.xlsx`/`.xlsb` are not referenced by the code (the sheet is built from scratch).
@@ -61,8 +62,8 @@ Topic-specific rules live in `.claude/rules/` and load when matching files are r
 
 - `products-and-barcodes.md` — Supabase data, print list storage, the EAN-13 check-digit quirk
 - `price-tag-export.md` — tag formats and print-layout tuning in the ExcelJS export
-- `promo-leaflet.md` — leaflet PDF parsing and what the import may write to the DB
-- `email-api.md` — the send-email function, its auth and env vars
+- `promo-leaflet.md` — leaflet PDF parsing, what the import remembers and writes, the morning check
+- `email-api.md` — the server functions (send-email, promo-check), their auth and env vars
 - `ui-conventions.md` — inline styles, design tokens, shared UI pieces
 - `pwa.md` — manifest and service worker
 - `lists.md` — Popis and Trebovanje: shared lists in Supabase, duplicates, quantities, transfer, archive, PDF

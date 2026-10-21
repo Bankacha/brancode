@@ -22,6 +22,23 @@ Odluke koje sam doneo sam dok smo radili meni, cene, popis i trebovanje, i tvoji
 - **Prijava:** ✅ pozdrav prati doba dana na telefonu: „Dobro jutro.“ od 5 do 11, „Dobar dan.“ od 11 do 18 i „Dobro veče.“ od 18 pa kroz noć do 5.
 - Sve ostalo ispod ostaje kako je urađeno.
 
+## 0.11.0 Akcija iz lifleta (22.10.)
+
+**Potrebno pre prvog uvoza (u Vercel-u):** Vercel → projekat **brancode** → **Settings** → **Environment Variables**, za okruženje **Production**:
+1. `CRON_SECRET`: dugačak nasumičan tekst (npr. 40 slova i brojeva). Vercel ga sam šalje jutarnjoj proveri; bez njega provera ne radi ništa.
+2. `SUPABASE_SERVICE_ROLE_KEY`: Supabase → **Project Settings** → **API Keys** → odeljak **Secret keys** → ključ koji počinje sa `sb_secret_` (kopiraj ga; ako ga nema, „Create new secret key“). Može i stari **service_role** iz kartice „Legacy API keys“. Ovaj ključ ide samo u Vercel, nikad u aplikaciju.
+3. Posle dodavanja: **Deployments** → poslednji deploy → **Redeploy**, da funkcija dobije nove promenljive.
+
+Moje odluke:
+- **Istekla akcija se ne uvozi** („Ova akcija je već istekla.“), da se akcijske cene ne bi upisale u bazu na jednu noć.
+- **Jutarnja provera** ide u 5:00 UTC: zimi između 6 i 7 h, leti između 7 i 8 h po beogradskom vremenu (Vercel tačno vreme bira u tom satu).
+- **Liflet uvezen unapred:** redovna cena se uzima ponovo ujutru prvog dana akcije, jer je neko mogao da je promeni između uvoza i početka.
+- **Ako mejl ne prođe**, provera ide dalje; podsetnik se šalje ponovo sledećeg jutra (ako je još aktuelan), a mejl o ručno menjanim cenama se ne ponavlja (artikli ostaju označeni u bazi).
+- **Mejlovi navode artikle iz baze.** Artikle kojih nema u bazi liflet ne pamti, pa njih nema na spisku (njihovi cenovnici su ipak odštampani).
+- **Red „Akcija važi do“** je slika preko vrha ćelije cene, iste visine (oko 2 mm) za sva tri formata, pa se raspored ne menja.
+- **Pregled cene na frižideru** sada crta cifru nešto niže, kao što je Excel i štampa (Excel na Windows-u postavlja red po punoj visini fonta). Na papiru se ništa ne menja.
+- **Oznaka „Liflet“** je samo na trebovanju, a ne na popisu.
+
 ## 0.10.0 Broj kopija (22.10.)
 
 Urađeno po spec-u. Moje odluke:
