@@ -122,6 +122,13 @@ Ovo nije provereno na pravom telefonu i papiru, pa ostaje za zajednički test. �
   - [ ] dug naziv se prelama preko cele širine cenovnika;
   - [ ] cena od 5 cifara („12.499,99“) se smanjuje i ne ulazi u barkod.
 - [ ] Ako pregled ne odgovara papiru: po odluci 4 iz spec-a pregled se uklanja, a ne podešava odvojeno od Excel-a.
+- [ ] **Broj kopija (0.10.0):**
+  - [ ] u prozoru za cenu (posle skeniranja, ručnog unosa i dugog pritiska na red) siva ikonica kopiranja gore desno otvara „Broj kopija“;
+  - [ ] −/+ menjaju broj od 1 do 20, „U redu“ ga primenjuje, a tap pored prozora ili „nazad“ zatvara samo taj prozor, bez promene;
+  - [ ] posle izbora uz ikonicu piše „×3“, a u redu liste pored cene takođe „×3“;
+  - [ ] brojač na početnom ekranu i „kom“ u pregledu broje i kopije, a „Spremno · N“ broji redove;
+  - [ ] Excel (preuzet i poslat mejlom) i pregled ponavljaju cenovnik toliko puta, jedan za drugim, sa istim brojem po strani;
+  - [ ] ponovno skeniranje artikla koji je na listi ×3 zadrži ×3.
 
 ## 4. Posle testa
 

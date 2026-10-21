@@ -3,6 +3,7 @@ import { Navigate, useLocation, useNavigate } from "react-router";
 import { Apple, ArrowLeft, Download, LayoutGrid, MailCheck, Refrigerator, Send, WifiOff } from "lucide-react";
 import { PRICE_TAG_STYLES, buildWorkbookBuffer, layoutTagPages, sheetFilename } from "../lib/priceTags.js";
 import { plural } from "../lib/plural.js";
+import { tagCount } from "../lib/printQueue.js";
 import { downloadWorkbook } from "../lib/download.js";
 import { sendSheetByEmail } from "../lib/email.js";
 import { leaveScreen } from "../lib/navigation.js";
@@ -66,7 +67,7 @@ export default function PrintPreview({ queue }) {
           <ArrowLeft size={20} />
         </button>
         <h1 className="flex-1 font-display text-[24px] font-extrabold text-ink">Pregled štampe</h1>
-        <span className="text-[13px] font-medium text-ink-3">{queue.length} kom</span>
+        <span className="text-[13px] font-medium text-ink-3">{tagCount(queue)} kom</span>
       </header>
 
       <div className="mt-4 flex rounded-full bg-surface-muted p-[5px]">

@@ -4,7 +4,7 @@ import { Check, CircleAlert, Eye, FileUp, Keyboard, Printer, ScanBarcode, WifiOf
 import { parseLeafletPdf, matchLeafletRows, saveLeafletPrices } from "../promoLeaflet.js";
 import { plural } from "../lib/plural.js";
 import { formatPrice } from "../lib/format.js";
-import { withoutItem, withItemRestored } from "../lib/printQueue.js";
+import { tagCount, withoutItem, withItemRestored } from "../lib/printQueue.js";
 import { useSheet } from "../lib/useSheet.js";
 import { usePrintFormat } from "../lib/printFormat.js";
 import { useToast } from "../components/Toast.jsx";
@@ -44,7 +44,9 @@ export default function Home({ queue, setQueue, editor }) {
 
   const check = queue.filter((q) => q.notInDb);
   const ready = queue.filter((q) => !q.notInDb);
-  const n = queue.length;
+  // The counter (and the clear/replace prompts that repeat it) counts printed
+  // tags, copies included; the groups and "traže proveru" count rows.
+  const n = tagCount(queue);
   const m = check.length;
 
   const summary =

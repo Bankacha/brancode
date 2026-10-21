@@ -39,6 +39,12 @@ describe("PrintPreview", () => {
     expect(pressed("Raf")).toBe("true");
   });
 
+  it("counts copies as printed tags", () => {
+    const [first, second] = items(2);
+    setup([{ ...first, copies: 3 }, second]);
+    expect(screen.getByText("4 kom")).toBeTruthy();
+  });
+
   it("switches format and remembers it on this device", () => {
     setup(items(7));
     fireEvent.click(screen.getByRole("button", { name: "Voće" }));
