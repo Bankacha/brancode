@@ -58,7 +58,7 @@ export default function EditSheet({ editor, open, onClose, format, source = "lis
   // Once the lookup settles: a known product goes straight to the price,
   // a new one to its name.
   useEffect(() => {
-    if (!open || editor.loading) return;
+    if (!open || editor.loading || copiesDialog.isOpen) return;
     const target = editor.name ? priceRef.current : nameRef.current;
     target?.focus();
     target?.select();
@@ -68,7 +68,7 @@ export default function EditSheet({ editor, open, onClose, format, source = "lis
   // close the keyboard to reach it.
   const primary = source === "list" ? onSave : onSaveNext;
   const saveOnEnter = (e) => {
-    if (e.key !== "Enter" || e.repeat || e.nativeEvent?.isComposing || e.isComposing) return;
+    if (e.key !== "Enter" || e.repeat || e.nativeEvent?.isComposing || e.isComposing || copiesDialog.isOpen) return;
     e.preventDefault();
     if (!disabled) primary();
   };

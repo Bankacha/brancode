@@ -163,4 +163,17 @@ describe("EditSheet copies", () => {
     expect(screen.queryByText("Broj kopija")).toBeNull();
     expect(ed.setCopies).not.toHaveBeenCalled();
   });
+
+  it("keeps the price sheet's Enter and focus away while the copies window is open", () => {
+    const onSaveNext = vi.fn();
+    const props = { source: "scan", sessionCount: 1, onSaveNext, onSkip: () => {}, onFinish: () => {} };
+    const { rerender } = setup({ ...props, editor: editor({ loading: true, badge: null, canSave: false }) });
+    fireEvent.click(copiesButton());
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "U redu" }));
+    rerender(<EditSheet open onClose={() => {}} format="shelf" {...props} editor={editor({ badge: "U bazi" })} />);
+    const price = screen.getAllByLabelText(/Cena/).at(-1);
+    expect(document.activeElement).not.toBe(price);
+    fireEvent.keyDown(price, { key: "Enter" });
+    expect(onSaveNext).not.toHaveBeenCalled();
+  });
 });

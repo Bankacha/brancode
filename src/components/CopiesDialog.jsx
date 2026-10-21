@@ -41,7 +41,8 @@ function Panel({ value, onConfirm, onClose }) {
           </button>
         </div>
         <p className="text-center text-[13px] text-ink-3">{`Cenovnik se štampa ${draft} ${plural(draft, "put", "puta", "puta")}`}</p>
-        <Button variant="accent" onClick={() => onConfirm(draft)} className="w-full">
+        {/* Focus moves here so Enter/✓ act on this window, not the price field behind it. */}
+        <Button variant="accent" autoFocus onClick={() => onConfirm(draft)} className="w-full">
           U redu
         </Button>
       </div>
