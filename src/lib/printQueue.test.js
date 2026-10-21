@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseStoredQueue, upsertQueueItem, withoutItem, withItemRestored } from "./printQueue.js";
+import { copiesOf, expandCopies, parseStoredQueue, tagCount, upsertQueueItem, withCopies, withoutItem, withItemRestored } from "./printQueue.js";
 
 describe("parseStoredQueue", () => {
   it("keeps a list saved by the current app version", () => {
@@ -59,5 +59,40 @@ describe("withItemRestored", () => {
   it("does not duplicate an article that was added again meanwhile", () => {
     const again = [a, { id: "n", barcode: "2", name: "B", price: 2 }, c];
     expect(withItemRestored(again, { item: b, index: 1 })).toBe(again);
+  });
+
+  it("brings an item back with its copies", () => {
+    const tripled = { ...b, copies: 3 };
+    expect(withItemRestored([a, c], { item: tripled, index: 1 })).toEqual([a, tripled, c]);
+  });
+});
+
+describe("copies", () => {
+  it("counts one copy when none is set", () => {
+    expect(copiesOf({})).toBe(1);
+    expect(copiesOf({ copies: 3 })).toBe(3);
+  });
+
+  it.each([0, -2, "3", 2.5, null])("treats a stored copies of %j as one", (copies) => {
+    expect(copiesOf({ copies })).toBe(1);
+  });
+
+  it("caps copies at 20", () => {
+    expect(copiesOf({ copies: 99 })).toBe(20);
+  });
+
+  it("sets copies on an item, and leaves the field out for one", () => {
+    expect(withCopies(a, 3)).toEqual({ ...a, copies: 3 });
+    expect("copies" in withCopies({ ...a, copies: 3 }, 1)).toBe(false);
+    expect(withCopies(a, 25).copies).toBe(20);
+  });
+
+  it("counts printed tags, copies included", () => {
+    expect(tagCount([a, { ...b, copies: 3 }])).toBe(4);
+    expect(tagCount([])).toBe(0);
+  });
+
+  it("repeats an item one after another, with ids that stay unique", () => {
+    expect(expandCopies([{ ...a, copies: 2 }, b]).map((i) => i.id)).toEqual(["a", "a#2", "b"]);
   });
 });

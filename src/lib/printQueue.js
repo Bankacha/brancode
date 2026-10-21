@@ -1,8 +1,28 @@
 import { useState } from "react";
 
 // The print queue is per device: kept in localStorage, never in Supabase.
-// Items: { id, barcode, name, price, notInDb? }
+// Items: { id, barcode, name, price, notInDb?, copies? }
 const STORAGE_KEY = "print-queue";
+
+// How many times one tag prints. Left out means 1; anything stored that
+// isn't a whole number counts as 1, and more than MAX_COPIES as MAX_COPIES.
+export const MAX_COPIES = 20;
+
+export const copiesOf = (item) =>
+  Number.isInteger(item.copies) ? Math.min(Math.max(item.copies, 1), MAX_COPIES) : 1;
+
+export const withCopies = (item, n) => {
+  const next = { ...item, copies: copiesOf({ copies: n }) };
+  if (next.copies === 1) delete next.copies;
+  return next;
+};
+
+export const tagCount = (queue) => queue.reduce((sum, item) => sum + copiesOf(item), 0);
+
+// Each item repeated one after another; the repeats get their own ids
+// because the print preview keys tags by id.
+export const expandCopies = (queue) =>
+  queue.flatMap((item) => Array.from({ length: copiesOf(item) }, (_, k) => (k === 0 ? item : { ...item, id: `${item.id}#${k + 1}` })));
 
 export const parseStoredQueue = (raw) => {
   try {

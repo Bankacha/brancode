@@ -3,6 +3,7 @@ import JsBarcode from "jsbarcode";
 import { formatPrice } from "./format.js";
 import { eanCheckDigitOk } from "./ean.js";
 import { formatDate, todayIso } from "./listFormat.js";
+import { expandCopies } from "./printQueue.js";
 
 // Fridge price holders cover the top and bottom of the printed strip, so only a
 // middle band is visible — the fridge preset adds blank space above the name
@@ -221,11 +222,13 @@ export const tagGeometry = (format) => {
 };
 
 // Pages → rows → items, breaking pages exactly where the export does.
+// Copies are repeated first, so they fill pages like any other tag.
 export const layoutTagPages = (queue, format) => {
   const { columns } = PRICE_TAG_STYLES[format];
   const rowsPerPage = tagRowsPerPage(format);
+  const tags = expandCopies(queue);
   const rows = [];
-  for (let i = 0; i < queue.length; i += columns) rows.push(queue.slice(i, i + columns));
+  for (let i = 0; i < tags.length; i += columns) rows.push(tags.slice(i, i + columns));
   const pages = [];
   for (let i = 0; i < rows.length; i += rowsPerPage) pages.push(rows.slice(i, i + rowsPerPage));
   return pages;
