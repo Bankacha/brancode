@@ -4,6 +4,7 @@ import { Check, CircleAlert, Eye, FileUp, Keyboard, Printer, ScanBarcode, WifiOf
 import { parseLeafletPdf, matchLeafletRows, saveLeafletPrices } from "../promoLeaflet.js";
 import { plural } from "../lib/plural.js";
 import { formatPrice } from "../lib/format.js";
+import { todayIso } from "../lib/listFormat.js";
 import { tagCount, withoutItem, withItemRestored } from "../lib/printQueue.js";
 import { useSheet } from "../lib/useSheet.js";
 import { usePrintFormat } from "../lib/printFormat.js";
@@ -39,7 +40,7 @@ export default function Home({ queue, setQueue, editor }) {
   const queueRef = useRef(queue);
   queueRef.current = queue;
   const leafletInputRef = useRef(null);
-  const [leaflet, setLeaflet] = useState(null); // { fileName, matches } once a PDF has been read
+  const [leaflet, setLeaflet] = useState(null); // { fileName, name, period, matches } once a PDF has been read
   const [leafletSaving, setLeafletSaving] = useState(false);
 
   const check = queue.filter((q) => q.notInDb);
@@ -88,12 +89,14 @@ export default function Home({ queue, setQueue, editor }) {
     if (!file) return;
     toast.show({ kind: "loading", text: "Čitam liflet…" });
     try {
-      const rows = await parseLeafletPdf(await file.arrayBuffer(), (page, total) =>
+      const { rows, period } = await parseLeafletPdf(await file.arrayBuffer(), (page, total) =>
         toast.show({ kind: "loading", text: "Čitam liflet…", detail: `strana ${page} / ${total}` })
       );
       const matches = await matchLeafletRows(rows);
       toast.hide();
-      setLeaflet({ fileName: file.name, matches });
+      // The name printed on the leaflet, or the file's when the PDF has none.
+      const name = period?.name ?? file.name.replace(/\.pdf$/i, "");
+      setLeaflet({ fileName: file.name, name, period, matches });
       sheet.open("leaflet");
     } catch (err) {
       console.error("leaflet read failed", err);
@@ -253,7 +256,10 @@ export default function Home({ queue, setQueue, editor }) {
           open={sheet.name === "leaflet"}
           onClose={sheet.close}
           fileName={leaflet.fileName}
+          leafletName={leaflet.name}
           matches={leaflet.matches}
+          period={leaflet.period}
+          today={todayIso()}
           queueLength={n}
           saving={leafletSaving}
           onConfirm={confirmLeaflet}

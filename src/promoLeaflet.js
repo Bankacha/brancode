@@ -7,7 +7,9 @@ import { barcodeCandidates } from "./lib/products.js";
 const LEAFLET_ROW = /^(\d+)\s+(\d{8,14})\s+(.+?)\s+(\d+[.,]\d{2})\s+\d+%/;
 const ROW_Y_TOLERANCE = 3;
 
-export const rowsFromTextItems = (items) => {
+// The text of each line, top to bottom: items within ROW_Y_TOLERANCE of one
+// another are one line, joined left to right.
+export const linesFromTextItems = (items) => {
   const sorted = items
     .filter((item) => item.str.trim())
     .map((item) => ({ str: item.str, x: item.transform[4], y: item.transform[5] }))
@@ -20,17 +22,40 @@ export const rowsFromTextItems = (items) => {
     else lines.push({ y: item.y, items: [item] });
   }
 
-  return lines.flatMap(({ items: lineItems }) => {
-    const text = lineItems
+  return lines.map(({ items: lineItems }) =>
+    lineItems
       .sort((a, b) => a.x - b.x)
       .map((item) => item.str)
       .join(" ")
       .replace(/\s+/g, " ")
-      .trim();
+      .trim()
+  );
+};
+
+export const rowsFromTextItems = (items) =>
+  linesFromTextItems(items).flatMap((text) => {
     const match = LEAFLET_ROW.exec(text);
     if (!match) return [];
     return [{ ean: match[2], name: match[3].trim(), price: parseFloat(match[4].replace(",", ".")) }];
   });
+
+// "Jutro Liflet Avg od 25.09.2026 do 31.10.2026" — the leaflet's one dated
+// line on its first page: the name, then the promotion's first and last day.
+const LEAFLET_PERIOD = /^(.*?)\s*\bod\s+(\d{1,2})\.(\d{1,2})\.(\d{4})\.?\s+do\s+(\d{1,2})\.(\d{1,2})\.(\d{4})\.?/i;
+
+const isoDate = (day, month, year) => {
+  const date = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)));
+  if (date.getUTCDate() !== Number(day) || date.getUTCMonth() !== Number(month) - 1) return null; // 31.02. doesn't exist
+  return date.toISOString().slice(0, 10);
+};
+
+export const leafletPeriodFromText = (text) => {
+  const match = LEAFLET_PERIOD.exec(text.trim());
+  if (!match) return null;
+  const dateFrom = isoDate(match[2], match[3], match[4]);
+  const dateTo = isoDate(match[5], match[6], match[7]);
+  if (!dateFrom || !dateTo) return null;
+  return { name: match[1].trim() || null, dateFrom, dateTo };
 };
 
 const userFacingError = (message) => Object.assign(new Error(message), { userFacing: true });
@@ -44,16 +69,18 @@ export const parseLeafletPdf = async (arrayBuffer, onProgress) => {
   const doc = await loadingTask.promise;
   try {
     const byEan = new Map();
+    let period = null; // read from the first page only
     for (let pageNumber = 1; pageNumber <= doc.numPages; pageNumber++) {
       onProgress?.(pageNumber, doc.numPages);
       const page = await doc.getPage(pageNumber);
       const { items } = await page.getTextContent();
+      if (pageNumber === 1) period = linesFromTextItems(items).map(leafletPeriodFromText).find(Boolean) ?? null;
       for (const row of rowsFromTextItems(items)) byEan.set(row.ean, row);
     }
     if (byEan.size === 0) {
       throw userFacingError("Ovaj PDF ne liči na akcijski liflet — nijedan artikal nije pronađen.");
     }
-    return [...byEan.values()];
+    return { rows: [...byEan.values()], period };
   } finally {
     await loadingTask.destroy();
   }
