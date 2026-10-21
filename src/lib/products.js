@@ -21,8 +21,10 @@ export const lookupProduct = async (barcode, client = supabase) => {
   return null;
 };
 
-// For Popis and Trebovanje, which only read `products`: also finds the full
-// 13-digit row when someone typed the 12 digits printed without the last one.
+// For Popis and Trebovanje, which only read `products`: tries every form of
+// the same article (`sameArticleCodes`), so typed digits without the check
+// digit (7, 11 or 12) also find the full code, and a scanned code its
+// shortened row.
 export const lookupArticle = async (code, client = supabase) => {
   for (const candidate of sameArticleCodes(code)) {
     const { data, error } = await client.from("products").select("barcode, name, price").eq("barcode", candidate).maybeSingle();
