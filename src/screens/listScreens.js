@@ -1,4 +1,7 @@
+import { supabase } from "../supabaseClient.js";
 import { formatPrice } from "../lib/format.js";
+import { createLeafletStore } from "../lib/leafletStore.js";
+import { withLeafletMarks } from "../lib/leafletMarks.js";
 import { inventoryTitle, requisitionTitle } from "../lib/listFormat.js";
 import { popisKind, trebovanjeKind } from "../lib/listKinds.js";
 import { inventoryPdfDefinition, inventoryPdfFilename, requisitionPdfDefinition, requisitionPdfFilename } from "../lib/listPdf.js";
@@ -28,6 +31,9 @@ export const trebovanjeScreen = {
   title: requisitionTitle,
   // only what the item has: an item can be just a name
   detail: (item) => [item.barcode, item.price === null ? null : formatPrice(item.price)].filter(Boolean).join(" · ") || null,
+  // a price that is a promo leaflet's on the trebovanje's date (screen and PDF)
+  decorate: (list, items) => withLeafletMarks(createLeafletStore(supabase), list.date, items),
+  badge: (item) => (item.onLeaflet ? "Liflet" : null),
   FormSheet: RequisitionFormSheet,
   pdf: { definition: requisitionPdfDefinition, filename: requisitionPdfFilename, subject: (list) => `Trebovanje – ${requisitionTitle(list)}` },
   transfer: transferItems, // "Prenesi stavke" into another trebovanje

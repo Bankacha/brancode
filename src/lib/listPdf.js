@@ -46,6 +46,13 @@ export const inventoryPdfFilename = (inventory) => `popis-${formatDate(inventory
 const tickBox = { canvas: [{ type: "rect", x: 2, y: 1, w: 9, h: 9, lineWidth: 0.8, lineColor: "#333333" }] };
 const orEmpty = (value, format) => (value === null || value === undefined ? "" : format(value));
 
+// A leaflet price says so in its own cell: small "LIFLET" above the amount, so
+// shops without leaflets see no extra column.
+const requisitionPrice = (item) => {
+  const price = right(orEmpty(item.price, formatPrice));
+  return item.onLeaflet ? { stack: [{ text: "LIFLET", fontSize: 6, bold: true, alignment: "right" }, price] } : price;
+};
+
 export const requisitionPdfDefinition = (requisition, items, now = new Date()) =>
   tableDocument({
     title: requisition.title.trim() ? `Trebovanje · ${requisition.title.trim()}` : "Trebovanje",
@@ -55,7 +62,7 @@ export const requisitionPdfDefinition = (requisition, items, now = new Date()) =
     rows: items.map((item) => [
       item.name,
       item.barcode ?? "",
-      right(orEmpty(item.price, formatPrice)),
+      requisitionPrice(item),
       right(orEmpty(item.quantity, formatQuantity)),
       tickBox,
     ]),

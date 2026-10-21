@@ -39,7 +39,7 @@ export default function ListDetail({ screen }) {
   const flow = useListItemFlow(id, kind);
   const data = useLoad(async () => {
     const [list, items] = await Promise.all([store.get(id), store.items(id)]);
-    return { list, items };
+    return { list, items: list && screen.decorate ? await screen.decorate(list, items) : items };
   }, [id]);
   const [hidden, setHidden] = useState(() => new Set()); // removed here, waiting for the database
   const [saving, setSaving] = useState(false);
@@ -259,6 +259,7 @@ export default function ListDetail({ screen }) {
             key={item.id}
             name={item.name}
             detail={screen.detail(item)}
+            badge={screen.badge?.(item)}
             quantity={item.quantity === null ? null : formatQuantity(item.quantity)}
             onLongPress={() => edit(item)}
             onRemove={() => remove(item)}

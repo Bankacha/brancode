@@ -69,6 +69,19 @@ describe("requisitionPdfDefinition", () => {
     expect(mleko[4].canvas[0]).toMatchObject({ type: "rect" });
   });
 
+  it("writes LIFLET in the price cell of a leaflet price, without a new column", () => {
+    const t = table(requisitionPdfDefinition(trebovanje, [{ ...rows[0], onLeaflet: true }, rows[1]], new Date(2026, 9, 18, 9, 0)));
+    expect(t.body[0]).toHaveLength(5);
+    const [, mleko, hleb] = t.body;
+    expect(mleko[2]).toEqual({
+      stack: [
+        { text: "LIFLET", fontSize: 6, bold: true, alignment: "right" },
+        { text: "100,00", alignment: "right" },
+      ],
+    });
+    expect(hleb[2]).toEqual({ text: "", alignment: "right" });
+  });
+
   it("names the file after the date", () => {
     expect(requisitionPdfFilename(trebovanje)).toBe("trebovanje-18.10.2026.pdf");
   });

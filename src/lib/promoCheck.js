@@ -1,5 +1,5 @@
 import { sameArticleCodes } from "./ean.js";
-import { formatPrice } from "./format.js";
+import { formatPrice, samePrice } from "./format.js";
 import { formatDate } from "./listFormat.js";
 
 // The morning check (api/promo-check.js, Vercel Cron, early morning in
@@ -20,7 +20,6 @@ export const addDays = (iso, n) => {
   return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10);
 };
 
-const samePrice = (a, b) => a !== null && b !== null && Math.round(a * 100) === Math.round(b * 100);
 const day = (iso) => `${formatDate(iso)}.`;
 const period = (leaflet) => `${day(leaflet.dateFrom)} – ${day(leaflet.dateTo)}`;
 const shownPrice = (price) => (price === null ? "bez cene" : formatPrice(price));
