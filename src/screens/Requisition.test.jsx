@@ -11,6 +11,9 @@ vi.mock("../lib/requisitions.js", async (importOriginal) => ({
   requisitionStore: { get: vi.fn(), items: vi.fn(), list: vi.fn(), update: vi.fn(), removeItem: vi.fn(), restoreItem: vi.fn(), updateItem: vi.fn(), findItem: vi.fn(), addItem: vi.fn(), addQuantity: vi.fn() },
 }));
 vi.mock("../lib/products.js", () => ({ lookupArticle: vi.fn() }));
+vi.mock("../lib/leafletMarks.js", () => ({
+  withLeafletMarks: vi.fn(async (_store, _date, list) => list.map((item) => ({ ...item, onLeaflet: item.id === "a" }))),
+}));
 
 export const trebovanje = { id: "t1", title: "Pekara", date: "2026-10-18", createdAt: "x" };
 export const items = [
@@ -45,6 +48,13 @@ describe("Requisition", () => {
     expect(within(majonez).getByText("2")).toBeTruthy();
     const hleb = screen.getByText("Hleb za sendviče").closest("li");
     expect(hleb.textContent).toBe("Hleb za sendviče");
+  });
+
+  it("marks the price that is the leaflet price", async () => {
+    setup();
+    await screen.findByText("Pekara 18.10.2026");
+    expect(within(screen.getByText("MAJONEZ 175").closest("li")).getByText("Liflet")).toBeTruthy();
+    expect(within(screen.getByText("Hleb za sendviče").closest("li")).queryByText("Liflet")).toBeNull();
   });
 
   it("goes back to the list of trebovanja when this one no longer exists", async () => {

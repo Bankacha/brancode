@@ -27,6 +27,10 @@ Prvo testiranje u radnji je otkrilo tri greške i dve potrebe.
    - tap otvara mali prozor „Broj kopija“ sa −, broj, + i „U redu“;
    - pri štampi se cenovnik ponavlja toliko puta.
 6. **Popravke idu prve, kao 0.9.3**, pre novih funkcija. Prvo kopije (0.10.0), pa liflet (0.11.0). Svaki deo ima svoju granu, pregled koda i jedan squash commit na `main`.
+7. **Na trebovanju se jasno vidi liflet cena** (dodato 22.10.):
+   - stavka čija je cena akcijska cena iz lifleta dobija oznaku „Liflet“;
+   - bez nove kolone, jer neke radnje koje budu koristile aplikaciju možda neće imati lifleta;
+   - oznaka stoji u ćeliji cene, sitno i boldovano u gornjem uglu.
 
 ## Ne-ciljevi
 
@@ -163,7 +167,9 @@ Na primer, KINDER BUENO je u bazi `8005276`, a na pakovanju piše EAN-8 `8005276
 - Svaki potvrđen uvoz upisuje u Supabase liflet: naziv, period, kada je uvezen.
 - Za svaki artikal iz baze pamti barkod, naziv, akcijsku cenu i zapamćenu redovnu cenu.
 - Upisuje i stanje: cene upisane / vraćene, i koji podsetnici su poslati.
-- Tabele pravi SQL koji pripremi graditelj, a korisnik ga pokreće u Supabase konzoli, kao za popis i trebovanje. RLS: prijavljeni korisnici. Server pristupa preko svog ključa.
+- Tabele su `promo_leaflets` i `promo_leaflet_items`, iz [`supabase/migrations/20261022_promo_leaflets.sql`](../../../supabase/migrations/20261022_promo_leaflets.sql). Korisnik ih pokreće u Supabase konzoli, kao za popis i trebovanje. RLS: prijavljeni korisnici. Server pristupa preko svog ključa.
+  - Isti liflet (naziv i period) je jedan red (`unique`).
+  - Stavka čuva barkod reda u `products` kome je upisana akcijska cena, i ishod vraćanja (`restored` / `changed` / `newer_leaflet`).
 
 **Jutarnja provera:** Vercel Cron jednom dnevno, rano ujutru po beogradskom vremenu (oko 7h), poziva novu serverless funkciju u `api/`. „Danas“ i „sutra“ se računaju po beogradskom vremenu. Svaki korak se pamti u bazi, pa ponovni poziv ništa ne radi dvaput. Redom:
 1. **Upis akcijskih cena** za liflete čija akcija počinje danas, a cene još nisu upisane (uvezeni unapred).
@@ -186,6 +192,18 @@ Na primer, KINDER BUENO je u bazi `8005276`, a na pakovanju piše EAN-8 `8005276
 - korisnik dodaje promenljive u Vercel, a graditelj daje tačne korake;
 - ništa tajno ne ide u klijent.
 
+### Trebovanje: oznaka „Liflet“
+
+- *(moja odluka)* **Kada se oznaka vidi:** obe tačke moraju da važe.
+  - Artikal je na lifletu čiji period obuhvata **datum trebovanja**. Isti artikal se prepoznaje po `sameArticleCodes`, kao duplikati. Zato i staro trebovanje iz arhive pokazuje šta je tada bilo na akciji.
+  - Cena stavke je jednaka akcijskoj ceni iz tog lifleta. Stavka dodata pre nego što je akcijska cena upisana nosi redovnu cenu i ne dobija oznaku, jer oznaka kaže „ova cena je liflet cena“.
+  - Stavka bez barkoda ili bez cene nema oznaku.
+- **Na ekranu trebovanja:** uz cenu u redu stavke mala istaknuta oznaka „Liflet“ (bold, u boji akcenta, kao mala pločica).
+- **U PDF-u:** kolone ostaju iste. U ćeliji cene, iznad iznosa, stoji sitno boldovano „LIFLET“ poravnato desno, pa izgleda kao natpis u gornjem uglu ćelije. Radnja bez lifleta ne vidi nikakvu promenu.
+- *(moja odluka)* **Popis nema oznaku.** Zahtev je bio samo za trebovanje.
+- Trebovanje oznaku samo čita iz tabela lifleta. Liste i dalje ne pišu ni u `products` ni u tabele lifleta.
+- Ako tabele lifleta ne mogu da se pročitaju, trebovanje i PDF rade normalno, samo bez oznake.
+
 ---
 
 ## Provera
@@ -197,8 +215,9 @@ Na primer, KINDER BUENO je u bazi `8005276`, a na pakovanju piše EAN-8 `8005276
   - jutarnja provera: upis na dan početka, vraćanje posle isteka (i preskakanje ručno promenjenih i onih na novom lifletu), podsetnici sutra / danas, ništa dvaput;
   - kopije u rasporedu strana i u Excel-u;
   - red akcije u Excel-u i pregledu, bez promene broja po strani;
-  - zaštita funkcije podsetnika.
-- **Browser:** pregled štampe sa akcijom i kopijama, prozor za kopije, prozor za uvoz sa periodom.
+  - zaštita funkcije podsetnika;
+  - oznaka „Liflet“ na trebovanju: datum trebovanja u periodu i van njega, cena jednaka i različita od akcijske, skraćen barkod, ćelija cene u PDF-u.
+- **Browser:** pregled štampe sa akcijom i kopijama, prozor za kopije, prozor za uvoz sa periodom, trebovanje sa oznakom „Liflet“.
 - **Kasnije, u radnji:**
   - štampa akcijskih cenovnika, posebno frižider i držač;
   - prvi pravi podsetnik mejlom i prvo automatsko vraćanje redovnih cena;
@@ -208,5 +227,5 @@ Na primer, KINDER BUENO je u bazi `8005276`, a na pakovanju piše EAN-8 `8005276
 
 - Tehnika crtanja reda akcije u Excel-u, uz ograničenja iznad.
 - Tačan izgled i mesto ikonice kopija i prozora za broj, u stilu postojećih sheet-ova.
-- Ime i kolone nove tabele, i tačno vreme cron-a u UTC-u.
+- Tačno vreme cron-a u UTC-u.
 - Tekst mejlova u dogovorenom smislu.

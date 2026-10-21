@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { rowsFromTextItems } from "./promoLeaflet.js";
+import { leafletPeriodFromText, linesFromTextItems, rowsFromTextItems } from "./promoLeaflet.js";
 
 const item = (str, x, y) => ({ str, transform: [1, 0, 0, 1, x, y] });
 
@@ -30,5 +30,33 @@ describe("rowsFromTextItems", () => {
 
   it("ignores lines that are not article rows", () => {
     expect(rowsFromTextItems([item("Šifra", 10, 700), item("EAN", 60, 700), item("Naziv", 160, 700)])).toEqual([]);
+  });
+});
+
+describe("linesFromTextItems", () => {
+  it("joins the items of each line left to right, top line first", () => {
+    expect(linesFromTextItems([item("do 31.10.2026", 200, 800), item("Jutro Liflet Avg od 25.09.2026", 10, 801), item("Šifra", 10, 700)])).toEqual([
+      "Jutro Liflet Avg od 25.09.2026 do 31.10.2026",
+      "Šifra",
+    ]);
+  });
+});
+
+describe("leafletPeriodFromText", () => {
+  it("reads the name and the period from the leaflet's first line", () => {
+    expect(leafletPeriodFromText("Jutro Liflet Avg od 25.09.2026 do 31.10.2026")).toEqual({
+      name: "Jutro Liflet Avg",
+      dateFrom: "2026-09-25",
+      dateTo: "2026-10-31",
+    });
+  });
+
+  it("takes single-digit days and months and trailing dots, without a name", () => {
+    expect(leafletPeriodFromText("od 1.9.2026. do 30.9.2026.")).toEqual({ name: null, dateFrom: "2026-09-01", dateTo: "2026-09-30" });
+  });
+
+  it("finds nothing in other lines or in dates that don't exist", () => {
+    expect(leafletPeriodFromText("Šifra EAN Naziv")).toBeNull();
+    expect(leafletPeriodFromText("od 31.02.2026 do 10.03.2026")).toBeNull();
   });
 });

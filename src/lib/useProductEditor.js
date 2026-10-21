@@ -7,8 +7,8 @@ import { copiesOf, upsertQueueItem, withCopies } from "./printQueue.js";
 // a print-list row (`openItem`); `barcode === null` means closed.
 // badge: "U bazi" | "Novi artikal" | "Nije u bazi"; error: null | "lookup" | "save";
 // oldPrice: the database price ("79,00") when a scanned/typed code was found;
-// copies: how many times the tag prints, taken from the list when the article
-// is already on it, so scanning it again keeps them.
+// copies and promo (a leaflet's { dateFrom, dateTo }): taken from the list when
+// the article is already on it, so scanning it again keeps them.
 export const useProductEditor = (queue, setQueue) => {
   const [barcode, setBarcode] = useState(null);
   const [matchedBarcode, setMatchedBarcode] = useState(null); // DB row the lookup found, if any
@@ -17,6 +17,7 @@ export const useProductEditor = (queue, setQueue) => {
   const [badge, setBadge] = useState(null);
   const [oldPrice, setOldPrice] = useState(null);
   const [copies, setCopies] = useState(1);
+  const [promo, setPromo] = useState(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -52,6 +53,7 @@ export const useProductEditor = (queue, setQueue) => {
     setBadge(null);
     const listed = queue.find((q) => q.barcode === code);
     setCopies(listed ? copiesOf(listed) : 1);
+    setPromo(listed?.promo ?? null);
     return lookup(id, code, (data) => {
       if (data) {
         setMatchedBarcode(data.barcode);
@@ -72,6 +74,7 @@ export const useProductEditor = (queue, setQueue) => {
     setPrice(toPriceInput(item.price));
     setBadge(item.notInDb ? "Nije u bazi" : "U bazi");
     setCopies(copiesOf(item));
+    setPromo(item.promo ?? null);
     return lookup(id, item.barcode, (data) => setMatchedBarcode(data ? data.barcode : null));
   };
 
@@ -79,6 +82,9 @@ export const useProductEditor = (queue, setQueue) => {
   const canSave = name.trim() !== "" && priceNum !== null && !loading && !saving;
 
   // Resolves to the saved item, or null (the editor stays open, error "save").
+  // What the list keeps besides name and price.
+  const listFields = (item) => withCopies(promo ? { ...item, promo } : item, copies);
+
   const save = async () => {
     if (!canSave) return null;
     const product = { barcode, name: name.trim(), price: priceNum };
@@ -92,7 +98,7 @@ export const useProductEditor = (queue, setQueue) => {
       setSaving(false);
       return null;
     }
-    const item = withCopies({ id: `${barcode}-${Date.now()}`, ...product }, copies);
+    const item = listFields({ id: `${barcode}-${Date.now()}`, ...product });
     setQueue(upsertQueueItem(queue, item));
     setSaving(false);
     setBarcode(null);
@@ -102,7 +108,7 @@ export const useProductEditor = (queue, setQueue) => {
   // "Preskoči": onto the print list as it is, without touching the database.
   const skip = () => {
     if (!canSave) return null;
-    const item = withCopies({ id: `${barcode}-${Date.now()}`, barcode, name: name.trim(), price: priceNum }, copies);
+    const item = listFields({ id: `${barcode}-${Date.now()}`, barcode, name: name.trim(), price: priceNum });
     setQueue(upsertQueueItem(queue, item));
     setBarcode(null);
     return item;
@@ -110,5 +116,5 @@ export const useProductEditor = (queue, setQueue) => {
 
   const close = () => setBarcode(null);
 
-  return { barcode, name, price, badge, oldPrice, copies, loading, saving, error, canSave, open, openItem, setName, setPrice, setCopies, save, skip, close };
+  return { barcode, name, price, badge, oldPrice, copies, promo, loading, saving, error, canSave, open, openItem, setName, setPrice, setCopies, save, skip, close };
 };
