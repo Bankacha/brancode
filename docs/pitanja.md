@@ -22,6 +22,13 @@ Odluke koje sam doneo sam dok smo radili meni, cene, popis i trebovanje, i tvoji
 - **Prijava:** ✅ pozdrav prati doba dana na telefonu: „Dobro jutro.“ od 5 do 11, „Dobar dan.“ od 11 do 18 i „Dobro veče.“ od 18 pa kroz noć do 5.
 - Sve ostalo ispod ostaje kako je urađeno.
 
+## 0.9.3 (feedback iz radnje, 20.10.)
+
+- **Barkod se ne vidi kad cene stignu mejlom:** fajl je isti kao preuzeti. Pregled priloga u mejlu ne prikazuje slike, a Excel ih prikazuje. U tekstu mejla sada piše da se prilog otvara u Excel-u.
+- **Ikonica:** ✅ štampač i na popisu i na trebovanju.
+- **Kinder Bueno, Orbit (8 cifara):** ✅ kasa je pri izvozu odsekla kontrolnu cifru i kod kratkih barkodova (u bazi 810 artikala sa 7 cifara). Sada se svaki barkod traži i bez kontrolne cifre, bez obzira na dužinu.
+- **Nove funkcije** (broj kopija 0.10.0, akcija iz lifleta 0.11.0) su dogovorene u `docs/superpowers/specs/2026-10-20-brancode-akcija-kopije-design.md`.
+
 ## 0.9.2
 
 - **Čuvanje dok je tastatura otvorena:** ✅

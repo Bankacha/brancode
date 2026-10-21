@@ -23,8 +23,9 @@ describe("barcodeCandidates", () => {
   });
 
   it("leaves other lengths alone", () => {
-    expect(barcodeCandidates("12345678")).toEqual(["12345678"]);
-    expect(barcodeCandidates("860000500012")).toEqual(["860000500012"]);
+    expect(barcodeCandidates("12345678")).toEqual(["12345678"]); // last digit isn't a check digit
+    // a valid UPC-12 by chance: its 11-digit prefix is tried, after the exact code
+    expect(barcodeCandidates("860000500012")).toEqual(["860000500012", "86000050001"]);
   });
 });
 
@@ -82,5 +83,25 @@ describe("lookupArticle (lists, read only)", () => {
   it("finds the 12-digit row for a scanned code, like the price tags do", async () => {
     const { client } = fakeClient({ rows: { "860000500012": legacyRow } });
     expect(await lookupArticle("8600005000122", client)).toEqual(legacyRow);
+  });
+});
+
+describe("barcodes of any length", () => {
+  it("finds an EAN-8 article stored without its check digit (Kinder Bueno)", async () => {
+    const bueno = { barcode: "8005276", name: "KINDER BUENO", price: 129.99 };
+    const { client, calls } = fakeClient({ rows: { "8005276": bueno } });
+    expect(barcodeCandidates("80052760")).toEqual(["80052760", "8005276"]);
+    expect(await lookupProduct("80052760", client)).toEqual(bueno);
+    expect(calls).toEqual([["select", "80052760"], ["select", "8005276"]]);
+  });
+
+  it("doesn't guess a prefix for a code whose last digit isn't a check digit", () => {
+    expect(barcodeCandidates("80052761")).toEqual(["80052761"]);
+  });
+
+  it("moves the 7-digit row to the full scanned code when saved", async () => {
+    const { client, calls } = fakeClient({ updateResult: { data: [{ barcode: "80052760" }], error: null } });
+    await saveProduct({ barcode: "80052760", name: "KINDER BUENO", price: 129.99 }, "8005276", client);
+    expect(calls).toEqual([["update", { barcode: "80052760", name: "KINDER BUENO", price: 129.99 }, "8005276"]]);
   });
 });

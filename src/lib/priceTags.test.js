@@ -233,6 +233,12 @@ describe("shrinkFontPt", () => {
 });
 
 describe("barcodeSymbology", () => {
+  it("prints codes stored without their check digit as the real symbol (JsBarcode adds the digit)", () => {
+    expect(barcodeSymbology("8005276")).toBe("EAN8");
+    expect(barcodeSymbology("03600029145")).toBe("UPC");
+    expect(barcodeSymbology("12345")).toBe("CODE128");
+  });
+
   it("uses EAN-13 for 12 digits (the POS export without its check digit) and valid 13-digit codes", () => {
     expect(barcodeSymbology("400638133393")).toBe("EAN13");
     expect(barcodeSymbology("4006381333931")).toBe("EAN13");

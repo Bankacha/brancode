@@ -61,7 +61,8 @@ Ovo nije provereno na pravom telefonu i papiru, pa ostaje za zajednički test. �
 - [ ] Tastatura za cenu traži jedan tap. To je očekivano ograničenje iOS-a.
 
 ### Zajedničko
-- [ ] Pošalji na `/pregled`: mejl stiže sa ispravnim Excel fajlom.
+- [ ] Pošalji na `/pregled`: mejl stiže sa ispravnim Excel fajlom. Prilog se otvara **u Excel-u**, jer pregled u mejlu ne prikazuje barkodove. Tekst mejla to i kaže.
+- [ ] Artikli sa kratkim barkodom (Kinder Bueno, Orbit žvake, 8 cifara) se nalaze u bazi i na cenama i na popisu i trebovanju.
 - [ ] Direktno otvaranje `<preview>/rucni-unos` učitava aplikaciju (nije 404).
 - [ ] Dodavanje na početni ekran: ikonica je novi logo, bez belog kruga (Android).
 - [ ] Bez interneta: aplikacija se otvara, a fontovi i skeniranje rade. Čuvanje i slanje traže vezu.

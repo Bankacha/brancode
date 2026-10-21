@@ -23,6 +23,8 @@ describe("api/send-email", () => {
   it("titles a price-tag sheet as before when no subject is given", async () => {
     await call({ filename: "cenovnik-raf.xlsx", base64: "AAAA" });
     expect(sent[0].subject).toBe("Cenovnik – cenovnik-raf.xlsx");
+    // mail previews leave out the barcode images; Excel shows them
+    expect(sent[0].text).toContain("Otvorite prilog u Excel-u");
   });
 
   it("uses the subject the app sends, on one line", async () => {
