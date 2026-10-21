@@ -3,7 +3,7 @@ import { describe, it, expect } from "vitest";
 import { useRef } from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useNavigate } from "react-router";
-import { useSheet } from "./useSheet.js";
+import { useDialog, useSheet } from "./useSheet.js";
 
 function Probe() {
   const sheet = useSheet();
@@ -80,5 +80,48 @@ describe("useSheet", () => {
     expect(shown()).toBe("leaflet");
     click("system back");
     expect(shown()).toBe("none");
+  });
+});
+
+function DialogProbe() {
+  const sheet = useSheet();
+  const dialog = useDialog("copies");
+  const navigate = useNavigate();
+  return (
+    <div>
+      <output>{`${sheet.name ?? "none"} ${dialog.isOpen ? "copies" : "-"}`}</output>
+      <button onClick={() => sheet.open("edit")}>open edit</button>
+      <button onClick={() => dialog.open()}>open dialog</button>
+      <button onClick={() => (dialog.close(), dialog.close())}>double close dialog</button>
+      <button onClick={() => navigate(-1)}>system back</button>
+    </div>
+  );
+}
+
+describe("useDialog", () => {
+  const setupDialog = () =>
+    render(
+      <MemoryRouter initialEntries={["/"]}>
+        <DialogProbe />
+      </MemoryRouter>
+    );
+
+  it("opens over a sheet, and back closes only the dialog", () => {
+    setupDialog();
+    click("open edit");
+    click("open dialog");
+    expect(shown()).toBe("edit copies");
+    click("system back");
+    expect(shown()).toBe("edit -");
+    click("system back");
+    expect(shown()).toBe("none -");
+  });
+
+  it("pops only its own entry when closed twice before the page updates", () => {
+    setupDialog();
+    click("open edit");
+    click("open dialog");
+    click("double close dialog");
+    expect(shown()).toBe("edit -");
   });
 });

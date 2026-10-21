@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
+import { MemoryRouter } from "react-router";
 import EditSheet from "./EditSheet.jsx";
 
 const editor = (overrides = {}) => ({
@@ -12,14 +13,18 @@ const editor = (overrides = {}) => ({
   saving: false,
   error: null,
   canSave: true,
+  copies: 1,
   setName: vi.fn(),
   setPrice: vi.fn(),
+  setCopies: vi.fn(),
   ...overrides,
 });
 
 // Shelf prices are drawn in two pieces ("79" and a smaller ",00").
 const tagPrice = (text) => (_, el) => el?.tagName === "SPAN" && el.children.length === 2 && el.textContent === text;
-const setup = (props) => render(<EditSheet open onClose={() => {}} onSave={() => {}} format="shelf" editor={editor()} {...props} />);
+// The copies dialog keeps its own history entry, so the sheet needs a router.
+const renderSheet = (ui) => render(ui, { wrapper: MemoryRouter });
+const setup = (props) => renderSheet(<EditSheet open onClose={() => {}} onSave={() => {}} format="shelf" editor={editor()} {...props} />);
 
 describe("EditSheet tag preview", () => {
   it("shows the tag as it will print on the shelf", () => {
@@ -109,8 +114,66 @@ describe("EditSheet actions by source", () => {
 
 describe("EditSheet while a scanned code is looked up", () => {
   it("doesn't show the new-article preview before the database answers", () => {
-    render(<EditSheet open onClose={() => {}} format="shelf" source="scan" sessionCount={1} editor={editor({ loading: true, badge: null, name: "", price: "", canSave: false })} />);
+    renderSheet(<EditSheet open onClose={() => {}} format="shelf" source="scan" sessionCount={1} editor={editor({ loading: true, badge: null, name: "", price: "", canSave: false })} />);
     expect(screen.queryByText(/Ovako izgleda cenovnik/)).toBeNull();
   });
 });
 
+describe("EditSheet copies", () => {
+  const copiesButton = () => screen.getByRole("button", { name: /Broj kopija/ });
+
+  it("offers copies discreetly, with no count for a single tag", () => {
+    setup();
+    expect(copiesButton().textContent).not.toContain("×");
+  });
+
+  it("shows how many copies will print", () => {
+    setup({ editor: editor({ copies: 3 }) });
+    expect(copiesButton().textContent).toContain("×3");
+  });
+
+  it("sets the copies only when confirmed", () => {
+    const ed = editor();
+    setup({ editor: ed });
+    fireEvent.click(copiesButton());
+    expect(screen.getByText("Broj kopija")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Više kopija" }));
+    fireEvent.click(screen.getByRole("button", { name: "Više kopija" }));
+    expect(ed.setCopies).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "U redu" }));
+    expect(ed.setCopies).toHaveBeenCalledWith(3);
+    expect(screen.queryByText("Broj kopija")).toBeNull();
+  });
+
+  it("keeps the count between 1 and 20", () => {
+    setup();
+    fireEvent.click(copiesButton());
+    expect(screen.getByRole("button", { name: "Manje kopija" }).disabled).toBe(true);
+    for (let i = 0; i < 25; i++) fireEvent.click(screen.getByRole("button", { name: "Više kopija" }));
+    expect(screen.getByRole("button", { name: "Više kopija" }).disabled).toBe(true);
+    expect(screen.getByText("20")).toBeTruthy();
+  });
+
+  it("closes without a change on a tap outside", () => {
+    const ed = editor();
+    setup({ editor: ed });
+    fireEvent.click(copiesButton());
+    fireEvent.click(screen.getByRole("button", { name: "Više kopija" }));
+    fireEvent.click(screen.getByTestId("copies-scrim"));
+    expect(screen.queryByText("Broj kopija")).toBeNull();
+    expect(ed.setCopies).not.toHaveBeenCalled();
+  });
+
+  it("keeps the price sheet's Enter and focus away while the copies window is open", () => {
+    const onSaveNext = vi.fn();
+    const props = { source: "scan", sessionCount: 1, onSaveNext, onSkip: () => {}, onFinish: () => {} };
+    const { rerender } = setup({ ...props, editor: editor({ loading: true, badge: null, canSave: false }) });
+    fireEvent.click(copiesButton());
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "U redu" }));
+    rerender(<EditSheet open onClose={() => {}} format="shelf" {...props} editor={editor({ badge: "U bazi" })} />);
+    const price = screen.getAllByLabelText(/Cena/).at(-1);
+    expect(document.activeElement).not.toBe(price);
+    fireEvent.keyDown(price, { key: "Enter" });
+    expect(onSaveNext).not.toHaveBeenCalled();
+  });
+});

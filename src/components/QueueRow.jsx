@@ -1,11 +1,14 @@
 import { X } from "lucide-react";
 import { formatPrice } from "../lib/format.js";
+import { copiesOf } from "../lib/printQueue.js";
 import { useLongPress } from "../lib/useLongPress.js";
 
-// One print-list row (handoff 02 "Red"). Long-press edits, X removes.
+// One print-list row (handoff 02 "Red"). Long-press edits, X removes;
+// "×3" before the price when the tag prints more than once.
 export default function QueueRow({ item, tone, onLongPress, onRemove }) {
   const press = useLongPress(onLongPress);
   const check = tone === "check";
+  const copies = copiesOf(item);
   return (
     <li
       {...press}
@@ -17,6 +20,7 @@ export default function QueueRow({ item, tone, onLongPress, onRemove }) {
         <p className="truncate text-[15px] font-semibold text-ink">{item.name}</p>
         <p className={`font-mono text-[11px] ${check ? "text-danger-ink" : "text-ink-3"}`}>{item.barcode}</p>
       </div>
+      {copies > 1 && <span className="shrink-0 rounded-full bg-surface-muted px-2 py-0.5 text-xs font-semibold text-ink-2">{`×${copies}`}</span>}
       <span className="shrink-0 font-display text-[22px] font-extrabold text-ink">{formatPrice(item.price)}</span>
       <button
         type="button"

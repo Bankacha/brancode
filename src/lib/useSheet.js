@@ -38,3 +38,33 @@ export const useSheet = () => {
 
   return { name, open, close, isOpen };
 };
+
+// A small dialog over an open sheet (e.g. "Broj kopija" over the price
+// sheet). Unlike sheets it pushes its own history entry, keeping the
+// sheet's, so system back closes only the dialog. close() latches like
+// useSheet's.
+export const useDialog = (name) => {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const isOpen = location.state?.dialog === name;
+  const current = useRef(isOpen);
+  const lastLocation = useRef(location);
+  if (lastLocation.current !== location) {
+    lastLocation.current = location;
+    current.current = isOpen;
+  }
+
+  const open = () => {
+    if (current.current) return;
+    current.current = true;
+    navigate(location.pathname + location.search, { state: { ...location.state, dialog: name } });
+  };
+
+  const close = () => {
+    if (!current.current) return;
+    current.current = false;
+    navigate(-1);
+  };
+
+  return { isOpen, open, close };
+};

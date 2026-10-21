@@ -49,6 +49,13 @@ describe("buildWorkbook page breaks", () => {
 });
 
 describe("buildWorkbook cells", () => {
+  it("writes a tag once per copy", () => {
+    const sheet = sheetFor("shelf", [{ id: "a", barcode: "1", name: "MAJONEZ 175", price: 1249.99, copies: 2 }]);
+    expect(sheet.getCell("A1").value).toBe("MAJONEZ 175");
+    expect(sheet.getCell("C1").value).toBe("MAJONEZ 175");
+    expect(sheet.getCell("E1").value).toBeNull();
+  });
+
   it("writes name and price cells with the print fonts", () => {
     const sheet = sheetFor("shelf", [{ id: "a", barcode: "1", name: "MAJONEZ 175", price: 1249.99 }]);
     expect(sheet.getCell("A1").value).toBe("MAJONEZ 175");
@@ -219,6 +226,21 @@ describe("layoutTagPages", () => {
 
   it("has no pages for an empty list", () => {
     expect(layoutTagPages([], "shelf")).toEqual([]);
+  });
+
+  it("repeats a tag as many times as its copies", () => {
+    expect(layoutTagPages([{ ...items(1)[0], copies: 3 }], "shelf")[0][0].length).toBe(3);
+  });
+
+  it("breaks pages after the copies are repeated", () => {
+    const shelf = [...items(17), { ...items(18)[17], copies: 3 }];
+    expect(layoutTagPages(shelf, "shelf").map((page) => page.flat().length)).toEqual([18, 2]);
+    expect(layoutTagPages([{ ...items(1)[0], copies: 16 }], "fridge").map((page) => page.flat().length)).toEqual([15, 1]);
+  });
+
+  it("prints between 1 and 20 copies whatever was stored", () => {
+    const [first, second] = items(2);
+    expect(layoutTagPages([{ ...first, copies: 0 }, { ...second, copies: 99 }], "fruit").flat(2).length).toBe(21);
   });
 });
 

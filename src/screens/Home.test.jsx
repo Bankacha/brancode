@@ -104,6 +104,30 @@ describe("Home", () => {
     expect(screen.getAllByRole("button", { name: "Obriši sve" })).toHaveLength(1);
   });
 
+  it("counts every printed copy, but groups count rows", () => {
+    render(<Harness initial={[{ ...item(0), copies: 3 }, item(1)]} />);
+    expect(screen.getByText("4")).toBeTruthy();
+    expect(screen.getByText("cene")).toBeTruthy();
+    expect(screen.getByText("Spremno · 2")).toBeTruthy();
+    expect(within(screen.getByText("Artikal 0").closest("li")).getByText("×3")).toBeTruthy();
+    expect(within(screen.getByText("Artikal 1").closest("li")).queryByText(/×/)).toBeNull();
+  });
+
+  it("brings a removed row back with its copies", () => {
+    render(<Harness initial={[{ ...item(0), copies: 3 }, item(1)]} />);
+    fireEvent.click(within(screen.getByText("Artikal 0").closest("li")).getByRole("button", { name: "Ukloni" }));
+    expect(screen.getByText("1")).toBeTruthy();
+    fireEvent.click(screen.getByText("Vrati"));
+    expect(screen.getByText("4")).toBeTruthy();
+    expect(within(screen.getByText("Artikal 0").closest("li")).getByText("×3")).toBeTruthy();
+  });
+
+  it("asks to clear as many tags as the counter shows", () => {
+    render(<Harness initial={[{ ...item(0), copies: 3 }, item(1)]} />);
+    fireEvent.click(screen.getByRole("button", { name: "Obriši sve" }));
+    expect(screen.getByText("Obrisati sve 4 cene?")).toBeTruthy();
+  });
+
   it("keeps clearing the list out of the menu", () => {
     render(<Harness initial={list(2)} />);
     fireEvent.click(screen.getByRole("button", { name: "Meni" }));

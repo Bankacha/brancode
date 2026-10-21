@@ -1,12 +1,14 @@
 import { useEffect, useRef } from "react";
-import { ScanBarcode } from "lucide-react";
+import { Copy, ScanBarcode } from "lucide-react";
 import BottomSheet from "../components/BottomSheet.jsx";
 import Button from "../components/Button.jsx";
+import CopiesDialog from "../components/CopiesDialog.jsx";
 import Field from "../components/Field.jsx";
 import PriceTag from "../components/PriceTag.jsx";
 import ScaledToWidth from "../components/ScaledToWidth.jsx";
 import { parsePrice } from "../lib/format.js";
 import { tagGeometry } from "../lib/priceTags.js";
+import { useDialog } from "../lib/useSheet.js";
 
 const badgeStyles = {
   "U bazi": "bg-success-bg text-success-ink",
@@ -46,11 +48,17 @@ export default function EditSheet({ editor, open, onClose, format, source = "lis
   // preview appears only once the database says it is a new article.
   const quickCheck = source !== "list" && (editor.loading || editor.badge === "U bazi");
   const disabled = !editor.canSave;
+  // Rarely needed, so just a small grey icon; "×3" next to it once set.
+  const copiesDialog = useDialog("copies");
+  const confirmCopies = (n) => {
+    editor.setCopies(n);
+    copiesDialog.close();
+  };
 
   // Once the lookup settles: a known product goes straight to the price,
   // a new one to its name.
   useEffect(() => {
-    if (!open || editor.loading) return;
+    if (!open || editor.loading || copiesDialog.isOpen) return;
     const target = editor.name ? priceRef.current : nameRef.current;
     target?.focus();
     target?.select();
@@ -60,67 +68,84 @@ export default function EditSheet({ editor, open, onClose, format, source = "lis
   // close the keyboard to reach it.
   const primary = source === "list" ? onSave : onSaveNext;
   const saveOnEnter = (e) => {
-    if (e.key !== "Enter" || e.repeat || e.nativeEvent?.isComposing || e.isComposing) return;
+    if (e.key !== "Enter" || e.repeat || e.nativeEvent?.isComposing || e.isComposing || copiesDialog.isOpen) return;
     e.preventDefault();
     if (!disabled) primary();
   };
 
+  // The copies window sits beside the sheet, not inside it: the sheet's
+  // sliding panel would otherwise become the box its fixed layout fills.
   return (
-    <BottomSheet open={open} onClose={onClose} dismissible={!editor.saving} closeOnScrim={source !== "scan"} dim={source !== "scan"}>
-      <div className="flex items-center gap-2.5">
-        {editor.loading ? (
-          <span className="text-xs font-semibold text-ink-3">Tražim u bazi…</span>
-        ) : (
-          editor.badge && <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${badgeStyles[editor.badge]}`}>{editor.badge}</span>
-        )}
-        <span className="font-mono text-xs text-ink-3">{editor.barcode}</span>
-        {source === "scan" && <span className="ml-auto text-xs font-medium text-ink-3">{`${sessionCount}. u nizu`}</span>}
-      </div>
-      {editor.error === "lookup" && (
-        <p className="text-[13px] text-danger-ink">Ne mogu da se povežem sa bazom. Proveri internet konekciju.</p>
-      )}
-      {!quickCheck && <TagPreview editor={editor} format={format} />}
-      <Field ref={nameRef} label="Naziv" value={editor.name} onChange={(e) => editor.setName(e.target.value)} enterKeyHint="done" onKeyDown={saveOnEnter} />
-      <Field
-        ref={priceRef}
-        label={quickCheck && editor.oldPrice ? `Cena · bila ${editor.oldPrice}` : "Cena"}
-        inputMode="decimal"
-        enterKeyHint="done"
-        onKeyDown={saveOnEnter}
-        suffix="din"
-        value={editor.price}
-        onChange={(e) => editor.setPrice(e.target.value)}
-        inputClassName="font-display text-[36px] leading-[1.1] font-extrabold"
-      />
-
-      {source === "list" && (
-        <Button variant="accent" disabled={disabled} onClick={onSave} className="mt-1 w-full">
-          Sačuvaj i zatvori
-        </Button>
-      )}
-
-      {source !== "list" && (
-        <Button variant="accent" icon={source === "scan" ? ScanBarcode : undefined} disabled={disabled} onClick={onSaveNext} className="mt-1 w-full">
-          {source === "scan" ? "Sačuvaj i skeniraj sledeći" : "Sačuvaj i upiši sledeći"}
-        </Button>
-      )}
-
-      {source === "scan" && quickCheck ? (
-        <div className="flex items-center justify-between">
-          <Button variant="text" size="md" disabled={disabled} onClick={onSkip} className="px-0">
-            Preskoči
-          </Button>
-          <Button variant="text" size="md" disabled={disabled} onClick={onFinish} className="px-0 text-ink">
-            {`Sačuvaj i završi (${sessionCount})`}
-          </Button>
+    <>
+      <BottomSheet open={open} onClose={onClose} dismissible={!editor.saving} closeOnScrim={source !== "scan"} dim={source !== "scan"}>
+        <div className="flex items-center gap-2.5">
+          {editor.loading ? (
+            <span className="text-xs font-semibold text-ink-3">Tražim u bazi…</span>
+          ) : (
+            editor.badge && <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${badgeStyles[editor.badge]}`}>{editor.badge}</span>
+          )}
+          <span className="font-mono text-xs text-ink-3">{editor.barcode}</span>
+          <div className="ml-auto flex items-center gap-1">
+            {source === "scan" && <span className="text-xs font-medium text-ink-3">{`${sessionCount}. u nizu`}</span>}
+            <button
+              type="button"
+              aria-label="Broj kopija"
+              disabled={editor.saving}
+              onClick={copiesDialog.open}
+              className="-my-1.5 flex h-9 min-w-9 items-center justify-center gap-1 rounded-full px-2 text-ink-3 transition-transform duration-100 active:scale-[.97]"
+            >
+              <Copy size={16} />
+              {editor.copies > 1 && <span className="text-xs font-bold text-accent">{`×${editor.copies}`}</span>}
+            </button>
+          </div>
         </div>
-      ) : (
-        source !== "list" && (
-          <Button variant="text" size="md" disabled={disabled} onClick={onFinish} className="w-full">
+        {editor.error === "lookup" && (
+          <p className="text-[13px] text-danger-ink">Ne mogu da se povežem sa bazom. Proveri internet konekciju.</p>
+        )}
+        {!quickCheck && <TagPreview editor={editor} format={format} />}
+        <Field ref={nameRef} label="Naziv" value={editor.name} onChange={(e) => editor.setName(e.target.value)} enterKeyHint="done" onKeyDown={saveOnEnter} />
+        <Field
+          ref={priceRef}
+          label={quickCheck && editor.oldPrice ? `Cena · bila ${editor.oldPrice}` : "Cena"}
+          inputMode="decimal"
+          enterKeyHint="done"
+          onKeyDown={saveOnEnter}
+          suffix="din"
+          value={editor.price}
+          onChange={(e) => editor.setPrice(e.target.value)}
+          inputClassName="font-display text-[36px] leading-[1.1] font-extrabold"
+        />
+
+        {source === "list" && (
+          <Button variant="accent" disabled={disabled} onClick={onSave} className="mt-1 w-full">
             Sačuvaj i zatvori
           </Button>
-        )
-      )}
-    </BottomSheet>
+        )}
+
+        {source !== "list" && (
+          <Button variant="accent" icon={source === "scan" ? ScanBarcode : undefined} disabled={disabled} onClick={onSaveNext} className="mt-1 w-full">
+            {source === "scan" ? "Sačuvaj i skeniraj sledeći" : "Sačuvaj i upiši sledeći"}
+          </Button>
+        )}
+
+        {source === "scan" && quickCheck ? (
+          <div className="flex items-center justify-between">
+            <Button variant="text" size="md" disabled={disabled} onClick={onSkip} className="px-0">
+              Preskoči
+            </Button>
+            <Button variant="text" size="md" disabled={disabled} onClick={onFinish} className="px-0 text-ink">
+              {`Sačuvaj i završi (${sessionCount})`}
+            </Button>
+          </div>
+        ) : (
+          source !== "list" && (
+            <Button variant="text" size="md" disabled={disabled} onClick={onFinish} className="w-full">
+              Sačuvaj i zatvori
+            </Button>
+          )
+        )}
+      </BottomSheet>
+      <CopiesDialog open={open && copiesDialog.isOpen} value={editor.copies} onConfirm={confirmCopies} onClose={copiesDialog.close} />
+    </>
   );
 }

@@ -22,6 +22,15 @@ Odluke koje sam doneo sam dok smo radili meni, cene, popis i trebovanje, i tvoji
 - **Prijava:** ✅ pozdrav prati doba dana na telefonu: „Dobro jutro.“ od 5 do 11, „Dobar dan.“ od 11 do 18 i „Dobro veče.“ od 18 pa kroz noć do 5.
 - Sve ostalo ispod ostaje kako je urađeno.
 
+## 0.10.0 Broj kopija (22.10.)
+
+Urađeno po spec-u. Moje odluke:
+- **Nacrt:** −/+ menjaju broj samo u prozoru, a primenjuje ga tek „U redu“. Tap pored prozora, Escape ili „nazad“ ga zatvaraju bez promene.
+- **„Nazad“** dok je otvoren „Broj kopija“ zatvara samo taj prozor. Prozor za cenu ostaje, sa ukucanom cenom.
+- **Isti broj svuda:** „Obrisati sve N cene?“ i „Trenutna lista (N) biće zamenjena“ pri uvozu lifleta pokazuju isti broj kao brojač, znači sa kopijama.
+- **Uvoz lifleta** zamenjuje listu, pa kopije sa stare liste nestaju, kao i ostale stavke.
+- **Ikonica** je u gornjem redu prozora za cenu, desno od barkoda (kod skeniranja posle „N. u nizu“). Siva je, a „×N“ pored nje je u boji akcenta, da se podešen broj ne previdi.
+
 ## 0.9.3 (feedback iz radnje, 20.10.)
 
 - **Barkod se ne vidi kad cene stignu mejlom:** fajl je isti kao preuzeti. Pregled priloga u mejlu ne prikazuje slike, a Excel ih prikazuje. U tekstu mejla sada piše da se prilog otvara u Excel-u.

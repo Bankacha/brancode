@@ -1,12 +1,14 @@
 import { useRef, useState } from "react";
 import { lookupProduct, saveProduct } from "./products.js";
 import { formatPrice, parsePrice, toPriceInput } from "./format.js";
-import { upsertQueueItem } from "./printQueue.js";
+import { copiesOf, upsertQueueItem, withCopies } from "./printQueue.js";
 
 // Edit state for one product, opened from a scan/typed code (`open`) or from
 // a print-list row (`openItem`); `barcode === null` means closed.
 // badge: "U bazi" | "Novi artikal" | "Nije u bazi"; error: null | "lookup" | "save";
-// oldPrice: the database price ("79,00") when a scanned/typed code was found.
+// oldPrice: the database price ("79,00") when a scanned/typed code was found;
+// copies: how many times the tag prints, taken from the list when the article
+// is already on it, so scanning it again keeps them.
 export const useProductEditor = (queue, setQueue) => {
   const [barcode, setBarcode] = useState(null);
   const [matchedBarcode, setMatchedBarcode] = useState(null); // DB row the lookup found, if any
@@ -14,6 +16,7 @@ export const useProductEditor = (queue, setQueue) => {
   const [price, setPrice] = useState("");
   const [badge, setBadge] = useState(null);
   const [oldPrice, setOldPrice] = useState(null);
+  const [copies, setCopies] = useState(1);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -47,6 +50,8 @@ export const useProductEditor = (queue, setQueue) => {
     setName("");
     setPrice("");
     setBadge(null);
+    const listed = queue.find((q) => q.barcode === code);
+    setCopies(listed ? copiesOf(listed) : 1);
     return lookup(id, code, (data) => {
       if (data) {
         setMatchedBarcode(data.barcode);
@@ -66,6 +71,7 @@ export const useProductEditor = (queue, setQueue) => {
     setName(item.name);
     setPrice(toPriceInput(item.price));
     setBadge(item.notInDb ? "Nije u bazi" : "U bazi");
+    setCopies(copiesOf(item));
     return lookup(id, item.barcode, (data) => setMatchedBarcode(data ? data.barcode : null));
   };
 
@@ -86,7 +92,7 @@ export const useProductEditor = (queue, setQueue) => {
       setSaving(false);
       return null;
     }
-    const item = { id: `${barcode}-${Date.now()}`, ...product };
+    const item = withCopies({ id: `${barcode}-${Date.now()}`, ...product }, copies);
     setQueue(upsertQueueItem(queue, item));
     setSaving(false);
     setBarcode(null);
@@ -96,7 +102,7 @@ export const useProductEditor = (queue, setQueue) => {
   // "Preskoči": onto the print list as it is, without touching the database.
   const skip = () => {
     if (!canSave) return null;
-    const item = { id: `${barcode}-${Date.now()}`, barcode, name: name.trim(), price: priceNum };
+    const item = withCopies({ id: `${barcode}-${Date.now()}`, barcode, name: name.trim(), price: priceNum }, copies);
     setQueue(upsertQueueItem(queue, item));
     setBarcode(null);
     return item;
@@ -104,5 +110,5 @@ export const useProductEditor = (queue, setQueue) => {
 
   const close = () => setBarcode(null);
 
-  return { barcode, name, price, badge, oldPrice, loading, saving, error, canSave, open, openItem, setName, setPrice, save, skip, close };
+  return { barcode, name, price, badge, oldPrice, copies, loading, saving, error, canSave, open, openItem, setName, setPrice, setCopies, save, skip, close };
 };
