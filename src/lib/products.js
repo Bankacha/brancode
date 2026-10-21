@@ -1,10 +1,12 @@
 import { supabase } from "../supabaseClient.js";
-import { sameArticleCodes } from "./ean.js";
+import { sameArticleCodes, withoutCheckDigit } from "./ean.js";
 
-// About half of the imported product list stores EAN-13 barcodes without their
-// trailing check digit (12 digits), so a real 13-digit code won't string-match
-// them. Candidates are tried in order: the exact code first, then that prefix.
-export const barcodeCandidates = (code) => (/^\d{13}$/.test(code) ? [code, code.slice(0, 12)] : [code]);
+// The imported product list stores barcodes without their trailing check
+// digit (an EAN-13 as 12 digits, an EAN-8 as 7, …), so a scanned code won't
+// string-match them. Candidates are tried in order: the exact code first,
+// then the code without its check digit — only when that last digit really
+// is one, so a mistyped code isn't matched to another article.
+export const barcodeCandidates = (code) => [code, withoutCheckDigit(code)].filter(Boolean);
 
 export const lookupProduct = async (barcode, client = supabase) => {
   for (const candidate of barcodeCandidates(barcode)) {

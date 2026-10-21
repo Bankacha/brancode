@@ -104,12 +104,15 @@ export const sheetFilename = (format, date = new Date()) =>
   `cenovnik-${PRICE_TAG_STYLES[format].fileSlug}-${formatDate(todayIso(date))}.xlsx`;
 
 // EAN symbols are shorter than CODE128 for the same digits, which matters on
-// an upright barcode only ~25 mm long. 12 digits are an EAN-13 the POS export
-// stored without its check digit; JsBarcode adds it back.
+// an upright barcode only ~25 mm long. 12, 7 and 11 digits are an EAN-13,
+// EAN-8 and UPC-A the POS export stored without the check digit; JsBarcode
+// adds it back.
 export const barcodeSymbology = (code) => {
   const value = (code ?? "").trim();
   if (!value) return null;
   if (/^\d{12}$/.test(value)) return "EAN13";
+  if (/^\d{7}$/.test(value)) return "EAN8"; // stored without its check digit; JsBarcode adds it
+  if (/^\d{11}$/.test(value)) return "UPC";
   if (/^\d{13}$/.test(value) && eanCheckDigitOk(value)) return "EAN13";
   if (/^\d{8}$/.test(value) && eanCheckDigitOk(value)) return "EAN8";
   return "CODE128";
