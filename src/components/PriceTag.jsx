@@ -24,6 +24,12 @@ const NAME_FONT = "'Bahnschrift SemiBold', 'Bahnschrift', 'Barlow Semi Condensed
 const PRICE_FONT = "'Oswald', sans-serif";
 const PX_PER_MM = 96 / 25.4;
 
+// Excel on Windows lays a line out with the font's winAscent above the
+// baseline (Oswald: 1.325 em); at line-height 1 the browser puts the baseline
+// 0.952 em down (hhea 1.193 / −0.289). A centred price comes out the same
+// either way, but a top-aligned one (fridge) prints this much lower.
+const EXCEL_TOP_ALIGN_OFFSET_EM = 0.373;
+
 const justify = { left: "flex-start", center: "center", right: "flex-end" };
 const align = { top: "flex-start", middle: "center", bottom: "flex-end" };
 const box = (alignment, heightMm) => ({
@@ -122,7 +128,15 @@ export function PriceCell({ price, format, promoUntil, promoLineImage }) {
   return (
     <td className={`relative border border-black p-0 align-top ${side ? "border-r-0" : ""}`} style={{ height: `${priceHeightMm.toFixed(2)}mm` }}>
       {promoUntil && <PromoLine dateTo={promoUntil} format={format} promoLineImage={promoLineImage} />}
-      <div style={{ ...box(style.priceAlignment, priceHeightMm), fontFamily: PRICE_FONT, fontWeight: 400, lineHeight: 1 }}>
+      <div
+        style={{
+          ...box(style.priceAlignment, priceHeightMm),
+          ...(style.priceAlignment.vertical === "top" && { paddingTop: `${+(EXCEL_TOP_ALIGN_OFFSET_EM * fontPt).toFixed(3)}pt`, boxSizing: "border-box" }),
+          fontFamily: PRICE_FONT,
+          fontWeight: 400,
+          lineHeight: 1,
+        }}
+      >
         <span ref={textRef} style={{ fontSize: `${fontPt}pt`, whiteSpace: "nowrap" }}>
           {side ? (
             <>

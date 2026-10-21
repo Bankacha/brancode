@@ -33,6 +33,13 @@ describe("PriceTag", () => {
     expect(decimals.style.verticalAlign).toBe("top");
   });
 
+  it("puts a top-aligned (fridge) price as low as Excel does, a centered one where it was", () => {
+    render(<PriceTag item={{ name: "A", price: 99, barcode: "1" }} format="fridge" sideBarcodeImage={fakeBarcode} />);
+    expect(screen.getByText("99").parentElement.parentElement.style.paddingTop).toBe("15.666pt");
+    render(<PriceTag item={{ name: "B", price: 98, barcode: "1" }} format="shelf" sideBarcodeImage={fakeBarcode} />);
+    expect(screen.getByText("98").parentElement.parentElement.style.paddingTop).toBe("");
+  });
+
   it("keeps fruit prices in one piece", () => {
     render(<PriceTag item={{ name: "Banane", price: 159, barcode: "1" }} format="fruit" barcodeImage={fakeBarcode} />);
     expect(screen.getByText("159,00").style.fontSize).toBe("62pt");
