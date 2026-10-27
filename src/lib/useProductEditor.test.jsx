@@ -162,4 +162,15 @@ describe("useProductEditor", () => {
     await act(() => result.current.editor.save());
     expect(saveProduct).toHaveBeenCalledWith({ barcode: "1", name: "A", price: 1 }, null);
   });
+
+  it("takes the full code for 12 typed digits of an article stored with 13", async () => {
+    vi.mocked(lookupProduct).mockResolvedValue({ barcode: "8600005000122", name: "MAJONEZ 175", price: 84 });
+    const { result } = setup([]);
+    await act(() => result.current.editor.open("860000500012"));
+    expect(result.current.editor.barcode).toBe("8600005000122");
+    expect(result.current.editor.badge).toBe("U bazi");
+    await act(() => result.current.editor.save());
+    expect(saveProduct).toHaveBeenCalledWith({ barcode: "8600005000122", name: "MAJONEZ 175", price: 84 }, "8600005000122");
+    expect(result.current.queue[0].barcode).toBe("8600005000122");
+  });
 });

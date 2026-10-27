@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { lookupProduct, saveProduct } from "./products.js";
+import { fullCodeOf } from "./ean.js";
 import { formatPrice, parsePrice, toPriceInput } from "./format.js";
 import { copiesOf, upsertQueueItem, withCopies } from "./printQueue.js";
 
@@ -58,6 +59,8 @@ export const useProductEditor = (queue, setQueue) => {
     setMixFormat(listed?.mixFormat ?? null);
     return lookup(id, code, (data) => {
       if (data) {
+        // 12 typed digits of an article stored with 13: carry on with the full code
+        setBarcode(fullCodeOf(code, data.barcode));
         setMatchedBarcode(data.barcode);
         setName(data.name || "");
         setPrice(data.price != null ? toPriceInput(data.price) : "");

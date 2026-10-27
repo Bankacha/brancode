@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { eanCheckDigitOk, gtinCheckDigitOk, sameArticleCodes, withCheckDigit, withoutCheckDigit } from "./ean.js";
+import { eanCheckDigitOk, fullCodeOf, gtinCheckDigitOk, sameArticleCodes, withCheckDigit, withoutCheckDigit } from "./ean.js";
 
 describe("EAN check digit", () => {
   it("accepts valid EAN-13 and EAN-8 codes and refuses wrong ones", () => {
@@ -47,5 +47,18 @@ describe("any length (the POS export drops the check digit of every GTIN)", () =
   it("still pairs 12 and 13 digits first, and tries nothing else for short codes", () => {
     expect(sameArticleCodes("400638133393").slice(0, 2)).toEqual(["400638133393", "4006381333931"]);
     expect(sameArticleCodes("12345")).toEqual(["12345"]);
+  });
+});
+
+describe("fullCodeOf", () => {
+  it("takes the full code found for a typed code without its check digit", () => {
+    expect(fullCodeOf("8005276", "80052760")).toBe("80052760");
+    expect(fullCodeOf("860000500012", "8600005000122")).toBe("8600005000122");
+  });
+
+  it("keeps the typed code otherwise", () => {
+    expect(fullCodeOf("860000500012", "860000500012")).toBe("860000500012");
+    expect(fullCodeOf("8005276", undefined)).toBe("8005276");
+    expect(fullCodeOf("4006381333931", "40063813339310")).toBe("4006381333931");
   });
 });

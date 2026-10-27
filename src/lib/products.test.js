@@ -22,10 +22,15 @@ describe("barcodeCandidates", () => {
     expect(barcodeCandidates("8600005000122")).toEqual(["8600005000122", "860000500012"]);
   });
 
-  it("leaves other lengths alone", () => {
+  it("leaves a code without a check digit or a shorter form alone", () => {
     expect(barcodeCandidates("12345678")).toEqual(["12345678"]); // last digit isn't a check digit
-    // a valid UPC-12 by chance: its 11-digit prefix is tried, after the exact code
-    expect(barcodeCandidates("860000500012")).toEqual(["860000500012", "86000050001"]);
+    expect(barcodeCandidates("4006381333931")).toEqual(["4006381333931", "400638133393"]);
+  });
+
+  it("tries a typed short code with its check digit added, last", () => {
+    // a valid UPC-12 by chance: its 11-digit prefix comes before the full 13 digits
+    expect(barcodeCandidates("860000500012")).toEqual(["860000500012", "86000050001", "8600005000122"]);
+    expect(barcodeCandidates("8005276")).toEqual(["8005276", "80052760"]);
   });
 });
 
@@ -39,6 +44,20 @@ describe("lookupProduct", () => {
   it("returns null when no candidate exists", async () => {
     const { client } = fakeClient();
     expect(await lookupProduct("8600005000122", client)).toBeNull();
+  });
+});
+
+describe("lookupProduct for typed and short codes", () => {
+  it("keeps the exact 12-digit row when the full 13-digit one exists too", async () => {
+    const { client } = fakeClient({ rows: { "860000500012": legacyRow, "8600005000122": majonez } });
+    expect(await lookupProduct("860000500012", client)).toEqual(legacyRow);
+  });
+
+  it("finds a stored UPC-A without its check digit before trying a longer code", async () => {
+    const upc = { barcode: "03600029145", name: "UPC", price: 10 };
+    const { client, calls } = fakeClient({ rows: { "03600029145": upc } });
+    expect(await lookupProduct("036000291452", client)).toEqual(upc);
+    expect(calls.map(([, code]) => code)).toEqual(["036000291452", "03600029145"]);
   });
 });
 

@@ -119,6 +119,14 @@ export const barcodeSymbology = (code) => {
   return "CODE128";
 };
 
+// How many digits the symbol prints: a code stored without its check digit
+// (7, 11, 12) prints as EAN-8, UPC-A or EAN-13 with the digit added.
+export const printedDigits = (code) => {
+  const symbology = barcodeSymbology(code);
+  const added = (symbology === "EAN8" && code.length === 7) || (symbology === "UPC" && code.length === 11) || (symbology === "EAN13" && code.length === 12);
+  return code.length + (added ? 1 : 0);
+};
+
 // "1.249,99" → whole "1.249", decimals ",99" (printed smaller and raised).
 export const priceParts = (price) => {
   const text = formatPrice(price);
@@ -178,7 +186,7 @@ export const makeSideBarcodeDataUrl = (code, box) => {
   };
   // First pass for the barcode's length, then the bar height that gives the
   // box's proportions once the digits are added.
-  const { fontSize, barHeight } = sideBarcodeLayout(draw(10, 10).width, box, value.length);
+  const { fontSize, barHeight } = sideBarcodeLayout(draw(10, 10).width, box, printedDigits(value));
   const bars = draw(barHeight, fontSize);
 
   const upright = document.createElement("canvas");
