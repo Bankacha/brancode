@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { copiesOf, expandCopies, parseStoredQueue, tagCount, upsertQueueItem, withCopies, withoutItem, withItemRestored } from "./printQueue.js";
+import { copiesOf, expandCopies, mixChoice, parseStoredQueue, splitForMix, tagCount, upsertQueueItem, withCopies, withMixFormat, withoutItem, withItemRestored } from "./printQueue.js";
 
 describe("parseStoredQueue", () => {
   it("keeps a list saved by the current app version", () => {
@@ -94,5 +94,26 @@ describe("copies", () => {
 
   it("repeats an item one after another, with ids that stay unique", () => {
     expect(expandCopies([{ ...a, copies: 2 }, b]).map((i) => i.id)).toEqual(["a", "a#2", "b"]);
+  });
+});
+
+describe("Mix", () => {
+  it("starts an article without a choice on the shelf, as new", () => {
+    expect(mixChoice({}, null)).toEqual({ format: "shelf", isNew: true });
+  });
+
+  it("takes the remembered format, then the phone's own choice over it", () => {
+    expect(mixChoice({}, "fridge")).toEqual({ format: "fridge", isNew: false });
+    expect(mixChoice({ mixFormat: "shelf" }, "fridge")).toEqual({ format: "shelf", isNew: false });
+  });
+
+  it("sets the choice on an item", () => {
+    expect(withMixFormat(a, "fridge")).toEqual({ ...a, mixFormat: "fridge" });
+  });
+
+  it("splits the list by choice, in list order, keeping copies", () => {
+    const tripled = { ...b, mixFormat: "fridge", copies: 3 };
+    expect(splitForMix([a, tripled, c], () => null)).toEqual({ shelf: [a, c], fridge: [tripled] });
+    expect(splitForMix([a, c], (item) => (item === c ? "fridge" : null))).toEqual({ shelf: [a], fridge: [c] });
   });
 });

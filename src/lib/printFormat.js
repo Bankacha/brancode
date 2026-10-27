@@ -1,10 +1,15 @@
 import { useState } from "react";
-import { PRICE_TAG_STYLES } from "./priceTags.js";
 
 // The chosen tag format is remembered per device; shelf tags by default.
+// "mix" gives every tag its own format (shelf or fridge, see printQueue.js).
 const STORAGE_KEY = "print-format";
 
-export const parseStoredFormat = (raw) => (Object.hasOwn(PRICE_TAG_STYLES, raw ?? "") ? raw : "shelf");
+export const PRINT_FORMATS = ["shelf", "fridge", "fruit", "mix"];
+
+export const parseStoredFormat = (raw) => (PRINT_FORMATS.includes(raw) ? raw : "shelf");
+
+// The format a single tag is drawn in (the price sheet's preview).
+export const tagFormatOf = (format, mixFormat) => (format === "mix" ? mixFormat ?? "shelf" : format);
 
 const readStoredFormat = () => {
   try {

@@ -7,7 +7,7 @@ import { copiesOf, upsertQueueItem, withCopies } from "./printQueue.js";
 // a print-list row (`openItem`); `barcode === null` means closed.
 // badge: "U bazi" | "Novi artikal" | "Nije u bazi"; error: null | "lookup" | "save";
 // oldPrice: the database price ("79,00") when a scanned/typed code was found;
-// copies and promo (a leaflet's { dateFrom, dateTo }): taken from the list when
+// copies, promo (a leaflet's { dateFrom, dateTo }) and mixFormat: taken from the list when
 // the article is already on it, so scanning it again keeps them.
 export const useProductEditor = (queue, setQueue) => {
   const [barcode, setBarcode] = useState(null);
@@ -18,6 +18,7 @@ export const useProductEditor = (queue, setQueue) => {
   const [oldPrice, setOldPrice] = useState(null);
   const [copies, setCopies] = useState(1);
   const [promo, setPromo] = useState(null);
+  const [mixFormat, setMixFormat] = useState(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -54,6 +55,7 @@ export const useProductEditor = (queue, setQueue) => {
     const listed = queue.find((q) => q.barcode === code);
     setCopies(listed ? copiesOf(listed) : 1);
     setPromo(listed?.promo ?? null);
+    setMixFormat(listed?.mixFormat ?? null);
     return lookup(id, code, (data) => {
       if (data) {
         setMatchedBarcode(data.barcode);
@@ -75,6 +77,7 @@ export const useProductEditor = (queue, setQueue) => {
     setBadge(item.notInDb ? "Nije u bazi" : "U bazi");
     setCopies(copiesOf(item));
     setPromo(item.promo ?? null);
+    setMixFormat(item.mixFormat ?? null);
     return lookup(id, item.barcode, (data) => setMatchedBarcode(data ? data.barcode : null));
   };
 
@@ -83,7 +86,7 @@ export const useProductEditor = (queue, setQueue) => {
 
   // Resolves to the saved item, or null (the editor stays open, error "save").
   // What the list keeps besides name and price.
-  const listFields = (item) => withCopies(promo ? { ...item, promo } : item, copies);
+  const listFields = (item) => withCopies({ ...item, ...(promo && { promo }), ...(mixFormat && { mixFormat }) }, copies);
 
   const save = async () => {
     if (!canSave) return null;
@@ -116,5 +119,5 @@ export const useProductEditor = (queue, setQueue) => {
 
   const close = () => setBarcode(null);
 
-  return { barcode, name, price, badge, oldPrice, copies, promo, loading, saving, error, canSave, open, openItem, setName, setPrice, setCopies, save, skip, close };
+  return { barcode, name, price, badge, oldPrice, copies, promo, mixFormat, loading, saving, error, canSave, open, openItem, setName, setPrice, setCopies, save, skip, close };
 };
