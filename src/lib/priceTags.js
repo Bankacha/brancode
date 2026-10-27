@@ -122,9 +122,10 @@ export const barcodeSymbology = (code) => {
 // How many digits the symbol prints: a code stored without its check digit
 // (7, 11, 12) prints as EAN-8, UPC-A or EAN-13 with the digit added.
 export const printedDigits = (code) => {
-  const symbology = barcodeSymbology(code);
-  const added = (symbology === "EAN8" && code.length === 7) || (symbology === "UPC" && code.length === 11) || (symbology === "EAN13" && code.length === 12);
-  return code.length + (added ? 1 : 0);
+  const value = code.trim(); // as barcodeSymbology reads it
+  const symbology = barcodeSymbology(value);
+  const added = (symbology === "EAN8" && value.length === 7) || (symbology === "UPC" && value.length === 11) || (symbology === "EAN13" && value.length === 12);
+  return value.length + (added ? 1 : 0);
 };
 
 // "1.249,99" → whole "1.249", decimals ",99" (printed smaller and raised).

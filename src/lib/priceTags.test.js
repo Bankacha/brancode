@@ -366,5 +366,6 @@ describe("printedDigits", () => {
     expect(printedDigits("03600029145")).toBe(12);
     expect(printedDigits("4006381333931")).toBe(13);
     expect(printedDigits("12345")).toBe(5);
+    expect(printedDigits(" 8005276 ")).toBe(8);
   });
 });

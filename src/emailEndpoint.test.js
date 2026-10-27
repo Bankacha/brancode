@@ -58,7 +58,7 @@ describe("api/send-email", () => {
     expect(sent).toHaveLength(0);
   });
 
-  it.each([[[]], [[null]], [[{ filename: 5, base64: "AA" }]], [[{ filename: "a.xlsx", base64: 5 }]]])("refuses attachments it can't send: %j", async (files) => {
+  it.each([[[]], [[null]], [[{ filename: 5, base64: "AA" }]], [[{ filename: "a.xlsx", base64: 5 }]], [[{ filename: "   ", base64: "AA" }]]])("refuses attachments it can't send: %j", async (files) => {
     const res = await call({ files });
     expect(res.statusCode).toBe(400);
     expect(res.body).toEqual({ ok: false, error: "missing-file" });
