@@ -112,13 +112,18 @@ export const runPromoCheck = async ({ store, sendMail, today, now = new Date() }
       await store.markLeaflet(leaflet.id, { pricesRestoredAt: stamp }); // never wrote any prices
       continue;
     }
-    const items = (await store.leafletItems([leaflet.id])).filter((i) => !i.restoreResult);
+    // Items an earlier run already settled are skipped, but its hand-changed
+    // ones still go into the mail: that run may have broken off before it.
+    const all = await store.leafletItems([leaflet.id]);
+    const items = all.filter((i) => !i.restoreResult);
+    const earlierChanged = all.filter((i) => i.restoreResult === "changed");
+    const earlierRestored = all.filter((i) => i.restoreResult === "restored").length;
     const others = open.filter((l) => l.id !== leaflet.id && running(l));
     const elsewhere = others.length && items.length ? await store.leafletItems(others.map((l) => l.id), codesOf(items)) : [];
-    const productOf = await productsOf(store, items);
+    const productOf = await productsOf(store, [...items, ...earlierChanged]);
     const prices = [];
     const results = [];
-    const changed = [];
+    const changed = earlierChanged.map((item) => ({ item, product: productOf(item.barcode) }));
     const handedOn = new Map(); // newer leaflet id → its items, carrying this regular price
     for (const item of items) {
       const newer = findSame(elsewhere, item.barcode);
@@ -142,7 +147,8 @@ export const runPromoCheck = async ({ store, sendMail, today, now = new Date() }
     if (results.length) await store.setItemResults(leaflet.id, results);
     await store.markLeaflet(leaflet.id, { pricesRestoredAt: stamp });
     done.restored.push(leaflet.name);
-    if (changed.length) await trySend(restoreMail(leaflet, results.filter((r) => r.restoreResult === "restored").length, changed));
+    const restored = earlierRestored + results.filter((r) => r.restoreResult === "restored").length;
+    if (changed.length) await trySend(restoreMail(leaflet, restored, changed));
   }
 
   // 3. Reminders: the day before the last day, and on it.

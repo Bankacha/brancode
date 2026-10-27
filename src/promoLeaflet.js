@@ -36,7 +36,9 @@ export const rowsFromTextItems = (items) =>
   linesFromTextItems(items).flatMap((text) => {
     const match = LEAFLET_ROW.exec(text);
     if (!match) return [];
-    return [{ ean: match[2], name: match[3].trim(), price: parseFloat(match[4].replace(",", ".")) }];
+    const price = parseFloat(match[4].replace(",", "."));
+    if (!(price > 0)) return []; // a 0,00 row would refuse the whole import (promo_price > 0)
+    return [{ ean: match[2], name: match[3].trim(), price }];
   });
 
 // "Jutro Liflet Avg od 25.09.2026 do 31.10.2026" — the leaflet's one dated

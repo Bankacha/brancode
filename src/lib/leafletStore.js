@@ -61,7 +61,7 @@ export const createLeafletStore = (client) => {
       const row = check(
         await client
           .from("promo_leaflets")
-          .upsert({ name, date_from: dateFrom, date_to: dateTo }, { onConflict: "name,date_from,date_to" })
+          .upsert({ name, date_from: dateFrom, date_to: dateTo, imported_at: new Date().toISOString() }, { onConflict: "name,date_from,date_to" })
           .select()
           .single()
       );
@@ -78,7 +78,8 @@ export const createLeafletStore = (client) => {
 
     async leafletItems(leafletIds, barcodes) {
       if (leafletIds.length === 0 || barcodes?.length === 0) return [];
-      const base = () => client.from("promo_leaflet_items").select("*").in("leaflet_id", leafletIds);
+      // Ordered, so the pages of a long result neither skip nor repeat rows.
+      const base = () => client.from("promo_leaflet_items").select("*").in("leaflet_id", leafletIds).order("leaflet_id").order("barcode");
       const rows = [];
       for (const part of barcodes ? chunks(barcodes, BATCH) : [null]) rows.push(...(await all(() => (part ? base().in("barcode", part) : base()))));
       return rows.map(toItem);

@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
 import { createLeafletStore } from "../src/lib/leafletStore.js";
@@ -9,13 +10,23 @@ import { belgradeToday, runPromoCheck } from "../src/lib/promoCheck.js";
 // the service-role key, which exists only here on the server.
 const NEEDED = ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "RESEND_API_KEY", "EMAIL_TO"];
 
+// Compared in constant time, so the answer's timing says nothing about the secret.
+const sameSecret = (given, expected) => {
+  const a = Buffer.from(given);
+  const b = Buffer.from(expected);
+  return a.length === b.length && timingSafeEqual(a, b);
+};
+
 export default async function handler(req, res) {
   const secret = process.env.CRON_SECRET;
   if (!secret) {
     console.error("promo-check: CRON_SECRET is not set");
     return res.status(500).json({ ok: false, error: "not-configured" });
   }
-  if ((req.headers.authorization || "") !== `Bearer ${secret}`) {
+  if (req.method !== "GET") {
+    return res.status(405).json({ ok: false, error: "method-not-allowed" });
+  }
+  if (!sameSecret(req.headers.authorization || "", `Bearer ${secret}`)) {
     return res.status(401).json({ ok: false, error: "unauthorized" });
   }
   const missing = NEEDED.filter((name) => !process.env[name]);

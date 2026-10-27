@@ -205,4 +205,23 @@ describe("runPromoCheck", () => {
     expect(saveItems).toHaveBeenCalledTimes(1);
     expect(store.db.items.filter((i) => i.leafletId === "L2").map((i) => i.regularPrice)).toEqual([3, 3, 3]);
   });
+
+  it("still mails the hand-changed prices after a restore broke off before it was marked done, and only once", async () => {
+    const store = fakeLeafletStore({
+      leaflets: [avg],
+      items: [buenoItem, voxItem],
+      products: [
+        { barcode: "8005276", name: "KINDER BUENO", price: 109.99 },
+        { barcode: "8606033882020", name: "VOX PEGLA", price: 2199.99 },
+      ],
+    });
+    store.failNext("markLeaflet");
+    const first = await run(store, "2026-11-01").catch(() => null);
+    expect(first).toBeNull();
+    const second = await run(store, "2026-11-01");
+    expect(second.mails.map((m) => m.subject)).toEqual(["Redovne cene vraćene: Jutro Liflet Avg"]);
+    expect(second.mails[0].text).toContain("- KINDER BUENO (8005276): sada 109,99, redovna 129,99");
+    expect(second.mails[0].text).toContain("vraćene u bazu: 1.");
+    expect((await run(store, "2026-11-01")).mails).toEqual([]);
+  });
 });
