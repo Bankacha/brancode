@@ -1,11 +1,32 @@
 // @vitest-environment jsdom
-import { describe, it, expect, afterEach } from "vitest";
+import { describe, it, expect, afterEach, vi } from "vitest";
 import { render, screen, act } from "@testing-library/react";
 import PriceTag from "./PriceTag.jsx";
 import PrintPage from "./PrintPage.jsx";
 import { promoNoteBox, sideBarcodeBox, tagGeometry } from "../lib/priceTags.js";
 
 const fakeBarcode = () => "data:image/png;base64,AAA";
+
+describe("PriceTag once Oswald has loaded", () => {
+  afterEach(() => {
+    delete document.fonts;
+  });
+
+  it("draws the promo note and the upright barcode again with the real font's widths", async () => {
+    let loaded;
+    const fontLoad = new Promise((resolve) => (loaded = resolve)); // every caller waits on the same load
+    document.fonts = { check: () => false, load: () => fontLoad, ready: new Promise(() => {}) };
+    const promoLineImage = vi.fn(() => "data:image/png;base64,AAA");
+    const sideBarcodeImage = vi.fn(() => "data:image/png;base64,AAA");
+    const promo = { dateFrom: "2026-09-25", dateTo: "2026-10-31" };
+    render(<PriceTag item={{ name: "A", price: 99, barcode: "1", promo }} format="shelf" sideBarcodeImage={sideBarcodeImage} promoLineImage={promoLineImage} />);
+    expect(promoLineImage).toHaveBeenCalledTimes(1);
+    expect(sideBarcodeImage).toHaveBeenCalledTimes(1);
+    await act(async () => loaded());
+    expect(promoLineImage).toHaveBeenCalledTimes(2);
+    expect(sideBarcodeImage).toHaveBeenCalledTimes(2);
+  });
+});
 
 describe("PriceTag", () => {
   it("shows a leaflet article's promo line over the price, and nothing for others", () => {

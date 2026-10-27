@@ -2,13 +2,18 @@
 
 Jedno mesto za sitnice koje su pregledi koda našli, a nisu popravljene pre puštanja, i za stvari koje čekaju odluku ili proveru u radnji. Kad se nešto sredi, briše se odavde (istorija ostaje u git-u). Svako novo puštanje dopisuje svoje repove ovde, ne samo u izveštaj.
 
-Stanje: 28.10.2026. Stanje posle 0.12.2: sve sitnice iz pregleda su sređene. Ostalo je ono što čeka tebe ili proveru u radnji.
+Stanje: 28.10.2026. Stanje posle 0.12.2. Ostale su dve sitnice iz pregleda 0.12.2 i ono što čeka tebe ili proveru u radnji.
+
+## Sitnice iz pregleda 0.12.2 (za sledeće sređivanje)
+
+1. Ako bi kutija za datum ikad bila široka 0 mm, canvas vraća prazan PNG umesto „nema slike“. Danas to nije moguće, jer je kutija uvek bar onolika kolike su decimale. Popravka je jedna provera.
+2. Kvadratić u PDF-u trebovanja izlazi 1 pt preko unutrašnje margine ćelije. Na papiru se ne vidi, a tako je bilo i ranije.
 
 ## Treba tvoja odluka, podešavanje ili provera u radnji
 
 - **Vercel ključevi** `CRON_SECRET` i `SUPABASE_SERVICE_ROLE_KEY`, najkasnije do 29.10. Bez njih liflet ne vraća cene i ne šalje podsetnike. Koraci su u `docs/pitanja.md`, odeljak 0.11.0.
 - **Brisanje pogrešno uvezenog lifleta iz aplikacije.** Sada se to radi u Supabase-u (tabela `promo_leaflets`). Ponovni uvoz sa ispravljenim datumima ostavlja i stari zapis, pa stižu dupli podsetnici. Ovo je nova mala funkcija i treba dogovor.
-- **Probna štampa** za raf i frižider, sa kratkom („99,99“) i dugom („1.249,99“) cenom:
+- **Probna štampa** za raf („99,99“, „1.249,99“, „12.499,99“) i frižider („99,99“, „12.499,99“), svaki sa akcijom. „12.499,99“ na frižideru daje najkraći barkod (oko 16 mm) i najsitniji datum:
   - datum ispod decimala ne dodiruje cifre i čita se;
   - uspravni barkod, sada do dna cene, ceo se vidi u držaču i telefon ga skenira;
   - cifra na frižideru stoji gde je pregled pokazuje (pregled od 0.11.0 crta je niže, po proceni za Excel na Windows-u).
