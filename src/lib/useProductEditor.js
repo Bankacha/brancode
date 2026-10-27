@@ -1,7 +1,8 @@
 import { useRef, useState } from "react";
 import { lookupProduct, saveProduct } from "./products.js";
+import { fullCodeOf } from "./ean.js";
 import { formatPrice, parsePrice, toPriceInput } from "./format.js";
-import { copiesOf, upsertQueueItem, withCopies } from "./printQueue.js";
+import { copiesOf, upsertQueueItem, withCopies, withItemReplaced } from "./printQueue.js";
 
 // Edit state for one product, opened from a scan/typed code (`open`) or from
 // a print-list row (`openItem`); `barcode === null` means closed.
@@ -23,6 +24,7 @@ export const useProductEditor = (queue, setQueue) => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const request = useRef(0); // a newer open() makes older lookups stale
+  const editingId = useRef(null); // the list row opened with openItem, replaced in place on save
 
   const begin = (code) => {
     const id = ++request.current;
@@ -49,6 +51,7 @@ export const useProductEditor = (queue, setQueue) => {
 
   const open = (code) => {
     const id = begin(code);
+    editingId.current = null;
     setName("");
     setPrice("");
     setBadge(null);
@@ -58,6 +61,16 @@ export const useProductEditor = (queue, setQueue) => {
     setMixFormat(listed?.mixFormat ?? null);
     return lookup(id, code, (data) => {
       if (data) {
+        // 12 typed digits of an article stored with 13: carry on with the full
+        // code, and with what the list keeps for the article under it
+        const full = fullCodeOf(code, data.barcode);
+        setBarcode(full);
+        const listedFull = full !== code && queue.find((q) => q.barcode === full);
+        if (listedFull) {
+          setCopies(copiesOf(listedFull));
+          setPromo(listedFull.promo ?? null);
+          setMixFormat(listedFull.mixFormat ?? null);
+        }
         setMatchedBarcode(data.barcode);
         setName(data.name || "");
         setPrice(data.price != null ? toPriceInput(data.price) : "");
@@ -78,7 +91,11 @@ export const useProductEditor = (queue, setQueue) => {
     setCopies(copiesOf(item));
     setPromo(item.promo ?? null);
     setMixFormat(item.mixFormat ?? null);
-    return lookup(id, item.barcode, (data) => setMatchedBarcode(data ? data.barcode : null));
+    editingId.current = item.id;
+    return lookup(id, item.barcode, (data) => {
+      setMatchedBarcode(data ? data.barcode : null);
+      if (data) setBarcode(fullCodeOf(item.barcode, data.barcode)); // an old short row of a full-code article
+    });
   };
 
   const priceNum = parsePrice(price);
@@ -102,7 +119,7 @@ export const useProductEditor = (queue, setQueue) => {
       return null;
     }
     const item = listFields({ id: `${barcode}-${Date.now()}`, ...product });
-    setQueue(upsertQueueItem(queue, item));
+    setQueue(editingId.current ? withItemReplaced(queue, editingId.current, item) : upsertQueueItem(queue, item));
     setSaving(false);
     setBarcode(null);
     return item;
@@ -112,7 +129,7 @@ export const useProductEditor = (queue, setQueue) => {
   const skip = () => {
     if (!canSave) return null;
     const item = listFields({ id: `${barcode}-${Date.now()}`, barcode, name: name.trim(), price: priceNum });
-    setQueue(upsertQueueItem(queue, item));
+    setQueue(editingId.current ? withItemReplaced(queue, editingId.current, item) : upsertQueueItem(queue, item));
     setBarcode(null);
     return item;
   };

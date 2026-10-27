@@ -29,6 +29,14 @@ describe("useListItemFlow on a popis", () => {
     expect(flow.current.state).toMatchObject({ kind: "new", barcode: "8600005000122", name: "MAJONEZ 175", price: "85", quantity: "", lockName: true, lockPrice: true });
   });
 
+  it("keeps the full code for 7 typed digits of an article stored with 8", async () => {
+    inventoryStore.findItem.mockResolvedValue(null);
+    lookupArticle.mockResolvedValue({ barcode: "80052760", name: "KINDER BUENO", price: 99.99 });
+    const flow = flowFor();
+    await act(() => flow.current.start("8005276"));
+    expect(flow.current.state).toMatchObject({ kind: "new", barcode: "80052760" });
+  });
+
   it("leaves name and price to type for an article that isn't in the database", async () => {
     inventoryStore.findItem.mockResolvedValue(null);
     lookupArticle.mockResolvedValue(null);

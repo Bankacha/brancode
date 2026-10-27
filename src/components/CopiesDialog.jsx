@@ -26,7 +26,7 @@ function Panel({ value, onConfirm, onClose }) {
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center px-8">
-      <div data-testid="copies-scrim" className="absolute inset-0 bg-scrim/80" onClick={onClose} />
+      <button type="button" aria-label="Zatvori" className="absolute inset-0 cursor-default bg-scrim/80" onClick={onClose} />
       <div role="dialog" aria-modal="true" aria-labelledby="copies-title" className="relative flex w-full max-w-[320px] flex-col gap-4 rounded-card bg-bg p-5">
         <h2 id="copies-title" className="text-center font-display text-[22px] font-extrabold text-ink">
           Broj kopija

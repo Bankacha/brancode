@@ -7,6 +7,7 @@ import {
   columnWidthMm,
   layoutTagPages,
   priceParts,
+  printedDigits,
   promoLineBox,
   promoLineText,
   ptToMm,
@@ -355,5 +356,15 @@ describe("promo line", () => {
     });
     expect(sheet.getImages()).toHaveLength(1);
     expect(sheet.getCell("A1").value).toBe("Artikal 0");
+  });
+});
+
+describe("printedDigits", () => {
+  it("counts the check digit the symbol adds to a code stored without it", () => {
+    expect(printedDigits("8005276")).toBe(8);
+    expect(printedDigits("860000500012")).toBe(13);
+    expect(printedDigits("03600029145")).toBe(12);
+    expect(printedDigits("4006381333931")).toBe(13);
+    expect(printedDigits("12345")).toBe(5);
   });
 });

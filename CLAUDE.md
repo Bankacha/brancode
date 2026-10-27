@@ -21,6 +21,8 @@ npx vitest run src/lib/products.test.js   # a single test file
 
 `npm test` and `npm run build` are the automated checks; there is no linter or type checker.
 
+**Leftovers go to `docs/repovi.md`.** Every review finding that isn't fixed before a release, and everything waiting on the user (settings, decisions, checks in the shop), is written there in Serbian in the same PR — not only in the final report. Fixed items are removed from it.
+
 HTTPS in dev is deliberate: camera access (`getUserMedia`) and `BarcodeDetector` require a secure context when opening the dev server from a phone on the LAN. `BarcodeDetector` exists only in Chromium-based browsers, so desktop Firefox/Safari fall back to manual entry.
 
 `npm run dev` does **not** serve `api/` — `api/send-email.js` and `api/promo-check.js` are Vercel serverless functions. Email sending and the leaflet morning check only work on Vercel (or under `vercel dev`); the morning check runs from Vercel Cron (`crons` in `vercel.json`). Deployment is automatic: pushes to the GitHub repo trigger a Vercel build.

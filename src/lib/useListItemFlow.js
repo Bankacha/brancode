@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { lookupArticle } from "./products.js";
+import { fullCodeOf } from "./ean.js";
 import { parsePrice, toPriceInput } from "./format.js";
 import { parseQuantity } from "./listFormat.js";
 
@@ -36,8 +37,8 @@ export const useListItemFlow = (listId, kind) => {
       }
       const product = await lookupArticle(code);
       if (!current()) return { ok: true };
-      // typed 12 digits of an article stored under its full code: keep the full one
-      const barcode = product?.barcode?.length === 13 && code.length === 12 ? product.barcode : code;
+      // typed digits of an article stored under its full code: keep the full one
+      const barcode = fullCodeOf(code, product?.barcode);
       const hasPrice = product?.price !== null && product?.price !== undefined;
       set({
         kind: "new",

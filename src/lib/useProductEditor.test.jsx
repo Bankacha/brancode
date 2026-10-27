@@ -162,4 +162,40 @@ describe("useProductEditor", () => {
     await act(() => result.current.editor.save());
     expect(saveProduct).toHaveBeenCalledWith({ barcode: "1", name: "A", price: 1 }, null);
   });
+
+  it("takes the full code for 12 typed digits of an article stored with 13", async () => {
+    vi.mocked(lookupProduct).mockResolvedValue({ barcode: "8600005000122", name: "MAJONEZ 175", price: 84 });
+    const { result } = setup([]);
+    await act(() => result.current.editor.open("860000500012"));
+    expect(result.current.editor.barcode).toBe("8600005000122");
+    expect(result.current.editor.badge).toBe("U bazi");
+    await act(() => result.current.editor.save());
+    expect(saveProduct).toHaveBeenCalledWith({ barcode: "8600005000122", name: "MAJONEZ 175", price: 84 }, "8600005000122");
+    expect(result.current.queue[0].barcode).toBe("8600005000122");
+  });
+
+  it("edits a short list row of an article stored with its full code onto that row, in place", async () => {
+    vi.mocked(lookupProduct).mockResolvedValue({ barcode: "8600005000122", name: "MAJONEZ 175", price: 84 });
+    const short = { id: "s", barcode: "860000500012", name: "MAJONEZ 175", price: 84 };
+    const { result } = setup([short, c]);
+    await act(() => result.current.editor.openItem(short));
+    expect(result.current.editor.barcode).toBe("8600005000122");
+    await act(() => result.current.editor.save());
+    expect(saveProduct).toHaveBeenCalledWith({ barcode: "8600005000122", name: "MAJONEZ 175", price: 84 }, "8600005000122");
+    expect(result.current.queue.map((q) => [q.id, q.barcode])).toEqual([
+      ["s", "8600005000122"],
+      ["c", "3"],
+    ]);
+  });
+
+  it("keeps copies, promotion and Mix choice when the article is typed short but listed under its full code", async () => {
+    const promo = { dateFrom: "2026-09-25", dateTo: "2026-10-31" };
+    const listed = { id: "l", barcode: "8600005000122", name: "MAJONEZ 175", price: 84, copies: 3, promo, mixFormat: "fridge" };
+    vi.mocked(lookupProduct).mockResolvedValue({ barcode: "8600005000122", name: "MAJONEZ 175", price: 84 });
+    const { result } = setup([listed]);
+    await act(() => result.current.editor.open("860000500012"));
+    expect(result.current.editor.copies).toBe(3);
+    await act(() => result.current.editor.save());
+    expect(result.current.queue).toEqual([{ ...listed }]);
+  });
 });

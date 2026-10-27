@@ -4,7 +4,7 @@ import { Check, WifiOff } from "lucide-react";
 import { formatPrice } from "../lib/format.js";
 import { finishScreen, putHomeBehind } from "../lib/navigation.js";
 import { usePrintFormat } from "../lib/printFormat.js";
-import { useSheet } from "../lib/useSheet.js";
+import { useDropStaleSheet, useSheet } from "../lib/useSheet.js";
 import { useToast } from "../components/Toast.jsx";
 import CameraScanner from "../components/CameraScanner.jsx";
 import EditSheet from "../sheets/EditSheet.jsx";
@@ -31,9 +31,7 @@ export default function Scan({ editor }) {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // A refreshed page can't have a read in flight: drop a stale "edit" entry.
-  useEffect(() => {
-    if (sheet.name === "edit" && editor.barcode === null) navigate(".", { replace: true, state: null });
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useDropStaleSheet(sheet.name === "edit" && editor.barcode === null);
 
   const onRead = (code) => {
     setSessionCount((n) => n + 1);

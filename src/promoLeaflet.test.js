@@ -28,6 +28,14 @@ describe("rowsFromTextItems", () => {
     expect(rows.map((r) => r.ean)).toEqual(["8600005000122"]);
   });
 
+  it("skips a row whose price is zero and keeps the others", () => {
+    const rows = rowsFromTextItems([
+      item("1001", 10, 500), item("8600005000122", 60, 500), item("MAJONEZ 175", 160, 500), item("0,00", 300, 500), item("25%", 340, 500),
+      item("1002", 10, 400), item("8606004251657", 60, 400), item("SOK NEKTAR", 160, 400), item("185,00", 300, 400), item("25%", 340, 400),
+    ]);
+    expect(rows.map((r) => r.ean)).toEqual(["8606004251657"]);
+  });
+
   it("ignores lines that are not article rows", () => {
     expect(rowsFromTextItems([item("Šifra", 10, 700), item("EAN", 60, 700), item("Naziv", 160, 700)])).toEqual([]);
   });

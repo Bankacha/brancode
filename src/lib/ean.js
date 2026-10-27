@@ -16,12 +16,19 @@ export const eanCheckDigitOk = gtinCheckDigitOk;
 export const withCheckDigit = (data) => data + checkDigit(data);
 export const withoutCheckDigit = (code) => (gtinCheckDigitOk(code) ? code.slice(0, -1) : null);
 
+// A code one digit short of a GTIN (7, 11 or 12 digits) that a lookup found
+// stored with its check digit: the full code is the one to keep, so nothing
+// is ever moved or added under the shorter form.
+const SHORT = /^(\d{7}|\d{11}|\d{12})$/;
+export const withCheckDigitIfShort = (code) => (SHORT.test(code) ? withCheckDigit(code) : null);
+export const fullCodeOf = (typed, found) => (found && found === withCheckDigitIfShort(typed) ? found : typed);
+
 // Codes that mean the same article: the code itself, the code without its
 // check digit (a scanned code, stored by the POS export), and for a code one
 // digit short of a GTIN, the code with its check digit added (typed from the
 // database). Lists match on these, so either form finds the other.
 export const sameArticleCodes = (code) => {
   const codes = [code, withoutCheckDigit(code)];
-  if (/^(\d{7}|\d{11}|\d{12})$/.test(code)) codes.splice(1, 0, withCheckDigit(code));
+  if (SHORT.test(code)) codes.splice(1, 0, withCheckDigit(code));
   return [...new Set(codes.filter(Boolean))];
 };

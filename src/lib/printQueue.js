@@ -60,6 +60,11 @@ export const upsertQueueItem = (queue, item) => {
   return queue.map((q, i) => (i === index ? { ...item, id: q.id } : q));
 };
 
+// The list row being edited, replaced where it is even when its barcode
+// changed (a short code saved under its full one); otherwise as upsert.
+export const withItemReplaced = (queue, id, item) =>
+  queue.some((q) => q.id === id) ? queue.map((q) => (q.id === id ? { ...item, id } : q)) : upsertQueueItem(queue, item);
+
 export const withoutItem = (queue, id) => {
   const index = queue.findIndex((q) => q.id === id);
   if (index === -1) return { next: queue, removed: null };

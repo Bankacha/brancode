@@ -2,8 +2,8 @@
 import { describe, it, expect } from "vitest";
 import { useRef } from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
-import { MemoryRouter, Route, Routes, useNavigate } from "react-router";
-import { useDialog, useSheet } from "./useSheet.js";
+import { MemoryRouter, Route, Routes, useLocation, useNavigate } from "react-router";
+import { useDialog, useDropStaleSheet, useSheet } from "./useSheet.js";
 
 function Probe() {
   const sheet = useSheet();
@@ -122,6 +122,44 @@ describe("useDialog", () => {
     click("open edit");
     click("open dialog");
     click("double close dialog");
+    expect(shown()).toBe("edit -");
+  });
+});
+
+function StaleProbe({ stale }) {
+  useDropStaleSheet(stale);
+  const location = useLocation();
+  const navigate = useNavigate();
+  return (
+    <div>
+      <output>{`${location.state?.sheet ?? "none"} ${location.state?.dialog ?? "-"}`}</output>
+      <button onClick={() => navigate(-1)}>system back</button>
+    </div>
+  );
+}
+
+describe("useDropStaleSheet", () => {
+  const renderAt = (entries, stale = true) =>
+    render(
+      <MemoryRouter initialEntries={entries} initialIndex={entries.length - 1}>
+        <StaleProbe stale={stale} />
+      </MemoryRouter>
+    );
+
+  it("drops a stale sheet and the copies window over it, so back doesn't land on the sheet", () => {
+    renderAt(["/", { pathname: "/", state: { sheet: "edit" } }, { pathname: "/", state: { sheet: "edit", dialog: "copies" } }]);
+    expect(shown()).toBe("none -");
+    click("system back");
+    expect(shown()).toBe("none -");
+  });
+
+  it("replaces a stale sheet entry in place, as before", () => {
+    renderAt(["/", { pathname: "/", state: { sheet: "edit" } }]);
+    expect(shown()).toBe("none -");
+  });
+
+  it("leaves a sheet that isn't stale alone", () => {
+    renderAt(["/", { pathname: "/", state: { sheet: "edit" } }], false);
     expect(shown()).toBe("edit -");
   });
 });

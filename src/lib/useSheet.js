@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router";
 
 // The open bottom sheet lives in the router's history state, so the system
@@ -67,4 +67,22 @@ export const useDialog = (name) => {
   };
 
   return { isOpen, open, close };
+};
+
+// After a reload the history can still say a sheet is open while its data is
+// gone (`isStale`): drop that entry instead of showing an empty sheet — and,
+// when the copies window was open over it, both entries, so back doesn't land
+// on the empty sheet (unless this is the first entry, where nothing lies
+// under it). Once, on the first render (the ref keeps StrictMode's second
+// effect run from going back twice).
+export const useDropStaleSheet = (isStale) => {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const done = useRef(false);
+  useEffect(() => {
+    if (done.current || !isStale) return;
+    done.current = true;
+    if (location.state?.dialog && location.key !== "default") navigate(-2);
+    else navigate(".", { replace: true, state: null });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 };

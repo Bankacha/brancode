@@ -67,12 +67,22 @@ describe("leaflet store", () => {
   it("saves a leaflet once per name and period", async () => {
     const client = fakeClient({ data: leafletRow, error: null });
     const saved = await createLeafletStore(client).saveLeaflet({ name: "Jutro Liflet Avg", dateFrom: "2026-09-25", dateTo: "2026-10-31" });
-    expect(client.calls[0].steps[0]).toEqual(["upsert", { name: "Jutro Liflet Avg", date_from: "2026-09-25", date_to: "2026-10-31" }, { onConflict: "name,date_from,date_to" }]);
+    const [method, row, options] = client.calls[0].steps[0];
+    expect([method, options]).toEqual(["upsert", { onConflict: "name,date_from,date_to" }]);
+    expect(row).toMatchObject({ name: "Jutro Liflet Avg", date_from: "2026-09-25", date_to: "2026-10-31" });
+    expect(Number.isNaN(Date.parse(row.imported_at))).toBe(false); // a re-import refreshes when it was imported
     expect(saved).toMatchObject({ id: "L1", pricesAppliedAt: "2026-09-26T08:00:00Z" });
   });
 
   it("throws what Supabase reports", async () => {
     const client = fakeClient({ data: null, error: new Error("offline") });
     await expect(createLeafletStore(client).openLeaflets()).rejects.toThrow("offline");
+  });
+
+  it("reads a leaflet's items in a fixed order, so pages of a long leaflet don't overlap", async () => {
+    const client = fakeClient({ data: [], error: null });
+    await createLeafletStore(client).leafletItems(["L1"]);
+    expect(client.calls[0].steps).toContainEqual(["order", "leaflet_id"]);
+    expect(client.calls[0].steps).toContainEqual(["order", "barcode"]);
   });
 });

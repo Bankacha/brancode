@@ -17,9 +17,9 @@ const ENV = {
   EMAIL_TO: "radnja@example.com",
 };
 
-const call = async (authorization) => {
+const call = async (authorization, method = "GET") => {
   const res = { statusCode: 0, body: null, status(code) { this.statusCode = code; return this; }, json(data) { this.body = data; return this; } };
-  await handler({ method: "GET", headers: authorization ? { authorization } : {} }, res);
+  await handler({ method, headers: authorization ? { authorization } : {} }, res);
   return res;
 };
 
@@ -61,5 +61,14 @@ describe("api/promo-check", () => {
     const res = await call("Bearer s3cret");
     expect(res.statusCode).toBe(500);
     expect(res.body).toEqual({ ok: false, error: "server-error" });
+  });
+
+  it("takes only the GET that Vercel Cron sends", async () => {
+    expect((await call("Bearer s3cret", "POST")).statusCode).toBe(405);
+    expect(runPromoCheck).not.toHaveBeenCalled();
+  });
+
+  it("refuses a wrong secret of the same length", async () => {
+    expect((await call("Bearer s3creT")).statusCode).toBe(401);
   });
 });
