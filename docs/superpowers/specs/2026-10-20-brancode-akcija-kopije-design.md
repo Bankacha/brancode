@@ -161,6 +161,19 @@ Na primer, KINDER BUENO je u bazi `8005276`, a na pakovanju piše EAN-8 `8005276
 - Kako se red pravi u Excel-u (tanak red, slika iscrtana na canvasu kao barkod, ili drugo) bira graditelj, uz ograničenja iznad.
   - *(moja odluka)* Ne čeka se probna štampa pre puštanja. Štampa u radnji je deo testa 0.11.0, a eventualno doterivanje ide kao 0.11.x.
 
+**Izmena 28.10. (0.12.2), odluka radnje:** na rafu i frižideru datum više nije red preko vrha ćelije cene. Stoji u praznom prostoru ispod decimala („,99“), centrirano, u dva reda:
+
+```
+Akcija važi do
+  31.10.2026.
+```
+
+- Na frižideru je red iznad cene u pregledu delovao kao da gura cenu pod držač. Novo mesto ne dira ni naziv ni cifru.
+- Mesto se računa iz širine cene u fontu Oswald, kao i smanjivanje duge cene. Datum ne sme da pređe ni na cele cifre (levo) ni na kolonu barkoda (desno). Kad je cena duga i decimale su uske, tekst se smanjuje ili prelama u tri reda („Akcija / važi do / datum“).
+- Visina se računa iz istog modela kao pregled (Excel na Windows-u, `winAscent`). Ako cifra na papiru stoji više nego što model kaže, datum je niže u odnosu na nju, pa se ne preklapa sa decimalama.
+- Voće (cena bez izdignutih decimala) zadržava red na vrhu ćelije cene, jer tamo ima mesta.
+- Pre oslanjanja na ovo potrebna je probna štampa: raf i frižider, kratka i duga cena.
+
 ### Pamćenje lifleta, vraćanje cena i podsetnik
 
 **Pamćenje:**
