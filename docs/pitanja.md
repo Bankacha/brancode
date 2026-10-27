@@ -22,6 +22,21 @@ Odluke koje sam doneo sam dok smo radili meni, cene, popis i trebovanje, i tvoji
 - **Prijava:** ✅ pozdrav prati doba dana na telefonu: „Dobro jutro.“ od 5 do 11, „Dobar dan.“ od 11 do 18 i „Dobro veče.“ od 18 pa kroz noć do 5.
 - Sve ostalo ispod ostaje kako je urađeno.
 
+## 0.12.0 Mix štampa (27.10.)
+
+Urađeno po spec-u (`docs/superpowers/specs/2026-10-27-brancode-mix-stampa-design.md`). Potreban je SQL `supabase/migrations/20261027_products_tag_format.sql`.
+
+Moje odluke:
+- **U Mix-u nema A4 pregleda.** Umesto stranica stoji lista sa prekidačima. Ko hoće stranice, izabere Raf ili Friz.
+- **Izbor se čuva na telefonu** uz stavku liste (ostaje i kad se izađe iz pregleda ili ponovo skenira), a u bazu se upisuje tek posle slanja ili preuzimanja iz Mix-a.
+- **Pošalji:** jedan mejl sa oba fajla, naslov „Cenovnici – raf i friz“. Ako je sve u jednom formatu, šalje se kao do sada.
+- **Excel:** oba fajla jedan za drugim; poruka posle preuzimanja ostaje dok se ne tapne i ima dugme „Preuzmi friz“, za slučaj da je telefon blokirao drugo preuzimanje.
+- **Dok se učitavaju zapamćeni formati** (kratko), dugmad za slanje i preuzimanje čekaju.
+- **Ako upis formata ne uspe,** poruka kaže „Poslato na mejl radnje. Format nije zapamćen za sledeći put.“ i ostaje dok se ne tapne.
+- **Artikli kojih nema u bazi** pamte izbor samo na telefonu.
+- **Prozor za cenu** dok je izabran Mix pokazuje cenovnik u formatu koji artikal ima u Mix-u (inače raf).
+- **Plava boja za Friz** je nova boja u temi, kao na skici.
+
 ## 0.11.0 Akcija iz lifleta (22.10.)
 
 **Potrebno pre prvog uvoza (u Vercel-u):** Vercel → projekat **brancode** → **Settings** → **Environment Variables**, za okruženje **Production**:
