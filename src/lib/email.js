@@ -8,13 +8,12 @@ const blobToBase64 = (blob) =>
     reader.readAsDataURL(blob);
   });
 
-// Sends a file to the shop's address via api/send-email.js, authenticated
-// with the signed-in user's Supabase token. Without `subject` the mail is
-// titled as a price-tag sheet. Throws "file-too-large" when the endpoint
-// refuses the size (offer the download instead), "send-failed" otherwise.
-export const sendFileByEmail = async (filename, blob, { subject } = {}) => {
-  const base64 = await blobToBase64(blob);
+const XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
+// Posts to api/send-email.js, authenticated with the signed-in user's
+// Supabase token. Throws "file-too-large" when the endpoint refuses the size
+// (offer the download instead), "send-failed" otherwise.
+const postEmail = async (body) => {
   const {
     data: { session },
   } = await supabase.auth.getSession();
@@ -26,11 +25,22 @@ export const sendFileByEmail = async (filename, blob, { subject } = {}) => {
       "Content-Type": "application/json",
       Authorization: `Bearer ${session.access_token}`,
     },
-    body: JSON.stringify({ filename, base64, ...(subject && { subject }) }),
+    body: JSON.stringify(body),
   });
   if (res.status === 413) throw new Error("file-too-large");
   if (!res.ok) throw new Error("send-failed");
 };
 
-export const sendSheetByEmail = (filename, buffer) =>
-  sendFileByEmail(filename, new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
+// Sends a file to the shop's address. Without `subject` the mail is titled as
+// a price-tag sheet.
+export const sendFileByEmail = async (filename, blob, { subject } = {}) =>
+  postEmail({ filename, base64: await blobToBase64(blob), ...(subject && { subject }) });
+
+export const sendSheetByEmail = (filename, buffer) => sendFileByEmail(filename, new Blob([buffer], { type: XLSX }));
+
+// Several price-tag sheets (Mix: shelf and fridge) as attachments of one mail.
+export const sendSheetsByEmail = async (files, { subject } = {}) =>
+  postEmail({
+    files: await Promise.all(files.map(async ({ filename, buffer }) => ({ filename, base64: await blobToBase64(new Blob([buffer], { type: XLSX })) }))),
+    ...(subject && { subject }),
+  });

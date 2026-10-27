@@ -33,4 +33,28 @@ describe("api/send-email", () => {
     expect(sent[0].subject).toBe("Popis – Magacin");
     expect(sent[0].attachments).toEqual([{ filename: "popis.pdf", content: "AAAA" }]);
   });
+
+  it("sends several price sheets in one mail, telling to open them in Excel", async () => {
+    const res = await call({
+      files: [
+        { filename: "cenovnik-raf.xlsx", base64: "AAAA" },
+        { filename: "cenovnik-frizider.xlsx", base64: "BBBB" },
+      ],
+      subject: "Cenovnici – raf i friz",
+    });
+    expect(res.statusCode).toBe(200);
+    expect(sent[0].subject).toBe("Cenovnici – raf i friz");
+    expect(sent[0].attachments).toEqual([
+      { filename: "cenovnik-raf.xlsx", content: "AAAA" },
+      { filename: "cenovnik-frizider.xlsx", content: "BBBB" },
+    ]);
+    expect(sent[0].text).toContain("Otvorite priloge u Excel-u");
+  });
+
+  it("refuses attachments that are too big together", async () => {
+    const half = "A".repeat(2.5 * 1024 * 1024);
+    const res = await call({ files: [{ filename: "a.xlsx", base64: half }, { filename: "b.xlsx", base64: half }] });
+    expect(res.statusCode).toBe(413);
+    expect(sent).toHaveLength(0);
+  });
 });

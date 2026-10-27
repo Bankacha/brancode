@@ -1,28 +1,34 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router";
-import { Apple, ArrowLeft, Download, LayoutGrid, MailCheck, Refrigerator, Send, WifiOff } from "lucide-react";
+import { Apple, ArrowLeft, ArrowRightLeft, Download, LayoutGrid, MailCheck, Refrigerator, Send, WifiOff } from "lucide-react";
 import { PRICE_TAG_STYLES, buildWorkbookBuffer, layoutTagPages, sheetFilename } from "../lib/priceTags.js";
 import { plural } from "../lib/plural.js";
-import { tagCount } from "../lib/printQueue.js";
+import { MIX_FORMATS, mixChoice, splitForMix, tagCount, withMixFormat } from "../lib/printQueue.js";
 import { downloadWorkbook } from "../lib/download.js";
-import { sendSheetByEmail } from "../lib/email.js";
+import { sendSheetByEmail, sendSheetsByEmail } from "../lib/email.js";
+import { readTagFormats, saveTagFormats } from "../lib/tagFormats.js";
 import { leaveScreen } from "../lib/navigation.js";
 import { usePrintFormat } from "../lib/printFormat.js";
 import { useToast } from "../components/Toast.jsx";
 import Button from "../components/Button.jsx";
+import MixList from "../components/MixList.jsx";
 import PrintPage from "../components/PrintPage.jsx";
 import ScaledToWidth from "../components/ScaledToWidth.jsx";
 
 const FORMATS = [
   { key: "shelf", label: "Raf", icon: LayoutGrid },
-  { key: "fridge", label: "Frižider", icon: Refrigerator },
+  { key: "fridge", label: "Friz", icon: Refrigerator },
   { key: "fruit", label: "Voće", icon: Apple },
+  { key: "mix", label: "Mix", icon: ArrowRightLeft },
 ];
+
+const NOT_REMEMBERED = "Format nije zapamćen za sledeći put.";
 
 // Handoff "06 · Format + pregled štampe". The A4 pages come from the same
 // layout as the Excel export (spec decision 4: drop the preview block if
-// paper and preview ever disagree).
-export default function PrintPreview({ queue }) {
+// paper and preview ever disagree). Mix (spec 2026-10-27) shows the list with
+// a Raf | Friz switch per tag instead, and exports one sheet per format.
+export default function PrintPreview({ queue, setQueue }) {
   const navigate = useNavigate();
   const location = useLocation();
   const toast = useToast();
@@ -37,7 +43,85 @@ export default function PrintPreview({ queue }) {
     setPage(1);
   }, [format]);
 
+  // Mix starts each article in the format the database remembers for it:
+  // list barcode → { dbBarcode, format }.
+  const mix = format === "mix";
+  const [remembered, setRemembered] = useState({ state: "loading", formats: new Map() });
+  useEffect(() => {
+    if (!mix || queue.length === 0) return;
+    let cancelled = false;
+    setRemembered({ state: "loading", formats: new Map() });
+    readTagFormats(queue.map((item) => item.barcode))
+      .then((formats) => !cancelled && setRemembered({ state: "ready", formats }))
+      .catch((e) => {
+        console.error("read tag formats failed", e);
+        if (!cancelled) setRemembered({ state: "failed", formats: new Map() });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [mix]); // eslint-disable-line react-hooks/exhaustive-deps -- read once on opening Mix
+
   if (queue.length === 0) return <Navigate to="/" replace />;
+
+  const rememberedOf = (item) => remembered.formats.get(item.barcode)?.format ?? null;
+  const choose = (item, next) => setQueue(queue.map((q) => (q.id === item.id ? withMixFormat(q, next) : q)));
+
+  // One sheet per format that has tags, shelf first.
+  const mixSheets = () => {
+    const groups = splitForMix(queue, rememberedOf);
+    return MIX_FORMATS.filter((f) => groups[f].length > 0).map((f) => ({ format: f, items: groups[f] }));
+  };
+
+  // After a Mix export: the choices of articles in the database, for the next
+  // Mix. Only the format column; a failure doesn't undo the export.
+  const rememberChoices = async () => {
+    const rows = new Map();
+    for (const item of queue) {
+      const known = remembered.formats.get(item.barcode);
+      if (known) rows.set(known.dbBarcode, mixChoice(item, known.format).format);
+    }
+    if (rows.size === 0) return true;
+    try {
+      await saveTagFormats([...rows].map(([dbBarcode, f]) => ({ dbBarcode, format: f })));
+      return true;
+    } catch (e) {
+      console.error("save tag formats failed", e);
+      return false;
+    }
+  };
+
+  const sendMix = async () => {
+    const sheets = mixSheets();
+    if (sheets.length === 1) {
+      const [{ format: only, items }] = sheets;
+      await sendSheetByEmail(sheetFilename(only), await buildWorkbookBuffer(items, only));
+    } else {
+      const files = await Promise.all(sheets.map(async ({ format: f, items }) => ({ filename: sheetFilename(f), buffer: await buildWorkbookBuffer(items, f) })));
+      await sendSheetsByEmail(files, { subject: "Cenovnici – raf i friz" });
+    }
+    const saved = await rememberChoices();
+    toast.show(saved ? { kind: "success", icon: MailCheck, text: "Poslato na mejl radnje" } : { kind: "info", icon: MailCheck, text: `Poslato na mejl radnje. ${NOT_REMEMBERED}` });
+  };
+
+  // A phone may block the second automatic download; the message keeps a
+  // button to take the fridge sheet again.
+  const download = async () => {
+    if (!mix) return downloadWorkbook(queue, format);
+    const sheets = mixSheets();
+    for (const { format: f, items } of sheets) await downloadWorkbook(items, f);
+    const saved = await rememberChoices();
+    if (sheets.length > 1) {
+      const fridge = sheets[1];
+      toast.show({
+        kind: "info",
+        text: saved ? "Preuzeto: 2 fajla" : `Preuzeto: 2 fajla. ${NOT_REMEMBERED}`,
+        action: { label: "Preuzmi friz", run: () => downloadWorkbook(fridge.items, fridge.format) },
+      });
+    } else if (!saved) {
+      toast.show({ kind: "info", text: NOT_REMEMBERED });
+    }
+  };
 
   const send = async () => {
     if (sendingRef.current) return;
@@ -45,8 +129,11 @@ export default function PrintPreview({ queue }) {
     setSending(true);
     toast.show({ kind: "loading", text: "Šaljem na mejl…" });
     try {
-      await sendSheetByEmail(sheetFilename(format), await buildWorkbookBuffer(queue, format));
-      toast.show({ kind: "success", icon: MailCheck, text: "Poslato na mejl radnje" });
+      if (mix) await sendMix();
+      else {
+        await sendSheetByEmail(sheetFilename(format), await buildWorkbookBuffer(queue, format));
+        toast.show({ kind: "success", icon: MailCheck, text: "Poslato na mejl radnje" });
+      }
     } catch (e) {
       console.error("send email failed", e);
       toast.show({ kind: "error", icon: WifiOff, text: "Nema veze. Nije poslato.", action: { label: "Ponovi", run: send } });
@@ -87,13 +174,19 @@ export default function PrintPreview({ queue }) {
         ))}
       </div>
 
-      <PagePreview queue={queue} format={format} page={page} setPage={setPage} pagesRef={pagesRef} />
+      {!mix ? (
+        <PagePreview queue={queue} format={format} page={page} setPage={setPage} pagesRef={pagesRef} />
+      ) : remembered.state === "loading" ? (
+        <p className="mt-6 mb-4 flex-1 text-center text-[13px] text-ink-3">Učitavam zapamćene formate…</p>
+      ) : (
+        <MixList queue={queue} rememberedOf={rememberedOf} loadFailed={remembered.state === "failed"} onChoose={choose} />
+      )}
 
       <div className="flex gap-2.5">
-        <Button variant="accent" icon={Send} onClick={send} disabled={sending} className="flex-1">
+        <Button variant="accent" icon={Send} onClick={send} disabled={sending || (mix && remembered.state === "loading")} className="flex-1">
           Pošalji
         </Button>
-        <Button variant="outline" icon={Download} onClick={() => downloadWorkbook(queue, format)} className="flex-1">
+        <Button variant="outline" icon={Download} onClick={download} disabled={mix && remembered.state === "loading"} className="flex-1">
           Excel
         </Button>
       </div>

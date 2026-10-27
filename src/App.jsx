@@ -26,7 +26,7 @@ export default function App({ session }) {
         <div className="mx-auto min-h-dvh w-full max-w-[480px]">
           <Routes>
             <Route path="/" element={<Home queue={queue} setQueue={setQueue} editor={editor} />} />
-            <Route path="/pregled" element={<PrintPreview queue={queue} />} />
+            <Route path="/pregled" element={<PrintPreview queue={queue} setQueue={setQueue} />} />
             <Route path="/skeniranje" element={<Scan editor={editor} />} />
             <Route path="/rucni-unos" element={<ManualEntry editor={editor} />} />
             <Route path="/popis" element={<InventoryLists />} />
