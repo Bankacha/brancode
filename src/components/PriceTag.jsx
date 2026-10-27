@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import "@fontsource/oswald/400.css";
 import "@fontsource/barlow-semi-condensed/700.css";
 import {
@@ -10,6 +10,8 @@ import {
   priceParts,
   promoLineBox,
   promoLineText,
+  promoNoteBox,
+  promoNoteLines,
   shrinkFontPt,
   sideBarcodeBox,
   tagGeometry,
@@ -66,30 +68,57 @@ export function NameCell({ name, format }) {
 // Shelf and fridge prices print the decimals at half size, raised to the top
 // (Excel: superscript rich text), beside the barcode column — so the price
 // shrinks to fit its own column, not the whole tag.
+// Positions around the price are measured in Oswald, which loads after the
+// first paint: until then the measurements use the fallback font, so the note
+// and the barcode are measured and drawn again once it is in.
+const OSWALD_FONT = '400 40px "Oswald"';
+const oswaldLoaded = () => {
+  try {
+    return !globalThis.document?.fonts || document.fonts.check(OSWALD_FONT);
+  } catch {
+    return true;
+  }
+};
+const useOswaldLoaded = () => {
+  const [loaded, setLoaded] = useState(oswaldLoaded);
+  useEffect(() => {
+    if (loaded) return;
+    let alive = true;
+    const done = () => alive && setLoaded(true);
+    document.fonts.load(OSWALD_FONT).then(done, done);
+    return () => {
+      alive = false;
+    };
+  }, [loaded]);
+  return loaded;
+};
+
 const drawnPromoLines = new Map();
-const cachedPromoLine = (text, placement) => {
-  const key = `${text}|${placement.widthMm}x${placement.heightMm}`;
-  if (!drawnPromoLines.has(key)) drawnPromoLines.set(key, makePromoLineDataUrl(text, placement));
+const cachedPromoLine = (lines, placement) => {
+  const key = `${lines.join("/")}|${placement.widthMm}x${placement.heightMm}`;
+  if (!drawnPromoLines.has(key)) drawnPromoLines.set(key, makePromoLineDataUrl(lines, placement));
   return drawnPromoLines.get(key);
 };
 
-// A leaflet article's "Akcija važi do …", where the export puts it: over the
-// top of the price cell, without moving the price.
-function PromoLine({ dateTo, format, promoLineImage = cachedPromoLine }) {
-  const placement = promoLineBox(format);
-  const text = promoLineText(dateTo);
+// A leaflet article's "Akcija važi do …", where the export puts it: under the
+// raised decimals of a shelf/fridge price, at the top of a fruit price.
+function PromoLine({ dateTo, price, format, promoLineImage = cachedPromoLine }) {
+  const fontLoaded = useOswaldLoaded();
+  const under = PRICE_TAG_STYLES[format].barcode === "side";
+  const placement = under ? promoNoteBox(price, format) : promoLineBox(format);
+  const lines = under ? promoNoteLines(dateTo) : [promoLineText(dateTo)];
   const src = useMemo(() => {
     try {
-      return promoLineImage(text, placement);
+      return promoLineImage(lines, placement);
     } catch (e) {
       return null; // no canvas; the tag still renders
     }
-  }, [promoLineImage, text, format]); // placement follows from format
+  }, [promoLineImage, dateTo, price, format, fontLoaded]); // lines and placement follow from these
   if (!src) return null;
   return (
     <img
       src={src}
-      alt={text}
+      alt={promoLineText(dateTo)}
       className="absolute"
       style={{ left: `${placement.leftMm}mm`, top: `${placement.topMm}mm`, width: `${placement.widthMm}mm`, height: `${placement.heightMm}mm` }}
     />
@@ -127,7 +156,7 @@ export function PriceCell({ price, format, promoUntil, promoLineImage }) {
   const { whole, decimals } = priceParts(price);
   return (
     <td className={`relative border border-black p-0 align-top ${side ? "border-r-0" : ""}`} style={{ height: `${priceHeightMm.toFixed(2)}mm` }}>
-      {promoUntil && <PromoLine dateTo={promoUntil} format={format} promoLineImage={promoLineImage} />}
+      {promoUntil && <PromoLine dateTo={promoUntil} price={price} format={format} promoLineImage={promoLineImage} />}
       <div
         style={{
           ...box(style.priceAlignment, priceHeightMm),
@@ -196,17 +225,19 @@ const cachedSideBarcode = (code, placement) => {
   return drawnSideBarcodes.get(key);
 };
 
-// The narrow column beside a shelf/fridge price with the upright barcode.
-export function SideBarcodeCell({ code, format, sideBarcodeImage = cachedSideBarcode }) {
+// The narrow column beside a shelf/fridge price with the upright barcode,
+// which ends at the bottom of the price digits.
+export function SideBarcodeCell({ code, price, format, sideBarcodeImage = cachedSideBarcode }) {
+  const fontLoaded = useOswaldLoaded();
   const { priceHeightMm } = tagGeometry(format);
-  const placement = sideBarcodeBox(format);
+  const placement = sideBarcodeBox(format, price);
   const src = useMemo(() => {
     try {
       return sideBarcodeImage(code, placement);
     } catch (e) {
       return null; // e.g. an empty code; the tag still renders
     }
-  }, [sideBarcodeImage, code, format]); // placement follows from format
+  }, [sideBarcodeImage, code, price, format, fontLoaded]); // placement follows from price, format and the font
   return (
     <td className="relative border border-l-0 border-black p-0" style={{ height: `${priceHeightMm.toFixed(2)}mm` }}>
       {src && (
@@ -246,7 +277,7 @@ export default function PriceTag({ item, format, barcodeImage, sideBarcodeImage,
         </tr>
         <tr>
           <PriceCell price={item.price} format={format} promoUntil={item.promo?.dateTo} promoLineImage={promoLineImage} />
-          {PRICE_TAG_STYLES[format].barcode === "side" && <SideBarcodeCell code={item.barcode} format={format} sideBarcodeImage={sideBarcodeImage} />}
+          {PRICE_TAG_STYLES[format].barcode === "side" && <SideBarcodeCell code={item.barcode} price={item.price} format={format} sideBarcodeImage={sideBarcodeImage} />}
         </tr>
         {PRICE_TAG_STYLES[format].barcode === "row" && (
           <tr>

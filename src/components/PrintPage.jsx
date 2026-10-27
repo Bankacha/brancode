@@ -27,7 +27,7 @@ export default function PrintPage({ rows, format, barcodeImage, sideBarcodeImage
                 {row.map((item) => (
                   <Fragment key={item.id}>
                     <PriceCell price={item.price} format={format} promoUntil={item.promo?.dateTo} promoLineImage={promoLineImage} />
-                    {style.barcode === "side" && <SideBarcodeCell code={item.barcode} format={format} sideBarcodeImage={sideBarcodeImage} />}
+                    {style.barcode === "side" && <SideBarcodeCell code={item.barcode} price={item.price} format={format} sideBarcodeImage={sideBarcodeImage} />}
                   </Fragment>
                 ))}
               </tr>

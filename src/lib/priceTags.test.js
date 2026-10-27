@@ -6,10 +6,14 @@ import {
   buildWorkbook,
   columnWidthMm,
   layoutTagPages,
+  measureOswaldMm,
+  priceLayout,
   priceParts,
   printedDigits,
   promoLineBox,
   promoLineText,
+  promoNoteBox,
+  promoNoteLines,
   ptToMm,
   sheetFilename,
   shrinkFontPt,
@@ -24,6 +28,8 @@ const PNG_1PX = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfF
 const sheetFor = (format, queue, promoLineImage = () => PNG_1PX) =>
   buildWorkbook(queue, format, { barcodeImage: () => PNG_1PX, sideBarcodeImage: () => PNG_1PX, promoLineImage }).getWorksheet("Cenovnici");
 const promo = { dateFrom: "2026-09-25", dateTo: "2026-10-31" };
+// Half an em per character: the estimate measureOswaldMm uses without a canvas.
+const fake = (text, pt) => (text.length * 0.5 * pt * 25.4) / 72;
 const breakRows = (format, n) => sheetFor(format, items(n)).rowBreaks.map((b) => b.id);
 
 describe("tagRowsPerPage", () => {
@@ -186,22 +192,24 @@ describe("print geometry", () => {
     expect(tagGeometry("fruit").priceWidthMm).toBeCloseTo(74.08, 2);
   });
 
-  it("keeps the upright barcode inside its cell", () => {
+  it("keeps the upright barcode inside its cell, from under the name down to the bottom of the price", () => {
     const g = tagGeometry("shelf");
-    const box = sideBarcodeBox("shelf");
+    const box = sideBarcodeBox("shelf", 99, fake);
     expect(box.leftMm).toBeGreaterThan(0);
     expect(box.leftMm + box.widthMm).toBeLessThan(g.columnWidthsMm[1]);
     expect(box.topMm).toBeGreaterThan(0);
-    expect(box.topMm + box.heightMm).toBeLessThan(g.priceHeightMm);
-    expect(box.heightMm).toBeGreaterThan(25);
+    expect(box.topMm).toBeLessThan(1);
+    expect(box.topMm + box.heightMm).toBeCloseTo(priceLayout(99, "shelf", fake).baselineMm, 5);
+    expect(box.heightMm).toBeGreaterThan(18);
   });
 
-  it("keeps the fridge barcode above the part the holder hides", () => {
+  it("ends the fridge barcode at the bottom of the price, well above the part the holder hides", () => {
     const g = tagGeometry("fridge");
-    const box = sideBarcodeBox("fridge");
+    const box = sideBarcodeBox("fridge", 99, fake);
+    expect(box.topMm + box.heightMm).toBeCloseTo(priceLayout(99, "fridge", fake).baselineMm, 5);
     expect(box.topMm + box.heightMm).toBeLessThanOrEqual(g.priceHeightMm - 5);
-    expect(box.heightMm).toBeGreaterThan(20);
-    expect(sideBarcodeBox("fruit")).toBeNull();
+    expect(box.heightMm).toBeGreaterThan(15);
+    expect(sideBarcodeBox("fruit", 99, fake)).toBeNull();
   });
 
   it("places the barcode image where the Excel export puts it", () => {
@@ -302,7 +310,7 @@ describe("sideBarcodeLayout", () => {
 
   it("leaves most of the thickness to the bars, so a laser can sweep them at an angle", () => {
     for (const format of ["shelf", "fridge"]) {
-      const box = sideBarcodeBox(format);
+      const box = sideBarcodeBox(format, 99, fake);
       const thickness = (lengthPx * box.widthMm) / box.heightMm;
       const { barHeight } = sideBarcodeLayout(lengthPx, box, 13);
       expect(barHeight / thickness).toBeGreaterThanOrEqual(0.75);
@@ -310,7 +318,7 @@ describe("sideBarcodeLayout", () => {
   });
 
   it("keeps the small digits within the barcode's length", () => {
-    const { fontSize } = sideBarcodeLayout(lengthPx, sideBarcodeBox("shelf"), 20);
+    const { fontSize } = sideBarcodeLayout(lengthPx, sideBarcodeBox("shelf", 99, fake), 20);
     expect(fontSize * 0.6 * 20).toBeLessThanOrEqual(lengthPx * 0.9);
   });
 });
@@ -326,15 +334,23 @@ describe("promo line", () => {
     expect(box.leftMm + box.widthMm).toBeLessThanOrEqual(tagGeometry(format).priceWidthMm);
   });
 
-  it("adds the line as an image in the price cell, only for leaflet articles", () => {
-    const texts = [];
-    const sheet = sheetFor("shelf", [{ ...items(1)[0], promo }], (text) => (texts.push(text), PNG_1PX));
+  it("adds the note under the decimals as an image in the price cell, only for leaflet articles", () => {
+    const lines = [];
+    const sheet = sheetFor("shelf", [{ ...items(1)[0], promo }], (given) => (lines.push(given), PNG_1PX));
     const images = sheet.getImages();
     expect(images).toHaveLength(2);
-    const line = images.find((img) => img.range.tl.nativeCol === 0);
-    expect(line.range.tl.nativeRow).toBe(1);
-    expect(texts).toEqual(["Akcija važi do 31.10.2026."]);
+    const note = images.find((img) => img.range.tl.nativeCol === 0);
+    expect(note.range.tl.nativeRow).toBe(1);
+    const box = promoNoteBox(99, "shelf");
+    expect(note.range.tl.nativeColOff).toBe(Math.round(((box.leftMm * 96) / 25.4) * 9525));
+    expect(lines).toEqual([["Akcija važi do", "31.10.2026."]]);
     expect(sheetFor("shelf", items(1)).getImages()).toHaveLength(1);
+  });
+
+  it("keeps a single line at the top of a fruit price", () => {
+    const lines = [];
+    sheetFor("fruit", [{ ...items(1)[0], promo }], (given) => (lines.push(given), PNG_1PX));
+    expect(lines).toEqual([["Akcija važi do 31.10.2026."]]);
   });
 
   it("puts it in the fruit price row, above the barcode row", () => {
@@ -359,6 +375,51 @@ describe("promo line", () => {
   });
 });
 
+describe("promo note under the decimals", () => {
+  const W = tagGeometry("shelf").priceWidthMm;
+  // where the decimals start, from the same model (centred, shrunk to fit)
+  const decimalsStart = (price, format) => {
+    const layout = priceLayout(price, format, fake);
+    return layout.textLeftMm + layout.wholeMm;
+  };
+
+  it("says until when, in two lines", () => {
+    expect(promoNoteLines("2026-10-31")).toEqual(["Akcija važi do", "31.10.2026."]);
+  });
+
+  it("measures Oswald by estimate when there is no canvas", () => {
+    expect(measureOswaldMm("99", 50)).toBeCloseTo((2 * 0.5 * 50 * 25.4) / 72, 5);
+  });
+
+  it.each([
+    ["shelf", 99.99],
+    ["shelf", 12499.99],
+    ["fridge", 99.99],
+    ["fridge", 1249.99],
+  ])("sits under the decimals of a %s price %s, between the whole digits and the barcode column", (format, price) => {
+    const box = promoNoteBox(price, format, fake);
+    const layout = priceLayout(price, format, fake);
+    expect(box.leftMm).toBeGreaterThanOrEqual(decimalsStart(price, format));
+    expect(box.leftMm + box.widthMm).toBeLessThanOrEqual(W - 0.6);
+    expect(box.widthMm).toBeGreaterThan(0);
+    expect(box.topMm + box.heightMm).toBeCloseTo(layout.baselineMm, 5);
+    expect(box.heightMm).toBeGreaterThan(2);
+  });
+
+  it("gets narrower for a long price that shrinks", () => {
+    expect(promoNoteBox(12499.99, "shelf", fake).widthMm).toBeLessThan(promoNoteBox(99.99, "shelf", fake).widthMm);
+  });
+
+  it("stays above the part a fridge holder hides", () => {
+    const box = promoNoteBox(1249.99, "fridge", fake);
+    expect(box.topMm + box.heightMm).toBeLessThanOrEqual(tagGeometry("fridge").priceHeightMm - 5);
+  });
+
+  it("keeps the fruit line at the top of the price cell", () => {
+    expect(promoNoteBox(99.99, "fruit", fake)).toEqual(promoLineBox("fruit"));
+  });
+});
+
 describe("printedDigits", () => {
   it("counts the check digit the symbol adds to a code stored without it", () => {
     expect(printedDigits("8005276")).toBe(8);
@@ -366,5 +427,6 @@ describe("printedDigits", () => {
     expect(printedDigits("03600029145")).toBe(12);
     expect(printedDigits("4006381333931")).toBe(13);
     expect(printedDigits("12345")).toBe(5);
+    expect(printedDigits(" 8005276 ")).toBe(8);
   });
 });

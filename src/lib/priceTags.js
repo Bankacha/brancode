@@ -122,9 +122,10 @@ export const barcodeSymbology = (code) => {
 // How many digits the symbol prints: a code stored without its check digit
 // (7, 11, 12) prints as EAN-8, UPC-A or EAN-13 with the digit added.
 export const printedDigits = (code) => {
-  const symbology = barcodeSymbology(code);
-  const added = (symbology === "EAN8" && code.length === 7) || (symbology === "UPC" && code.length === 11) || (symbology === "EAN13" && code.length === 12);
-  return code.length + (added ? 1 : 0);
+  const value = code.trim(); // as barcodeSymbology reads it
+  const symbology = barcodeSymbology(value);
+  const added = (symbology === "EAN8" && value.length === 7) || (symbology === "UPC" && value.length === 11) || (symbology === "EAN13" && value.length === 12);
+  return value.length + (added ? 1 : 0);
 };
 
 // "1.249,99" → whole "1.249", decimals ",99" (printed smaller and raised).
@@ -199,34 +200,51 @@ export const makeSideBarcodeDataUrl = (code, box) => {
   return upright.toDataURL("image/png");
 };
 
-// "Akcija važi do 31.10.2026." on a leaflet article's tag, in a thin band at
-// the top of the price cell, above the digits (which sit lower in every
-// format), so rows, heights and tags per page stay as they are. Drawn as an
-// image like the upright barcode, so Excel and the preview show the same.
+// A leaflet article's tag says until when the promotion lasts. On shelf and
+// fridge tags it sits in two lines in the empty space under the raised
+// decimals (promoNoteBox); fruit prices have no raised decimals, so there it
+// is one line at the top of the price cell (promoLineBox). Drawn as an image
+// like the upright barcode, so rows, heights and tags per page stay as they
+// are and Excel and the preview show the same.
 export const promoLineText = (dateTo) => `Akcija važi do ${formatDate(dateTo)}.`;
+export const promoNoteLines = (dateTo) => ["Akcija važi do", `${formatDate(dateTo)}.`];
 
 export const promoLineBox = (format) => ({ leftMm: 0.6, topMm: 0.7, widthMm: tagGeometry(format).priceWidthMm - 1.2, heightMm: 2.2 });
 
 const PROMO_LINE_PX_PER_MM = 12;
+const PROMO_MAX_PT = 6; // the note is small print, never bigger than this
+const PROMO_SPLIT_BELOW_PT = 3.6; // two lines smaller than this: try three
+const PROMO_LINE_HEIGHT = 1.15;
 
-// Browser only: draws on a canvas.
-export const makePromoLineDataUrl = (text, box) => {
+// Browser only: draws `lines` centred in `box`, as big as they fit (up to
+// PROMO_MAX_PT); two lines that would get too small go into three.
+export const makePromoLineDataUrl = (lines, box) => {
   const canvas = document.createElement("canvas");
   canvas.width = Math.round(box.widthMm * PROMO_LINE_PX_PER_MM);
   canvas.height = Math.round(box.heightMm * PROMO_LINE_PX_PER_MM);
   const ctx = canvas.getContext("2d");
   const font = (px) => `600 ${px}px Arial, Helvetica, sans-serif`;
-  let size = canvas.height * 0.8;
-  ctx.font = font(size);
-  const width = ctx.measureText(text).width;
-  if (width > canvas.width) {
-    size = (size * canvas.width) / width;
-    ctx.font = font(size);
+  const maxPx = PROMO_MAX_PT * PT_TO_MM * PROMO_LINE_PX_PER_MM;
+  const fit = (rows) => {
+    ctx.font = font(100);
+    const widest = Math.max(...rows.map((row) => ctx.measureText(row).width));
+    return Math.min((canvas.width / widest) * 100, canvas.height / (rows.length * PROMO_LINE_HEIGHT), maxPx);
+  };
+  let rows = lines;
+  let size = fit(rows);
+  if (rows.length === 2 && size < PROMO_SPLIT_BELOW_PT * PT_TO_MM * PROMO_LINE_PX_PER_MM) {
+    const at = rows[0].indexOf(" ");
+    const three = at > 0 ? [rows[0].slice(0, at), rows[0].slice(at + 1), rows[1]] : rows;
+    const threeSize = fit(three);
+    if (threeSize > size) [rows, size] = [three, threeSize];
   }
+  ctx.font = font(size);
   ctx.fillStyle = "#000";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+  const step = size * PROMO_LINE_HEIGHT;
+  const firstY = (canvas.height - step * rows.length) / 2 + step / 2;
+  rows.forEach((row, i) => ctx.fillText(row, canvas.width / 2, firstY + i * step));
   return canvas.toDataURL("image/png");
 };
 
@@ -241,6 +259,7 @@ const columnWidthPx = (width) =>
 const pxToMm = (px) => (px * 25.4) / 96;
 export const columnWidthMm = (width) => pxToMm(columnWidthPx(width));
 export const ptToMm = (pt) => (pt * 25.4) / 72;
+const PT_TO_MM = 25.4 / 72;
 
 export const tagGeometry = (format) => {
   const style = PRICE_TAG_STYLES[format];
@@ -274,12 +293,78 @@ export const layoutTagPages = (queue, format) => {
 };
 
 // Where the upright barcode sits inside its column of the price row.
-export const sideBarcodeBox = (format) => {
+// It runs from just under the name down to the bottom of the price digits,
+// so a fridge holder never hides any of it (bars or digits).
+export const sideBarcodeBox = (format, price, measure = measureOswaldMm) => {
   const style = PRICE_TAG_STYLES[format];
   if (style.barcode !== "side") return null;
   const { columnWidthsMm, priceHeightMm } = tagGeometry(format);
   const { top, bottom, side } = style.sideBarcodeInsetMm;
-  return { leftMm: side, topMm: top, widthMm: columnWidthsMm[1] - 2 * side, heightMm: priceHeightMm - top - bottom };
+  const end = Math.min(priceLayout(price, format, measure).baselineMm, priceHeightMm - bottom);
+  return { leftMm: side, topMm: top, widthMm: columnWidthsMm[1] - 2 * side, heightMm: end - top };
+};
+
+// --- One shelf/fridge price as Excel on Windows lays it out (Oswald) ---
+// Where the digits and the raised decimals land in the price cell, for what
+// goes around them: the promo note under the decimals, the barcode's end.
+// Excel lays a line out with the font's winAscent/winDescent; the decimals
+// (superscript at 0.75) come out at about half the price size, top-aligned.
+const OSWALD = { ascent: 1.325, descent: 0.377, cap: 0.81 }; // em
+const DECIMALS_DRAWN_SCALE = 0.5;
+
+let measureContext; // undefined: not tried yet; null: no canvas here
+const oswaldContext = () => {
+  if (measureContext !== undefined) return measureContext;
+  try {
+    measureContext = typeof document === "undefined" ? null : document.createElement("canvas").getContext("2d") ?? null;
+  } catch {
+    measureContext = null;
+  }
+  return measureContext;
+};
+
+// Width of `text` in Oswald at `fontPt`, in mm; half an em a character where
+// there is no canvas to measure on.
+export const measureOswaldMm = (text, fontPt) => {
+  const ctx = oswaldContext();
+  if (!ctx) return text.length * 0.5 * fontPt * PT_TO_MM;
+  ctx.font = `400 ${(fontPt * 96) / 72}px Oswald`;
+  return pxToMm(ctx.measureText(text).width);
+};
+
+export const priceLayout = (price, format, measure = measureOswaldMm) => {
+  const style = PRICE_TAG_STYLES[format];
+  const { priceWidthMm, priceHeightMm } = tagGeometry(format);
+  const { whole, decimals } = priceParts(price);
+  const base = style.priceFontSize(formatPrice(price));
+  const wholeAtBase = measure(whole, base);
+  const decimalsAtBase = measure(decimals, base * DECIMALS_DRAWN_SCALE);
+  const fontPt = shrinkFontPt(base, mmToPx(wholeAtBase + decimalsAtBase), mmToPx(priceWidthMm)); // Excel's shrink to fit
+  const scale = fontPt / base;
+  const wholeMm = wholeAtBase * scale;
+  const decimalsMm = decimalsAtBase * scale;
+  const em = fontPt * PT_TO_MM;
+  const baselineMm =
+    style.priceAlignment.vertical === "top" ? OSWALD.ascent * em : priceHeightMm / 2 + ((OSWALD.ascent - OSWALD.descent) / 2) * em;
+  return { fontPt, baselineMm, capTopMm: baselineMm - OSWALD.cap * em, textLeftMm: (priceWidthMm - wholeMm - decimalsMm) / 2, wholeMm, decimalsMm };
+};
+
+const NOTE_GAP_MM = 0.5; // under the decimals
+const NOTE_LEFT_SPARE_MM = 0.3; // off the last whole digit
+const NOTE_RIGHT_MARGIN_MM = 0.6; // off the barcode column
+const NOTE_WIDTH_MM = 12; // room it may take to the right of narrow decimals
+
+// The space under the raised decimals: from just right of the whole digits,
+// as wide as the decimals (or up to NOTE_WIDTH_MM where there is room to the
+// right), down to the bottom of the digits. Fruit: the line at the top.
+export const promoNoteBox = (price, format, measure = measureOswaldMm) => {
+  if (PRICE_TAG_STYLES[format].barcode !== "side") return promoLineBox(format);
+  const { priceWidthMm } = tagGeometry(format);
+  const layout = priceLayout(price, format, measure);
+  const left = layout.textLeftMm + layout.wholeMm + NOTE_LEFT_SPARE_MM;
+  const right = Math.min(priceWidthMm - NOTE_RIGHT_MARGIN_MM, left + Math.max(layout.decimalsMm - NOTE_LEFT_SPARE_MM, NOTE_WIDTH_MM));
+  const top = layout.capTopMm + OSWALD.cap * DECIMALS_DRAWN_SCALE * layout.fontPt * PT_TO_MM + NOTE_GAP_MM;
+  return { leftMm: left, topMm: top, widthMm: Math.max(0, right - left), heightMm: layout.baselineMm - top };
 };
 
 // Where the export places the fruit barcode image inside its cell, in px.
@@ -419,7 +504,7 @@ const addTag = (workbook, sheet, format, item, groupIndex, col, rowsPerItem, { b
 
 const addSideBarcode = (workbook, sheet, format, item, nameRowNumber, col, sideBarcodeImage) => {
   if (!barcodeSymbology(item.barcode)) return;
-  const box = sideBarcodeBox(format);
+  const box = sideBarcodeBox(format, item.price);
   let image = null;
   try {
     image = sideBarcodeImage(item.barcode, box);
@@ -440,10 +525,12 @@ const addSideBarcode = (workbook, sheet, format, item, nameRowNumber, col, sideB
 };
 
 const addPromoLine = (workbook, sheet, format, item, nameRowNumber, col, promoLineImage) => {
-  const box = promoLineBox(format);
+  const under = PRICE_TAG_STYLES[format].barcode === "side";
+  const box = under ? promoNoteBox(item.price, format) : promoLineBox(format);
+  const lines = under ? promoNoteLines(item.promo.dateTo) : [promoLineText(item.promo.dateTo)];
   let image = null;
   try {
-    image = promoLineImage(promoLineText(item.promo.dateTo), box);
+    image = promoLineImage(lines, box);
   } catch {
     // no canvas to draw on; the tag still prints, without the line
   }
@@ -460,4 +547,17 @@ const addPromoLine = (workbook, sheet, format, item, nameRowNumber, col, promoLi
   });
 };
 
-export const buildWorkbookBuffer = (queue, format, options) => buildWorkbook(queue, format, options).xlsx.writeBuffer();
+// Oswald must be loaded before prices are measured for the promo note and the
+// barcode's end (the preview loads it too; the export may run first).
+const loadPriceFont = async () => {
+  try {
+    await globalThis.document?.fonts?.load?.('400 40px "Oswald"');
+  } catch {
+    // measured with the fallback font; the layout stays close
+  }
+};
+
+export const buildWorkbookBuffer = async (queue, format, options) => {
+  await loadPriceFont();
+  return buildWorkbook(queue, format, options).xlsx.writeBuffer();
+};

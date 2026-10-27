@@ -129,6 +129,12 @@ Ovo nije provereno na pravom telefonu i papiru, pa ostaje za zajednički test. �
 - [ ] Štampa cele liste kao Raf ili Friz ne menja ono što je zapamćeno u Mix-u.
 - [ ] Ponovno skeniranje artikla posle izbora Friz u Mix-u zadrži Friz, a prozor za cenu pokazuje cenovnik za frižider.
 
+## 2e. Datum, barkod i trebovanje (0.12.2)
+
+- [ ] Raf i frižider sa akcijom: „Akcija važi do / datum“ ispod „,99“; duga cena daje tri sitnija reda; ništa ne dodiruje cifre ni barkod.
+- [ ] Uspravni barkod se završava u liniji dna cene; ceo se vidi u držaču na frižideru; telefon ga skenira.
+- [ ] Trebovanje PDF: red sa liflet cenom je osenčen, naziv podebljan, „LIFLET“ iznad cene; svaki red ima veći kvadratić.
+
 ## 3. Štampa
 
 - [ ] Odštampaj po jednu stranu za Raf, Frižider i Voće i uporedi sa `/pregled`:

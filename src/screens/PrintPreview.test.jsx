@@ -260,4 +260,17 @@ describe("PrintPreview in Mix", () => {
     await screen.findByText(/Preuzeto: 2 fajla/);
     expect(vi.mocked(downloadWorkbook).mock.calls.map(([, format]) => format)).toEqual(["shelf", "fridge"]);
   });
+
+  it("doesn't retry a send while Mix is still loading the remembered formats", async () => {
+    vi.mocked(sendSheetsByEmail).mockRejectedValueOnce(new Error("send-failed"));
+    await openMix();
+    fireEvent.click(screen.getByRole("button", { name: /Pošalji/ }));
+    await screen.findByText("Nema veze. Nije poslato.");
+    fireEvent.click(screen.getByRole("button", { name: "Raf" }));
+    vi.mocked(readTagFormats).mockReturnValue(new Promise(() => {}));
+    fireEvent.click(screen.getByRole("button", { name: "Mix" }));
+    fireEvent.click(screen.getByRole("button", { name: "Ponovi" }));
+    expect(await screen.findByText("Sačekaj da se učitaju zapamćeni formati.")).toBeTruthy();
+    expect(sendSheetsByEmail).toHaveBeenCalledTimes(1);
+  });
 });

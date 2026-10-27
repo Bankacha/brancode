@@ -128,9 +128,15 @@ export default function PrintPreview({ queue, setQueue }) {
     }
   };
 
-  // One export at a time: a second tap while one runs does nothing.
+  // One export at a time: a second tap while one runs does nothing. In Mix,
+  // nothing goes out before the remembered formats are in — the buttons wait,
+  // and so does a "Ponovi" left in a message.
   const exclusive = (kind, run) => async () => {
     if (busyRef.current) return;
+    if (mix && remembered.state === "loading") {
+      toast.show({ kind: "info", text: "Sačekaj da se učitaju zapamćeni formati." });
+      return;
+    }
     busyRef.current = true;
     setBusy(kind);
     try {

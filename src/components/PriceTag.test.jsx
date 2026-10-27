@@ -1,11 +1,32 @@
 // @vitest-environment jsdom
-import { describe, it, expect, afterEach } from "vitest";
+import { describe, it, expect, afterEach, vi } from "vitest";
 import { render, screen, act } from "@testing-library/react";
 import PriceTag from "./PriceTag.jsx";
 import PrintPage from "./PrintPage.jsx";
-import { tagGeometry } from "../lib/priceTags.js";
+import { promoNoteBox, sideBarcodeBox, tagGeometry } from "../lib/priceTags.js";
 
 const fakeBarcode = () => "data:image/png;base64,AAA";
+
+describe("PriceTag once Oswald has loaded", () => {
+  afterEach(() => {
+    delete document.fonts;
+  });
+
+  it("draws the promo note and the upright barcode again with the real font's widths", async () => {
+    let loaded;
+    const fontLoad = new Promise((resolve) => (loaded = resolve)); // every caller waits on the same load
+    document.fonts = { check: () => false, load: () => fontLoad, ready: new Promise(() => {}) };
+    const promoLineImage = vi.fn(() => "data:image/png;base64,AAA");
+    const sideBarcodeImage = vi.fn(() => "data:image/png;base64,AAA");
+    const promo = { dateFrom: "2026-09-25", dateTo: "2026-10-31" };
+    render(<PriceTag item={{ name: "A", price: 99, barcode: "1", promo }} format="shelf" sideBarcodeImage={sideBarcodeImage} promoLineImage={promoLineImage} />);
+    expect(promoLineImage).toHaveBeenCalledTimes(1);
+    expect(sideBarcodeImage).toHaveBeenCalledTimes(1);
+    await act(async () => loaded());
+    expect(promoLineImage).toHaveBeenCalledTimes(2);
+    expect(sideBarcodeImage).toHaveBeenCalledTimes(2);
+  });
+});
 
 describe("PriceTag", () => {
   it("shows a leaflet article's promo line over the price, and nothing for others", () => {
@@ -15,8 +36,21 @@ describe("PriceTag", () => {
     );
     const line = screen.getByAltText("Akcija važi do 31.10.2026.");
     expect(line.closest("td").textContent).toContain("99");
+    expect(line.style.left).toBe(`${promoNoteBox(99, "shelf").leftMm}mm`); // under the decimals, where Excel puts it
     rerender(<PriceTag item={{ name: "A", price: 99, barcode: "1" }} format="shelf" sideBarcodeImage={fakeBarcode} promoLineImage={fakeBarcode} />);
     expect(container.querySelector('img[alt^="Akcija"]')).toBeNull();
+  });
+
+  it("keeps a fruit tag's promo line at the top of the price cell", () => {
+    const promo = { dateFrom: "2026-09-25", dateTo: "2026-10-31" };
+    render(<PriceTag item={{ name: "Banane", price: 159, barcode: "1", promo }} format="fruit" barcodeImage={fakeBarcode} promoLineImage={fakeBarcode} />);
+    expect(screen.getByAltText("Akcija važi do 31.10.2026.").style.top).toBe("0.7mm");
+  });
+
+  it("ends the upright barcode at the bottom of the price", () => {
+    const { container } = render(<PriceTag item={{ name: "A", price: 99, barcode: "8600005000108" }} format="fridge" sideBarcodeImage={fakeBarcode} />);
+    const box = sideBarcodeBox("fridge", 99);
+    expect(container.querySelector('img[alt=""]').style.height).toBe(`${box.heightMm}mm`);
   });
 
   it("prints the name and the price at the export's sizes", () => {
