@@ -3,7 +3,7 @@ import { describe, it, expect, afterEach } from "vitest";
 import { render, screen, act } from "@testing-library/react";
 import PriceTag from "./PriceTag.jsx";
 import PrintPage from "./PrintPage.jsx";
-import { tagGeometry } from "../lib/priceTags.js";
+import { promoNoteBox, sideBarcodeBox, tagGeometry } from "../lib/priceTags.js";
 
 const fakeBarcode = () => "data:image/png;base64,AAA";
 
@@ -15,8 +15,21 @@ describe("PriceTag", () => {
     );
     const line = screen.getByAltText("Akcija važi do 31.10.2026.");
     expect(line.closest("td").textContent).toContain("99");
+    expect(line.style.left).toBe(`${promoNoteBox(99, "shelf").leftMm}mm`); // under the decimals, where Excel puts it
     rerender(<PriceTag item={{ name: "A", price: 99, barcode: "1" }} format="shelf" sideBarcodeImage={fakeBarcode} promoLineImage={fakeBarcode} />);
     expect(container.querySelector('img[alt^="Akcija"]')).toBeNull();
+  });
+
+  it("keeps a fruit tag's promo line at the top of the price cell", () => {
+    const promo = { dateFrom: "2026-09-25", dateTo: "2026-10-31" };
+    render(<PriceTag item={{ name: "Banane", price: 159, barcode: "1", promo }} format="fruit" barcodeImage={fakeBarcode} promoLineImage={fakeBarcode} />);
+    expect(screen.getByAltText("Akcija važi do 31.10.2026.").style.top).toBe("0.7mm");
+  });
+
+  it("ends the upright barcode at the bottom of the price", () => {
+    const { container } = render(<PriceTag item={{ name: "A", price: 99, barcode: "8600005000108" }} format="fridge" sideBarcodeImage={fakeBarcode} />);
+    const box = sideBarcodeBox("fridge", 99);
+    expect(container.querySelector('img[alt=""]').style.height).toBe(`${box.heightMm}mm`);
   });
 
   it("prints the name and the price at the export's sizes", () => {

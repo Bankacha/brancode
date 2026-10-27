@@ -10,6 +10,8 @@ import {
   priceParts,
   promoLineBox,
   promoLineText,
+  promoNoteBox,
+  promoNoteLines,
   shrinkFontPt,
   sideBarcodeBox,
   tagGeometry,
@@ -67,29 +69,30 @@ export function NameCell({ name, format }) {
 // (Excel: superscript rich text), beside the barcode column — so the price
 // shrinks to fit its own column, not the whole tag.
 const drawnPromoLines = new Map();
-const cachedPromoLine = (text, placement) => {
-  const key = `${text}|${placement.widthMm}x${placement.heightMm}`;
-  if (!drawnPromoLines.has(key)) drawnPromoLines.set(key, makePromoLineDataUrl(text, placement));
+const cachedPromoLine = (lines, placement) => {
+  const key = `${lines.join("/")}|${placement.widthMm}x${placement.heightMm}`;
+  if (!drawnPromoLines.has(key)) drawnPromoLines.set(key, makePromoLineDataUrl(lines, placement));
   return drawnPromoLines.get(key);
 };
 
-// A leaflet article's "Akcija važi do …", where the export puts it: over the
-// top of the price cell, without moving the price.
-function PromoLine({ dateTo, format, promoLineImage = cachedPromoLine }) {
-  const placement = promoLineBox(format);
-  const text = promoLineText(dateTo);
+// A leaflet article's "Akcija važi do …", where the export puts it: under the
+// raised decimals of a shelf/fridge price, at the top of a fruit price.
+function PromoLine({ dateTo, price, format, promoLineImage = cachedPromoLine }) {
+  const under = PRICE_TAG_STYLES[format].barcode === "side";
+  const placement = under ? promoNoteBox(price, format) : promoLineBox(format);
+  const lines = under ? promoNoteLines(dateTo) : [promoLineText(dateTo)];
   const src = useMemo(() => {
     try {
-      return promoLineImage(text, placement);
+      return promoLineImage(lines, placement);
     } catch (e) {
       return null; // no canvas; the tag still renders
     }
-  }, [promoLineImage, text, format]); // placement follows from format
+  }, [promoLineImage, dateTo, price, format]); // lines and placement follow from these
   if (!src) return null;
   return (
     <img
       src={src}
-      alt={text}
+      alt={promoLineText(dateTo)}
       className="absolute"
       style={{ left: `${placement.leftMm}mm`, top: `${placement.topMm}mm`, width: `${placement.widthMm}mm`, height: `${placement.heightMm}mm` }}
     />
@@ -127,7 +130,7 @@ export function PriceCell({ price, format, promoUntil, promoLineImage }) {
   const { whole, decimals } = priceParts(price);
   return (
     <td className={`relative border border-black p-0 align-top ${side ? "border-r-0" : ""}`} style={{ height: `${priceHeightMm.toFixed(2)}mm` }}>
-      {promoUntil && <PromoLine dateTo={promoUntil} format={format} promoLineImage={promoLineImage} />}
+      {promoUntil && <PromoLine dateTo={promoUntil} price={price} format={format} promoLineImage={promoLineImage} />}
       <div
         style={{
           ...box(style.priceAlignment, priceHeightMm),
@@ -196,17 +199,18 @@ const cachedSideBarcode = (code, placement) => {
   return drawnSideBarcodes.get(key);
 };
 
-// The narrow column beside a shelf/fridge price with the upright barcode.
-export function SideBarcodeCell({ code, format, sideBarcodeImage = cachedSideBarcode }) {
+// The narrow column beside a shelf/fridge price with the upright barcode,
+// which ends at the bottom of the price digits.
+export function SideBarcodeCell({ code, price, format, sideBarcodeImage = cachedSideBarcode }) {
   const { priceHeightMm } = tagGeometry(format);
-  const placement = sideBarcodeBox(format);
+  const placement = sideBarcodeBox(format, price);
   const src = useMemo(() => {
     try {
       return sideBarcodeImage(code, placement);
     } catch (e) {
       return null; // e.g. an empty code; the tag still renders
     }
-  }, [sideBarcodeImage, code, format]); // placement follows from format
+  }, [sideBarcodeImage, code, price, format]); // placement follows from price and format
   return (
     <td className="relative border border-l-0 border-black p-0" style={{ height: `${priceHeightMm.toFixed(2)}mm` }}>
       {src && (
@@ -246,7 +250,7 @@ export default function PriceTag({ item, format, barcodeImage, sideBarcodeImage,
         </tr>
         <tr>
           <PriceCell price={item.price} format={format} promoUntil={item.promo?.dateTo} promoLineImage={promoLineImage} />
-          {PRICE_TAG_STYLES[format].barcode === "side" && <SideBarcodeCell code={item.barcode} format={format} sideBarcodeImage={sideBarcodeImage} />}
+          {PRICE_TAG_STYLES[format].barcode === "side" && <SideBarcodeCell code={item.barcode} price={item.price} format={format} sideBarcodeImage={sideBarcodeImage} />}
         </tr>
         {PRICE_TAG_STYLES[format].barcode === "row" && (
           <tr>
