@@ -2,7 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: superpowers:executing-plans. Steps use checkbox (`- [ ]`) syntax.
 
-**Cilj:** na rafu i frižideru „Akcija važi do / 31.10.2026.“ stoji u dva reda ispod decimala cene. Voće zadržava red na vrhu ćelije cene.
+**Cilj:**
+- Na rafu i frižideru „Akcija važi do / 31.10.2026.“ stoji u dva reda ispod decimala cene. Voće zadržava red na vrhu ćelije cene.
+- Uspravni barkod na rafu i frižideru se završava u liniji dna cifre cene.
 
 **Arhitektura:**
 - Mesto se računa jednom funkcijom, `promoNoteBox` u `lib/priceTags.js`. Koriste je i Excel izvoz (slika preko ćelije cene, kao i do sada) i pregled (`PriceCell`).
@@ -41,6 +43,8 @@
 - `measureOswaldMm(text: string, fontPt: number): number`:
   - meri širinu na canvasu fontom `400 <px>px Oswald`;
   - kad canvas ne postoji, procenjuje 0,5 em po znaku.
+- `priceLayout(price, format, measure = measureOswaldMm) → { fontPt, baselineMm, capTopMm, textLeftMm, wholeMm, decimalsMm }` je model jedne cene na rafu ili frižideru. Iz njega računaju i `promoNoteBox` i `sideBarcodeBox`.
+- `sideBarcodeBox(format, price, measure = measureOswaldMm)`: kao do sada, ali dno je `baselineMm` cene (nikad niže od dosadašnjeg dna). Voće daje `null`. Excel i pregled je pozivaju sa cenom stavke.
 - `promoNoteLines(dateTo): string[]` daje `["Akcija važi do", "31.10.2026."]`.
 - `promoNoteBox(price, format, measure = measureOswaldMm) → { leftMm, topMm, widthMm, heightMm }`. Za `fruit` je `promoLineBox(format)`. Za raf i frižider:
   - **veličina:** `S = shrinkFontPt(base, ukupna širina u px, širina kolone u px)`, gde je `base = style.priceFontSize(text)`, a ukupna širina je `measure(whole, base) + measure(decimals, base·0,5)`;
@@ -74,7 +78,9 @@
     - slika je u koloni cene (`nativeCol` 0, `nativeRow` 1);
     - `nativeColOff` je `round(mmToPx(box.leftMm) · 9525)` za `promoNoteBox(…)` (izvezi `mmToPx` ili uporedi preko istog proračuna);
   - za voće `promoLineImage` dobija `["Akcija važi do 31.10.2026."]`;
-  - postojeći testovi za „promo line“ se prilagođavaju novom potpisu.
+  - postojeći testovi za „promo line“ se prilagođavaju novom potpisu;
+  - `sideBarcodeBox("shelf", 99, fake)` i `("fridge", 99, fake)` se završavaju na `priceLayout(...).baselineMm`. Frižider je iznad zaklonjenih 5 mm, a postojeći testovi za barkod dobijaju cenu;
+  - `buildWorkbook` postavlja uspravni barkod sa visinom iz `sideBarcodeBox(format, item.price)`.
 - [ ] Implementacija. `npx vitest run src/lib/priceTags.test.js`. Commit.
 
 ### Task 2: Pregled, dokumenta i verzija
@@ -85,7 +91,7 @@
 - `docs/testing/redesign-test-checklist.md`, `docs/pitanja.md`, `docs/repovi.md` (probna štampa);
 - `package.json` (`npm version 0.12.2 --no-git-tag-version`).
 
-**Ponašanje:** `PriceCell` crta sliku na `promoNoteBox(price, format)`, sa `promoNoteLines` (voće: `promoLineBox` i jedan red). Keš slike je po ključu `linije|kutija`.
+**Ponašanje:** `SideBarcodeCell` dobija cenu i koristi `sideBarcodeBox(format, price)`. `PriceCell` crta sliku na `promoNoteBox(price, format)`, sa `promoNoteLines` (voće: `promoLineBox` i jedan red). Keš slike je po ključu `linije|kutija`.
 
 - [ ] **Testovi** (prvo crveni):
   - `PriceTag` na rafu sa `promo` ima `img` alt „Akcija važi do 31.10.2026.“, a `style.left` mu je `promoNoteBox(...).leftMm` u mm;

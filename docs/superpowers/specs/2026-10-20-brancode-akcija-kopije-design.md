@@ -172,7 +172,8 @@ Akcija važi do
 - Mesto se računa iz širine cene u fontu Oswald, kao i smanjivanje duge cene. Datum ne sme da pređe ni na cele cifre (levo) ni na kolonu barkoda (desno). Kad je cena duga i decimale su uske, tekst se smanjuje ili prelama u tri reda („Akcija / važi do / datum“).
 - Visina se računa iz istog modela kao pregled (Excel na Windows-u, `winAscent`). Ako cifra na papiru stoji više nego što model kaže, datum je niže u odnosu na nju, pa se ne preklapa sa decimalama.
 - Voće (cena bez izdignutih decimala) zadržava red na vrhu ćelije cene, jer tamo ima mesta.
-- Pre oslanjanja na ovo potrebna je probna štampa: raf i frižider, kratka i duga cena.
+- **Uspravni barkod na rafu i frižideru** (sa svojim ciframa) ide od vrha ćelije cene (malo ispod linije prema nazivu) do dna cifre cene. Tako se na frižideru ceo vidi u držaču. Ovo je odluka radnje od 28.10., a skeniranje kraćeg barkoda se proverava probom.
+- Pre oslanjanja na ovo potrebna je probna štampa: raf i frižider, kratka i duga cena, uz skeniranje barkoda telefonom.
 
 ### Pamćenje lifleta, vraćanje cena i podsetnik
 
