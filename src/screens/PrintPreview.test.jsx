@@ -208,4 +208,38 @@ describe("PrintPreview in Mix", () => {
     await screen.findByText("Poslato na mejl radnje");
     expect(saveTagFormats).not.toHaveBeenCalled();
   });
+
+  it("retries a failed send with the choices made since", async () => {
+    vi.mocked(sendSheetsByEmail).mockRejectedValueOnce(new Error("send-failed"));
+    await openMix();
+    fireEvent.click(screen.getByRole("button", { name: /Pošalji/ }));
+    await screen.findByText("Nema veze. Nije poslato.");
+    choose("Jogurt", "Friz");
+    fireEvent.click(screen.getByRole("button", { name: "Ponovi" }));
+    await screen.findByText("Poslato na mejl radnje");
+    const lastFridge = vi.mocked(buildWorkbookBuffer).mock.calls.filter(([, format]) => format === "fridge").at(-1)[0];
+    expect(lastFridge.map((item) => item.name)).toEqual(["Jogurt", "Mleko"]);
+  });
+
+  it("offers the Excel files when the two sheets are too big for one mail", async () => {
+    vi.mocked(sendSheetsByEmail).mockRejectedValueOnce(new Error("file-too-large"));
+    await openMix();
+    fireEvent.click(screen.getByRole("button", { name: /Pošalji/ }));
+    expect(await screen.findByText(/prevelik/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Preuzmi" }));
+    await waitFor(() => expect(vi.mocked(downloadWorkbook).mock.calls.map(([, format]) => format)).toEqual(["shelf", "fridge"]));
+  });
+
+  it("downloads each sheet once even when Excel is tapped twice", async () => {
+    let finish;
+    vi.mocked(downloadWorkbook).mockImplementationOnce(() => new Promise((resolve) => (finish = resolve)));
+    await openMix();
+    const excel = screen.getByRole("button", { name: /Excel/ });
+    fireEvent.click(excel);
+    fireEvent.click(excel);
+    expect(excel.disabled).toBe(true);
+    finish();
+    await screen.findByText(/Preuzeto: 2 fajla/);
+    expect(vi.mocked(downloadWorkbook).mock.calls.map(([, format]) => format)).toEqual(["shelf", "fridge"]);
+  });
 });

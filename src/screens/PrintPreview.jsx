@@ -33,8 +33,11 @@ export default function PrintPreview({ queue, setQueue }) {
   const location = useLocation();
   const toast = useToast();
   const [format, setFormat] = usePrintFormat();
-  const [sending, setSending] = useState(false);
-  const sendingRef = useRef(false); // blocks a second tap before the re-render disables the button
+  const [busy, setBusy] = useState(null); // "send" | "download" while an export runs
+  const busyRef = useRef(false); // blocks a second tap before the re-render disables the buttons
+  // A toast's action ("Ponovi", "Preuzmi") runs after later taps may have
+  // changed Mix choices, so it calls the latest render's export, not its own.
+  const latest = useRef({});
   const pagesRef = useRef(null);
   const [page, setPage] = useState(1);
 
@@ -106,8 +109,7 @@ export default function PrintPreview({ queue, setQueue }) {
 
   // A phone may block the second automatic download; the message keeps a
   // button to take the fridge sheet again.
-  const download = async () => {
-    if (!mix) return downloadWorkbook(queue, format);
+  const downloadMix = async () => {
     const sheets = mixSheets();
     for (const { format: f, items } of sheets) await downloadWorkbook(items, f);
     const saved = await rememberChoices();
@@ -120,13 +122,31 @@ export default function PrintPreview({ queue, setQueue }) {
       });
     } else if (!saved) {
       toast.show({ kind: "info", text: NOT_REMEMBERED });
+    } else {
+      toast.hide();
     }
   };
 
-  const send = async () => {
-    if (sendingRef.current) return;
-    sendingRef.current = true;
-    setSending(true);
+  // One export at a time: a second tap while one runs does nothing.
+  const exclusive = (kind, run) => async () => {
+    if (busyRef.current) return;
+    busyRef.current = true;
+    setBusy(kind);
+    try {
+      await run();
+    } finally {
+      busyRef.current = false;
+      setBusy(null);
+    }
+  };
+
+  const download = exclusive("download", async () => {
+    if (!mix) return downloadWorkbook(queue, format);
+    toast.show({ kind: "loading", text: "Pravim Excel…" });
+    await downloadMix();
+  });
+
+  const send = exclusive("send", async () => {
     toast.show({ kind: "loading", text: "Šaljem na mejl…" });
     try {
       if (mix) await sendMix();
@@ -136,11 +156,14 @@ export default function PrintPreview({ queue, setQueue }) {
       }
     } catch (e) {
       console.error("send email failed", e);
-      toast.show({ kind: "error", icon: WifiOff, text: "Nema veze. Nije poslato.", action: { label: "Ponovi", run: send } });
+      if (e.message === "file-too-large") {
+        toast.show({ kind: "error", text: "Cene su prevelike za mejl. Preuzmi Excel i pošalji ručno.", action: { label: "Preuzmi", run: () => latest.current.download() } });
+      } else {
+        toast.show({ kind: "error", icon: WifiOff, text: "Nema veze. Nije poslato.", action: { label: "Ponovi", run: () => latest.current.send() } });
+      }
     }
-    sendingRef.current = false;
-    setSending(false);
-  };
+  });
+  latest.current = { send, download };
 
   return (
     <div className="flex min-h-dvh flex-col px-5 pt-[calc(16px+env(safe-area-inset-top))] pb-[calc(34px+env(safe-area-inset-bottom))]">
@@ -183,10 +206,10 @@ export default function PrintPreview({ queue, setQueue }) {
       )}
 
       <div className="flex gap-2.5">
-        <Button variant="accent" icon={Send} onClick={send} disabled={sending || (mix && remembered.state === "loading")} className="flex-1">
+        <Button variant="accent" icon={Send} onClick={send} disabled={busy !== null || (mix && remembered.state === "loading")} className="flex-1">
           Pošalji
         </Button>
-        <Button variant="outline" icon={Download} onClick={download} disabled={mix && remembered.state === "loading"} className="flex-1">
+        <Button variant="outline" icon={Download} onClick={download} disabled={busy !== null || (mix && remembered.state === "loading")} className="flex-1">
           Excel
         </Button>
       </div>
