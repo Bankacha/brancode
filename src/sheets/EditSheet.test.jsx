@@ -169,7 +169,7 @@ describe("EditSheet copies", () => {
     setup({ editor: ed });
     fireEvent.click(copiesButton());
     fireEvent.click(screen.getByRole("button", { name: "Više kopija" }));
-    fireEvent.click(screen.getByTestId("copies-scrim"));
+    fireEvent.click(screen.getByRole("button", { name: "Zatvori" }));
     expect(screen.queryByText("Broj kopija")).toBeNull();
     expect(ed.setCopies).not.toHaveBeenCalled();
   });

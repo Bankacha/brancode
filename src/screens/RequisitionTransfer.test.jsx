@@ -14,6 +14,8 @@ vi.mock("../lib/requisitions.js", async (importOriginal) => ({
   },
 }));
 vi.mock("../lib/products.js", () => ({ lookupArticle: vi.fn() }));
+// The trebovanje screen reads leaflet marks from Supabase; keep tests off the network.
+vi.mock("../lib/leafletMarks.js", () => ({ withLeafletMarks: vi.fn(async (_store, _date, list) => list.map((item) => ({ ...item, onLeaflet: false }))) }));
 
 const t1 = { id: "t1", title: "Pekara", date: "2026-10-17", createdAt: "a" };
 const items = [

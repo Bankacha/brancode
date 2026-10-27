@@ -9,7 +9,7 @@ import { plural } from "../lib/plural.js";
 import { formatPrice } from "../lib/format.js";
 import { formatDate, todayIso } from "../lib/listFormat.js";
 import { tagCount, withoutItem, withItemRestored } from "../lib/printQueue.js";
-import { useSheet } from "../lib/useSheet.js";
+import { useDropStaleSheet, useSheet } from "../lib/useSheet.js";
 import { usePrintFormat } from "../lib/printFormat.js";
 import { useToast } from "../components/Toast.jsx";
 import QueueRow from "../components/QueueRow.jsx";
@@ -79,10 +79,7 @@ export default function Home({ queue, setQueue, editor }) {
 
   // After a refresh the history can still say "edit" while the editor's data
   // is gone; drop that entry instead of showing an empty sheet.
-  useEffect(() => {
-    const stale = (sheet.name === "edit" && editor.barcode === null) || (sheet.name === "leaflet" && leaflet === null);
-    if (stale) navigate(".", { replace: true, state: null });
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useDropStaleSheet((sheet.name === "edit" && editor.barcode === null) || (sheet.name === "leaflet" && leaflet === null));
 
   // The file picker must open synchronously inside the click (browsers block
   // file dialogs opened after an await). The PDF is only read in memory.

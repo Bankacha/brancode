@@ -4,7 +4,7 @@ import { Check, WifiOff } from "lucide-react";
 import { formatPrice } from "../lib/format.js";
 import { finishScreen, leaveScreen, putHomeBehind } from "../lib/navigation.js";
 import { usePrintFormat } from "../lib/printFormat.js";
-import { useSheet } from "../lib/useSheet.js";
+import { useDropStaleSheet, useSheet } from "../lib/useSheet.js";
 import { useToast } from "../components/Toast.jsx";
 import BarcodeKeypad from "../components/BarcodeKeypad.jsx";
 import EditSheet from "../sheets/EditSheet.jsx";
@@ -34,9 +34,7 @@ export default function ManualEntry({ editor }) {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // After a refresh the history can still say "edit" without the editor's data.
-  useEffect(() => {
-    if (sheet.name === "edit" && editor.barcode === null) navigate(".", { replace: true, state: null });
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useDropStaleSheet(sheet.name === "edit" && editor.barcode === null);
 
   // "Sačuvaj i upiši sledeći" stays here for the next code; "Sačuvaj i
   // zatvori" leaves for home.
