@@ -22,6 +22,18 @@ Odluke koje sam doneo sam dok smo radili meni, cene, popis i trebovanje, i tvoji
 - **Prijava:** ✅ pozdrav prati doba dana na telefonu: „Dobro jutro.“ od 5 do 11, „Dobar dan.“ od 11 do 18 i „Dobro veče.“ od 18 pa kroz noć do 5.
 - Sve ostalo ispod ostaje kako je urađeno.
 
+## 0.12.1 Repovi (27.10.)
+
+Sređeno svih 15 sitnica iz pregleda koda, spisak je bio u `docs/repovi.md`:
+- ukucan kratak barkod (7, 11 i 12 cifara) nalazi artikal sačuvan pod punim kodom i nastavlja sa punim kodom, i na cenama i na listama, bez duplikata;
+- cifre ispod kratkog barkoda su prave veličine;
+- posle osvežavanja dok je otvoren „Broj kopija“ više ne treba dvaput „nazad“;
+- liflet: stavke se čitaju sigurnim redom, mejl o ručno menjanim cenama stiže i posle prekida, jutarnja provera prima samo Vercel Cron (GET) i proverava ključ bezbedno, ponovni uvoz osvežava vreme uvoza, a red sa cenom 0 se preskače;
+- Mix: poruka kaže kad format nije zapamćen, nema treptaja stare liste, SQL može ponovo da se pokrene;
+- greška pri pravljenju Excel-a ima poruku sa „Ponovi“, a mejl funkcija odbija prilog bez imena sa 400.
+
+Usput nađeno i sređeno: testovi za prenos stavki na trebovanju su zvali pravu bazu (zbog oznake „Liflet“), pa su nasumično padali.
+
 ## 0.12.0 Mix štampa (27.10.)
 
 Urađeno po spec-u (`docs/superpowers/specs/2026-10-27-brancode-mix-stampa-design.md`). Potreban je SQL `supabase/migrations/20261027_products_tag_format.sql`.
