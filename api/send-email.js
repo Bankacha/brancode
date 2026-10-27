@@ -37,7 +37,8 @@ export default async function handler(req, res) {
   // One file ({ filename, base64 }) or several ({ files: [...] }, Mix printing).
   const { filename, base64, files, subject } = req.body || {};
   const attachments = Array.isArray(files) ? files : [{ filename, base64 }];
-  if (attachments.length === 0 || attachments.some((file) => !file?.filename || !file.base64 || typeof file.base64 !== "string")) {
+  const usable = (file) => typeof file?.filename === "string" && file.filename !== "" && typeof file.base64 === "string" && file.base64 !== "";
+  if (attachments.length === 0 || !attachments.every(usable)) {
     return res.status(400).json({ ok: false, error: "missing-file" });
   }
   if (attachments.reduce((total, file) => total + file.base64.length, 0) > MAX_BASE64_LENGTH) {

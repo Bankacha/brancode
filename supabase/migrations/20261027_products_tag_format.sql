@@ -5,4 +5,4 @@
 -- so they leave this column as it is.
 
 alter table public.products
-  add column tag_format text check (tag_format in ('shelf', 'fridge'));
+  add column if not exists tag_format text check (tag_format in ('shelf', 'fridge'));

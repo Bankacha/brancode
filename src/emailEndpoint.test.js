@@ -57,4 +57,16 @@ describe("api/send-email", () => {
     expect(res.statusCode).toBe(413);
     expect(sent).toHaveLength(0);
   });
+
+  it.each([[[]], [[null]], [[{ filename: 5, base64: "AA" }]], [[{ filename: "a.xlsx", base64: 5 }]]])("refuses attachments it can't send: %j", async (files) => {
+    const res = await call({ files });
+    expect(res.statusCode).toBe(400);
+    expect(res.body).toEqual({ ok: false, error: "missing-file" });
+  });
+
+  it("titles a single sheet sent as a list like before", async () => {
+    await call({ files: [{ filename: "cenovnik-raf.xlsx", base64: "AAAA" }] });
+    expect(sent[0].subject).toBe("Cenovnik – cenovnik-raf.xlsx");
+    expect(sent[0].text).toContain("Otvorite prilog u Excel-u");
+  });
 });

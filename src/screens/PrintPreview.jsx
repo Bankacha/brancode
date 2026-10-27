@@ -79,6 +79,7 @@ export default function PrintPreview({ queue, setQueue }) {
   // After a Mix export: the choices of articles in the database, for the next
   // Mix. Only the format column; a failure doesn't undo the export.
   const rememberChoices = async () => {
+    if (remembered.state === "failed") return false; // the database rows aren't known
     const rows = new Map();
     for (const item of queue) {
       const known = remembered.formats.get(item.barcode);
@@ -141,9 +142,14 @@ export default function PrintPreview({ queue, setQueue }) {
   };
 
   const download = exclusive("download", async () => {
-    if (!mix) return downloadWorkbook(queue, format);
-    toast.show({ kind: "loading", text: "Pravim Excel…" });
-    await downloadMix();
+    try {
+      if (!mix) return await downloadWorkbook(queue, format);
+      toast.show({ kind: "loading", text: "Pravim Excel…" });
+      await downloadMix();
+    } catch (e) {
+      console.error("excel download failed", e);
+      toast.show({ kind: "error", text: "Excel nije napravljen.", action: { label: "Ponovi", run: () => latest.current.download() } });
+    }
   });
 
   const send = exclusive("send", async () => {
@@ -186,7 +192,11 @@ export default function PrintPreview({ queue, setQueue }) {
             key={key}
             type="button"
             aria-pressed={format === key}
-            onClick={() => setFormat(key)}
+            onClick={() => {
+              // back into Mix: show loading at once, not the list read last time
+              if (key === "mix" && !mix) setRemembered({ state: "loading", formats: new Map() });
+              setFormat(key);
+            }}
             className={`flex h-11 flex-1 items-center justify-center gap-1.5 rounded-full text-[15px] font-semibold transition-transform duration-100 active:scale-[.97] ${
               format === key ? "bg-ink text-bg" : "text-ink-2"
             }`}

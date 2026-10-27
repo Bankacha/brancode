@@ -199,14 +199,32 @@ describe("PrintPreview in Mix", () => {
     expect(vi.mocked(downloadWorkbook).mock.calls.at(-1)[0].map((item) => item.name)).toEqual(["Mleko"]);
   });
 
-  it("works without the remembered formats when they can't be loaded", async () => {
+  it("works without the remembered formats when they can't be loaded, and says they weren't remembered", async () => {
     vi.mocked(readTagFormats).mockRejectedValue(new Error("offline"));
     setup(mixQueue);
     fireEvent.click(screen.getByRole("button", { name: "Mix" }));
     expect(await screen.findByText("Zapamćeni formati nisu učitani.")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: /Pošalji/ }));
-    await screen.findByText("Poslato na mejl radnje");
+    expect(await screen.findByText(/Poslato na mejl radnje\. Format nije zapamćen za sledeći put\./)).toBeTruthy();
     expect(saveTagFormats).not.toHaveBeenCalled();
+  });
+
+  it("shows the loading state at once when Mix is chosen again, not the last list", async () => {
+    await openMix();
+    fireEvent.click(screen.getByRole("button", { name: "Raf" }));
+    vi.mocked(readTagFormats).mockReturnValue(new Promise(() => {}));
+    fireEvent.click(screen.getByRole("button", { name: "Mix" }));
+    expect(screen.getByText("Učitavam zapamćene formate…")).toBeTruthy();
+    expect(screen.queryByText("Mleko")).toBeNull();
+  });
+
+  it("says when the Excel file couldn't be made, and tries again", async () => {
+    vi.mocked(downloadWorkbook).mockRejectedValueOnce(new Error("no canvas"));
+    await openMix();
+    fireEvent.click(screen.getByRole("button", { name: /Excel/ }));
+    expect(await screen.findByText("Excel nije napravljen.")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Ponovi" }));
+    await screen.findByText(/Preuzeto: 2 fajla/);
   });
 
   it("retries a failed send with the choices made since", async () => {
