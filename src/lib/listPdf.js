@@ -42,30 +42,34 @@ export const inventoryPdfDefinition = (inventory, items, now = new Date()) =>
 
 export const inventoryPdfFilename = (inventory) => `popis-${formatDate(inventory.dateFrom)}-${formatDate(inventory.dateTo)}.pdf`;
 
-// An empty square to tick by hand after printing.
-const tickBox = { canvas: [{ type: "rect", x: 2, y: 1, w: 9, h: 9, lineWidth: 0.8, lineColor: "#333333" }] };
+// An empty square to tick with a pen while buying in the goods. A fresh one
+// per row: pdfmake draws a canvas object shared between rows only once.
+const tickBox = () => ({ canvas: [{ type: "rect", x: 3, y: 0, w: 14, h: 14, lineWidth: 1, lineColor: "#333333" }], margin: [0, 1, 0, 2] });
 const orEmpty = (value, format) => (value === null || value === undefined ? "" : format(value));
 
-// A leaflet price says so in its own cell: small "LIFLET" above the amount, so
-// shops without leaflets see no extra column.
+// A leaflet price stands out for the people buying in: the row is shaded, the
+// name bold and "LIFLET" sits over the amount — no extra column, so shops
+// without leaflets see no change.
+const LEAFLET_SHADE = "#e4e4e4";
 const requisitionPrice = (item) => {
   const price = right(orEmpty(item.price, formatPrice));
-  return item.onLeaflet ? { stack: [{ text: "LIFLET", fontSize: 6, bold: true, alignment: "right" }, price] } : price;
+  return item.onLeaflet ? { stack: [{ text: "LIFLET", fontSize: 8, bold: true, alignment: "right" }, price] } : price;
+};
+const requisitionRow = (item) => {
+  const cells = [item.name, item.barcode ?? "", requisitionPrice(item), right(orEmpty(item.quantity, formatQuantity)), tickBox()];
+  if (!item.onLeaflet) return cells;
+  const shaded = cells.map((cell) => ({ ...(typeof cell === "string" ? { text: cell } : cell), fillColor: LEAFLET_SHADE }));
+  shaded[0].bold = true;
+  return shaded;
 };
 
 export const requisitionPdfDefinition = (requisition, items, now = new Date()) =>
   tableDocument({
     title: requisition.title.trim() ? `Trebovanje · ${requisition.title.trim()}` : "Trebovanje",
     lines: [`Datum: ${formatDate(requisition.date)}`, `Izrađeno ${formatDate(todayIso(now))} · ${itemCount(items.length)}`],
-    widths: ["*", 88, 60, 52, 16],
+    widths: ["*", 88, 60, 52, 24],
     head: [["Naziv"], ["Barkod"], ["Cena", "right"], ["Količina", "right"], [""]],
-    rows: items.map((item) => [
-      item.name,
-      item.barcode ?? "",
-      requisitionPrice(item),
-      right(orEmpty(item.quantity, formatQuantity)),
-      tickBox,
-    ]),
+    rows: items.map(requisitionRow),
   });
 
 export const requisitionPdfFilename = (requisition) => `trebovanje-${formatDate(requisition.date)}.pdf`;

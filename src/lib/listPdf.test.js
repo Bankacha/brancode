@@ -69,17 +69,33 @@ describe("requisitionPdfDefinition", () => {
     expect(mleko[4].canvas[0]).toMatchObject({ type: "rect" });
   });
 
-  it("writes LIFLET in the price cell of a leaflet price, without a new column", () => {
+  it("marks a leaflet price clearly: a shaded row, a bold name and LIFLET over the price, without a new column", () => {
     const t = table(requisitionPdfDefinition(trebovanje, [{ ...rows[0], onLeaflet: true }, rows[1]], new Date(2026, 9, 18, 9, 0)));
     expect(t.body[0]).toHaveLength(5);
     const [, mleko, hleb] = t.body;
-    expect(mleko[2]).toEqual({
+    expect(mleko[2]).toMatchObject({
       stack: [
-        { text: "LIFLET", fontSize: 6, bold: true, alignment: "right" },
+        { text: "LIFLET", fontSize: 8, bold: true, alignment: "right" },
         { text: "100,00", alignment: "right" },
       ],
     });
+    expect(mleko[0]).toMatchObject({ text: "Mleko", bold: true });
+    expect(mleko.every((cell) => cell.fillColor === "#e4e4e4")).toBe(true);
     expect(hleb[2]).toEqual({ text: "", alignment: "right" });
+    expect(hleb.some((cell) => cell?.fillColor)).toBe(false);
+  });
+
+  it("draws its own box on every row (pdfmake draws a shared canvas only once)", () => {
+    const t = table(requisitionPdfDefinition(trebovanje, [rows[0], rows[1], { ...rows[0], id: "c" }], new Date(2026, 9, 18, 9, 0)));
+    const boxes = t.body.slice(1).map((row) => row[4]);
+    expect(new Set(boxes).size).toBe(3);
+    expect(new Set(boxes.map((box) => box.canvas)).size).toBe(3);
+  });
+
+  it("gives a bigger box to tick with a pen", () => {
+    const t = table(def());
+    expect(t.widths.at(-1)).toBe(24);
+    expect(t.body[1][4].canvas[0]).toMatchObject({ type: "rect", w: 14, h: 14 });
   });
 
   it("names the file after the date", () => {
