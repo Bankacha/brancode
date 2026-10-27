@@ -1,7 +1,7 @@
 import { useState } from "react";
 
 // The print queue is per device: kept in localStorage, never in Supabase.
-// Items: { id, barcode, name, price, notInDb?, copies? }
+// Items: { id, barcode, name, price, notInDb?, copies?, promo?, mixFormat? }
 const STORAGE_KEY = "print-queue";
 
 // How many times one tag prints. Left out means 1; anything stored that
@@ -23,6 +23,25 @@ export const tagCount = (queue) => queue.reduce((sum, item) => sum + copiesOf(it
 // because the print preview keys tags by id.
 export const expandCopies = (queue) =>
   queue.flatMap((item) => Array.from({ length: copiesOf(item) }, (_, k) => (k === 0 ? item : { ...item, id: `${item.id}#${k + 1}` })));
+
+// Mix printing: each tag goes into a shelf or a fridge sheet. The phone's own
+// choice (`mixFormat`) wins over the one remembered in the database, and an
+// article with neither starts on the shelf, marked new.
+export const MIX_FORMATS = ["shelf", "fridge"];
+
+export const withMixFormat = (item, format) => ({ ...item, mixFormat: format });
+
+export const mixChoice = (item, remembered) => {
+  if (MIX_FORMATS.includes(item.mixFormat)) return { format: item.mixFormat, isNew: false };
+  if (MIX_FORMATS.includes(remembered)) return { format: remembered, isNew: false };
+  return { format: "shelf", isNew: true };
+};
+
+export const splitForMix = (queue, rememberedOf) => {
+  const groups = { shelf: [], fridge: [] };
+  for (const item of queue) groups[mixChoice(item, rememberedOf(item)).format].push(item);
+  return groups;
+};
 
 export const parseStoredQueue = (raw) => {
   try {

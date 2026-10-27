@@ -146,4 +146,20 @@ describe("useProductEditor", () => {
     await act(() => result.current.editor.save());
     expect("promo" in result.current.queue[1]).toBe(false);
   });
+
+  it("keeps the Mix choice of an article that is scanned again", async () => {
+    vi.mocked(lookupProduct).mockResolvedValue({ barcode: "1", name: "A", price: 1 });
+    const { result } = setup([{ ...a, mixFormat: "fridge" }]);
+    await act(() => result.current.editor.open("1"));
+    expect(result.current.editor.mixFormat).toBe("fridge");
+    await act(() => result.current.editor.save());
+    expect(result.current.queue[0].mixFormat).toBe("fridge");
+  });
+
+  it("saves only barcode, name and price to the database, never the Mix choice", async () => {
+    const { result } = setup([{ ...a, mixFormat: "fridge" }]);
+    await act(() => result.current.editor.openItem({ ...a, mixFormat: "fridge" }));
+    await act(() => result.current.editor.save());
+    expect(saveProduct).toHaveBeenCalledWith({ barcode: "1", name: "A", price: 1 }, null);
+  });
 });

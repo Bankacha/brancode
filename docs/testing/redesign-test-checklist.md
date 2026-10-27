@@ -118,6 +118,17 @@ Ovo nije provereno na pravom telefonu i papiru, pa ostaje za zajednički test. �
 - [ ] Jutro posle kraja: redovne cene su vraćene u bazu; artikal kome je cena ručno menjana tokom akcije ostaje i stiže mejl „Redovne cene vraćene“ sa njim.
 - [ ] Trebovanje sa artiklom sa lifleta (datum u periodu akcije, cena iz baze): pločica „Liflet“ u redu i „LIFLET“ iznad cene u PDF-u; posle akcije (novo trebovanje) je nema.
 
+## 2d. Mix štampa (0.12.0)
+
+- [ ] Pre testa: SQL `supabase/migrations/20261027_products_tag_format.sql` je pokrenut (bez njega Mix piše „Zapamćeni formati nisu učitani.“).
+- [ ] Pregled štampe: izbor Raf | Friz | Voće | Mix sa ikonicama staje na telefon.
+- [ ] Mix: lista sa prekidačem Raf | Friz u svakom redu, brojevi „Raf N“ / „Friz N“ gore (sa kopijama), „NOVO“ kod artikala bez zapamćenog formata.
+- [ ] „Pošalji“ iz Mix-a: stiže jedan mejl „Cenovnici – raf i friz“ sa dva Excel fajla; svaki ima samo svoje cenovnike, sa kopijama i redom akcije.
+- [ ] „Excel“ iz Mix-a: preuzmu se oba fajla (telefon može jednom da pita za više preuzimanja); ako drugi izostane, „Preuzmi friz“ u poruci ga preuzima.
+- [ ] Sledeći put u Mix-u (i na drugom telefonu): artikli odštampani u Mix-u su već na svom mestu, bez „NOVO“.
+- [ ] Štampa cele liste kao Raf ili Friz ne menja ono što je zapamćeno u Mix-u.
+- [ ] Ponovno skeniranje artikla posle izbora Friz u Mix-u zadrži Friz, a prozor za cenu pokazuje cenovnik za frižider.
+
 ## 3. Štampa
 
 - [ ] Odštampaj po jednu stranu za Raf, Frižider i Voće i uporedi sa `/pregled`:

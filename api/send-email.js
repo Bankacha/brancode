@@ -3,6 +3,20 @@ import { Resend } from "resend";
 
 const MAX_BASE64_LENGTH = 4 * 1024 * 1024; // ~3MB decoded, safely under Vercel's 4.5MB body limit
 
+// Price-tag sheets say to open them in Excel: mail previews leave the barcode
+// images out. Popis and Trebovanje send their own subject and a PDF.
+const mailText = (attachments, customSubject) => {
+  const sheets = attachments.every((file) => file.filename.endsWith(".xlsx"));
+  if (attachments.length > 1) {
+    return sheets
+      ? "U prilogu su generisani cenovnici. Otvorite priloge u Excel-u: pregled priloga u mejlu ne prikazuje barkodove."
+      : `U prilogu su ${attachments.map((file) => file.filename).join(", ")}.`;
+  }
+  return customSubject
+    ? `U prilogu je ${attachments[0].filename}.`
+    : "U prilogu je generisan cenovnik. Otvorite prilog u Excel-u: pregled priloga u mejlu ne prikazuje barkodove.";
+};
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ ok: false, error: "method-not-allowed" });
@@ -20,11 +34,13 @@ export default async function handler(req, res) {
     return res.status(401).json({ ok: false, error: "invalid-token" });
   }
 
-  const { filename, base64, subject } = req.body || {};
-  if (!filename || !base64 || typeof base64 !== "string") {
+  // One file ({ filename, base64 }) or several ({ files: [...] }, Mix printing).
+  const { filename, base64, files, subject } = req.body || {};
+  const attachments = Array.isArray(files) ? files : [{ filename, base64 }];
+  if (attachments.length === 0 || attachments.some((file) => !file?.filename || !file.base64 || typeof file.base64 !== "string")) {
     return res.status(400).json({ ok: false, error: "missing-file" });
   }
-  if (base64.length > MAX_BASE64_LENGTH) {
+  if (attachments.reduce((total, file) => total + file.base64.length, 0) > MAX_BASE64_LENGTH) {
     return res.status(413).json({ ok: false, error: "file-too-large" });
   }
 
@@ -36,11 +52,9 @@ export default async function handler(req, res) {
     const { error } = await resend.emails.send({
       from: "Shelf Price Scanner <onboarding@resend.dev>",
       to: process.env.EMAIL_TO,
-      subject: customSubject || `Cenovnik – ${filename}`,
-      text: customSubject
-        ? `U prilogu je ${filename}.`
-        : "U prilogu je generisan cenovnik. Otvorite prilog u Excel-u: pregled priloga u mejlu ne prikazuje barkodove.",
-      attachments: [{ filename, content: base64 }],
+      subject: customSubject || `Cenovnik – ${attachments[0].filename}`,
+      text: mailText(attachments, customSubject),
+      attachments: attachments.map((file) => ({ filename: file.filename, content: file.base64 })),
     });
     if (error) {
       console.error("resend error", error);

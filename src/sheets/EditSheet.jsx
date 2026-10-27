@@ -9,6 +9,7 @@ import ScaledToWidth from "../components/ScaledToWidth.jsx";
 import { parsePrice } from "../lib/format.js";
 import { tagGeometry } from "../lib/priceTags.js";
 import { useDialog } from "../lib/useSheet.js";
+import { tagFormatOf } from "../lib/printFormat.js";
 
 const badgeStyles = {
   "U bazi": "bg-success-bg text-success-ink",
@@ -102,7 +103,7 @@ export default function EditSheet({ editor, open, onClose, format, source = "lis
         {editor.error === "lookup" && (
           <p className="text-[13px] text-danger-ink">Ne mogu da se povežem sa bazom. Proveri internet konekciju.</p>
         )}
-        {!quickCheck && <TagPreview editor={editor} format={format} />}
+        {!quickCheck && <TagPreview editor={editor} format={tagFormatOf(format, editor.mixFormat)} />}
         <Field ref={nameRef} label="Naziv" value={editor.name} onChange={(e) => editor.setName(e.target.value)} enterKeyHint="done" onKeyDown={saveOnEnter} />
         <Field
           ref={priceRef}

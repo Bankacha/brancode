@@ -20,6 +20,9 @@
   --color-success-light: #7bd39a;
   --color-success-bg: #e3efe5;
   --color-success-ink: #2c6b40;
+  --color-cold: #2e7daf; /* Mix: the fridge choice */
+  --color-cold-bg: #dcebf3;
+  --color-cold-ink: #1d4e6b;
   --color-scrim: #3a4a3f;
   --color-camera: #3a4a3f;
   --color-camera-stripe: #33433a;

@@ -38,6 +38,16 @@ describe("EditSheet tag preview", () => {
     expect(screen.getByText(tagPrice("0,00"))).toBeTruthy();
   });
 
+  it("draws the article's own Mix choice while Mix is chosen", () => {
+    setup({ format: "mix", editor: editor({ mixFormat: "fridge" }) });
+    expect(screen.getByText("Ovako izgleda cenovnik u frižideru")).toBeTruthy();
+  });
+
+  it("draws a shelf tag in Mix until the article has a choice", () => {
+    setup({ format: "mix" });
+    expect(screen.getByText("Ovako izgleda cenovnik na rafu")).toBeTruthy();
+  });
+
   it("follows the chosen format", () => {
     setup({ format: "fruit" });
     expect(screen.getByText("Ovako izgleda cenovnik za voće")).toBeTruthy();
