@@ -1,5 +1,5 @@
 import { supabase } from "../supabaseClient.js";
-import { sameArticleCodes, withCheckDigitIfShort, withoutCheckDigit } from "./ean.js";
+import { fullCodeOf, sameArticleCodes, withCheckDigitIfShort, withoutCheckDigit } from "./ean.js";
 
 // The imported product list stores barcodes without their trailing check
 // digit (an EAN-13 as 12 digits, an EAN-8 as 7, …), so a scanned code won't
@@ -37,6 +37,9 @@ export const lookupArticle = async (code, client = supabase) => {
 };
 
 export const saveProduct = async (product, matchedBarcode, client = supabase) => {
+  // A short code (typed, or an old list row) found under its full code is
+  // saved onto that row: a row is never moved to a shorter code.
+  if (matchedBarcode && fullCodeOf(product.barcode, matchedBarcode) !== product.barcode) product = { ...product, barcode: matchedBarcode };
   // Found via the 12-digit fallback: move that row to the full scanned code
   // instead of adding a second row for the same article next to it.
   if (matchedBarcode && matchedBarcode !== product.barcode) {

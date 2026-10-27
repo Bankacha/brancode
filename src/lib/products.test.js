@@ -61,6 +61,14 @@ describe("lookupProduct for typed and short codes", () => {
   });
 });
 
+describe("saveProduct never moves a row to a shorter code", () => {
+  it("saves a short code onto the full row it was found under", async () => {
+    const { client, calls } = fakeClient();
+    await saveProduct({ barcode: "860000500012", name: "MAJONEZ 175", price: 85 }, "8600005000122", client);
+    expect(calls).toEqual([["upsert", { barcode: "8600005000122", name: "MAJONEZ 175", price: 85 }]]);
+  });
+});
+
 describe("saveProduct", () => {
   it("upserts a product that was not found", async () => {
     const { client, calls } = fakeClient();

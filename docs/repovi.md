@@ -2,7 +2,13 @@
 
 Jedno mesto za sitnice koje su pregledi koda našli, a nisu popravljene pre puštanja, i za stvari koje čekaju odluku ili proveru u radnji. Kad se nešto sredi, briše se odavde (istorija ostaje u git-u). Svako novo puštanje dopisuje svoje repove ovde, ne samo u izveštaj.
 
-Stanje: 27.10.2026, posle 0.12.1. Sve sitnice iz pregleda koda do 0.12.0 su sređene u 0.12.1. Ostalo je ono što čeka tebe ili proveru u radnji.
+Stanje: 27.10.2026, posle 0.12.1. Sve sitnice iz pregleda koda do 0.12.0 su sređene u 0.12.1. Ostale su tri sitnice iz pregleda 0.12.1 i ono što čeka tebe ili proveru u radnji.
+
+## Sitnice iz pregleda 0.12.1 (za sledeće sređivanje)
+
+1. „Ponovi“ iz poruke o grešci (Excel ili slanje) može da se tapne dok Mix još učitava zapamćene formate. Tada izvoz ide bez zapamćenih formata, a poruka ne kaže da format nije zapamćen. Dugmad na ekranu su u tom trenutku zaključana, samo ova poruka nije.
+2. `printedDigits` broji i razmake oko koda, a `barcodeSymbology` ih skida. Danas nema efekta, jer se uvek prosleđuje kod bez razmaka.
+3. Mejl funkcija prima prilog čije je ime samo razmak, pa Resend odbije, a korisnik dobije „Nema veze“ umesto „neispravan zahtev“ (400).
 
 ## Treba tvoja odluka, podešavanje ili provera u radnji
 
