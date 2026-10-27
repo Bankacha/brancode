@@ -155,4 +155,11 @@ describe("useProductEditor", () => {
     await act(() => result.current.editor.save());
     expect(result.current.queue[0].mixFormat).toBe("fridge");
   });
+
+  it("saves only barcode, name and price to the database, never the Mix choice", async () => {
+    const { result } = setup([{ ...a, mixFormat: "fridge" }]);
+    await act(() => result.current.editor.openItem({ ...a, mixFormat: "fridge" }));
+    await act(() => result.current.editor.save());
+    expect(saveProduct).toHaveBeenCalledWith({ barcode: "1", name: "A", price: 1 }, null);
+  });
 });
