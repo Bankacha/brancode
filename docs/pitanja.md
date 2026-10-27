@@ -22,6 +22,19 @@ Odluke koje sam doneo sam dok smo radili meni, cene, popis i trebovanje, i tvoji
 - **Prijava:** ✅ pozdrav prati doba dana na telefonu: „Dobro jutro.“ od 5 do 11, „Dobar dan.“ od 11 do 18 i „Dobro veče.“ od 18 pa kroz noć do 5.
 - Sve ostalo ispod ostaje kako je urađeno.
 
+## 0.12.2 Datum ispod decimala, barkod do dna cene, trebovanje (28.10.)
+
+- **Datum akcije** na rafu i frižideru stoji ispod „,99“, u dva reda. Kod duge cene ide u tri reda i manji je, jer su i decimale uže. Na voću ostaje na vrhu.
+- **Uspravni barkod** se završava u liniji dna cene. Kraći je nego ranije, pa ga treba probati telefonom.
+- **Trebovanje u PDF-u:**
+  - red sa liflet cenom je osenčen, naziv je podebljan, a iznad cene piše „LIFLET“;
+  - kvadratić je veći, i sada stoji u svakom redu. Ranije se zbog greške crtao samo u prvom redu.
+- **Oznaka „Liflet“ traži da je liflet uvezen u verziji 0.11.0 ili novijoj.** Oktobarski liflet je uvezen ranije, pa njegove artikle aplikacija ne prepoznaje. Uvezi ga ponovo ako želiš oznake na trebovanjima do kraja akcije. Redovne cene za taj liflet i tada neće moći da se vrate same.
+- **Sitnice iz pregleda 0.12.1 su sređene:**
+  - „Ponovi“ čeka da Mix učita formate;
+  - cifre barkoda se broje bez razmaka;
+  - prilog sa praznim imenom daje 400.
+
 ## 0.12.1 Repovi (27.10.)
 
 Sređeno svih 15 sitnica iz pregleda koda, spisak je bio u `docs/repovi.md`:
