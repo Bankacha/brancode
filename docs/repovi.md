@@ -12,7 +12,7 @@ Stanje: 28.10.2026. Stanje posle 0.12.2. Ostale su dve sitnice iz pregleda 0.12.
 ## Treba tvoja odluka, podešavanje ili provera u radnji
 
 - **Vercel ključevi** `CRON_SECRET` i `SUPABASE_SERVICE_ROLE_KEY`, najkasnije do 29.10. Bez njih liflet ne vraća cene i ne šalje podsetnike. Koraci su u `docs/pitanja.md`, odeljak 0.11.0.
-- **Brisanje pogrešno uvezenog lifleta iz aplikacije.** Sada se to radi u Supabase-u (tabela `promo_leaflets`). Ponovni uvoz sa ispravljenim datumima ostavlja i stari zapis, pa stižu dupli podsetnici. Ovo je nova mala funkcija i treba dogovor.
+- **Dupli zapisi lifleta u bazi:** pogledaj u Supabase (Table Editor → `promo_leaflets`) da li već postoji zapis sa pogrešnim datumima i obriši ga. Od 0.13.0 uvoz sam pita da li je liflet isti sa ispravljenim datumima, pa novi duplikati ne nastaju. Dugme za brisanje za sada ne treba (odluka od 29.10.).
 - **Probna štampa** za raf („99,99“, „1.249,99“, „12.499,99“) i frižider („99,99“, „12.499,99“), svaki sa akcijom. „12.499,99“ na frižideru daje najkraći barkod (oko 16 mm) i najsitniji datum:
   - datum ispod decimala ne dodiruje cifre i čita se;
   - uspravni barkod, sada do dna cene, ceo se vidi u držaču i telefon ga skenira;
