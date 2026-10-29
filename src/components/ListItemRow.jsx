@@ -1,18 +1,27 @@
 import { Square, SquareCheck, X } from "lucide-react";
 import { useLongPress } from "../lib/useLongPress.js";
 
-// One item on a Popis or Trebovanje: name, a detail line (barcode, price)
-// with an optional badge ("Liflet"), the quantity on the right. Long-press edits, X removes (as on the price
-// list). While picking items to copy (`selectable`), a tap toggles it.
-export default function ListItemRow({ name, detail, badge, quantity, onLongPress, onRemove, selectable = false, selected = false, onToggle }) {
+// One item on a Popis or Trebovanje: name, a detail line (barcode, price),
+// small badges under it (a trebovanje's leaflets: filled while one runs,
+// outlined when it is still to come), the quantity on the right. Long-press
+// edits, X removes (as on the price list). While picking items to copy
+// (`selectable`), a tap toggles it.
+export default function ListItemRow({ name, detail, badges = [], quantity, onLongPress, onRemove, selectable = false, selected = false, onToggle }) {
   const press = useLongPress(onLongPress);
   const text = (
     <div className="min-w-0 flex-1">
       <p className="truncate text-[15px] font-semibold text-ink">{name}</p>
-      {(detail || badge) && (
-        <p className="flex min-w-0 items-center gap-1.5">
-          {detail && <span className="truncate font-mono text-[11px] text-ink-3">{detail}</span>}
-          {badge && <span className="shrink-0 rounded-full bg-accent px-1.5 text-[10px] leading-4 font-bold text-white uppercase">{badge}</span>}
+      {detail && <p className="truncate font-mono text-[11px] text-ink-3">{detail}</p>}
+      {badges.length > 0 && (
+        <p className="mt-1 flex flex-wrap gap-1">
+          {badges.map(({ text, upcoming }) => (
+            <span
+              key={text}
+              className={`rounded-full px-1.5 text-[10px] leading-4 font-bold ${upcoming ? "border border-accent text-accent" : "bg-accent text-white"}`}
+            >
+              {text}
+            </span>
+          ))}
         </p>
       )}
     </div>

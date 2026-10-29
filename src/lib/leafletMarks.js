@@ -1,30 +1,52 @@
 import { sameArticleCodes } from "./ean.js";
-import { samePrice } from "./format.js";
+import { formatPrice } from "./format.js";
+import { addDays, formatDate } from "./listFormat.js";
 
-// "Liflet" on a trebovanje item: the article was on a promo leaflet on the
-// trebovanje's date and the item's price is that leaflet's price (an item
-// added before the promo price was written keeps its regular price and no
-// mark). Same article = any of its codes, as for duplicates. Only reads the
-// leaflet tables; if they can't be read, the trebovanje shows unmarked.
+// The promo leaflets a trebovanje item is on, for buying in ahead: every
+// leaflet running on the trebovanje's date, and every one starting within
+// UPCOMING_DAYS after it (upcoming: "USKORO") — an old trebovanje shows what
+// ran and what was coming then, not later months. Running ones first, then
+// by start. Same article = any of its codes, one entry per leaflet. Only
+// reads the leaflet tables; if they can't be read, the items have none.
+const UPCOMING_DAYS = 14;
+
+const entriesFor = (item, leaflets, promo, dateIso) => {
+  if (!item.barcode) return [];
+  const codes = sameArticleCodes(item.barcode);
+  return leaflets
+    .map((leaflet) => {
+      const found = promo.find((p) => p.leafletId === leaflet.id && codes.includes(p.barcode));
+      return found && { leafletId: leaflet.id, promoPrice: found.promoPrice, dateFrom: leaflet.dateFrom, dateTo: leaflet.dateTo, upcoming: leaflet.dateFrom > dateIso };
+    })
+    .filter(Boolean)
+    .sort((a, b) => Number(a.upcoming) - Number(b.upcoming) || a.dateFrom.localeCompare(b.dateFrom));
+};
+
 export const withLeafletMarks = async (store, dateIso, items) => {
-  const unmarked = items.map((item) => ({ ...item, onLeaflet: false }));
-  const priced = items.filter((item) => item.barcode && item.price !== null && item.price !== undefined);
-  if (priced.length === 0) return unmarked;
+  const none = items.map((item) => ({ ...item, leaflets: [], onLeaflet: false }));
+  const coded = items.filter((item) => item.barcode);
+  if (coded.length === 0) return none;
   try {
-    const leaflets = await store.leafletsOn(dateIso);
-    if (leaflets.length === 0) return unmarked;
+    const leaflets = await store.leafletsBetween(dateIso, addDays(dateIso, UPCOMING_DAYS));
+    if (leaflets.length === 0) return none;
     const promo = await store.leafletItems(
       leaflets.map((l) => l.id),
-      [...new Set(priced.flatMap((item) => sameArticleCodes(item.barcode)))]
+      [...new Set(coded.flatMap((item) => sameArticleCodes(item.barcode)))]
     );
-    const onLeaflet = (item) => {
-      if (!item.barcode) return false;
-      const codes = sameArticleCodes(item.barcode);
-      return promo.some((p) => codes.includes(p.barcode) && samePrice(p.promoPrice, item.price));
-    };
-    return items.map((item) => ({ ...item, onLeaflet: onLeaflet(item) }));
+    return items.map((item) => {
+      const found = entriesFor(item, leaflets, promo, dateIso);
+      return { ...item, leaflets: found, onLeaflet: found.length > 0 };
+    });
   } catch (e) {
     console.error("leaflet marks failed", e);
-    return unmarked;
+    return none;
   }
 };
+
+const day = (iso) => formatDate(iso).slice(0, 6); // "31.10."
+
+// "Liflet 99,99 do 31.10." / "Liflet 89,99 · USKORO od 01.11."
+export const leafletBadgeText = ({ promoPrice, dateFrom, dateTo, upcoming }) =>
+  upcoming ? `Liflet ${formatPrice(promoPrice)} · USKORO od ${day(dateFrom)}` : `Liflet ${formatPrice(promoPrice)} do ${day(dateTo)}`;
+
+export const leafletDateText = ({ dateFrom, dateTo, upcoming }) => (upcoming ? `od ${day(dateFrom)} do ${day(dateTo)}` : `do ${day(dateTo)}`);

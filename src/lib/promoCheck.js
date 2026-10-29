@@ -1,6 +1,6 @@
 import { sameArticleCodes } from "./ean.js";
 import { formatPrice, samePrice } from "./format.js";
-import { formatDate } from "./listFormat.js";
+import { addDays, formatDate } from "./listFormat.js";
 
 // The morning check (api/promo-check.js, Vercel Cron, early morning in
 // Belgrade). Over the leaflets whose regular prices haven't come back yet:
@@ -15,10 +15,7 @@ import { formatDate } from "./listFormat.js";
 export const belgradeToday = (now = new Date()) =>
   new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Belgrade", year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
 
-export const addDays = (iso, n) => {
-  const [y, m, d] = iso.split("-").map(Number);
-  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10);
-};
+export { addDays };
 
 const day = (iso) => `${formatDate(iso)}.`;
 const period = (leaflet) => `${day(leaflet.dateFrom)} – ${day(leaflet.dateTo)}`;

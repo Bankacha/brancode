@@ -259,7 +259,7 @@ export default function ListDetail({ screen }) {
             key={item.id}
             name={item.name}
             detail={screen.detail(item)}
-            badge={screen.badge?.(item)}
+            badges={screen.badges?.(item)}
             quantity={item.quantity === null ? null : formatQuantity(item.quantity)}
             onLongPress={() => edit(item)}
             onRemove={() => remove(item)}
