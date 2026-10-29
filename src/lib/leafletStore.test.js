@@ -85,4 +85,17 @@ describe("leaflet store", () => {
     expect(client.calls[0].steps).toContainEqual(["order", "leaflet_id"]);
     expect(client.calls[0].steps).toContainEqual(["order", "barcode"]);
   });
+
+  it("reads the leaflets whose period touches a range of days", async () => {
+    const client = fakeClient({ data: [leafletRow], error: null });
+    await createLeafletStore(client).leafletsBetween("2026-10-27", "2026-11-10");
+    expect(client.calls[0].steps).toContainEqual(["lte", "date_from", "2026-11-10"]);
+    expect(client.calls[0].steps).toContainEqual(["gte", "date_to", "2026-10-27"]);
+  });
+
+  it("can move a leaflet's dates", async () => {
+    const client = fakeClient({ data: null, error: null });
+    await createLeafletStore(client).markLeaflet("L1", { dateFrom: "2026-09-26", dateTo: "2026-11-02" });
+    expect(client.calls[0].steps[0]).toEqual(["update", { date_from: "2026-09-26", date_to: "2026-11-02" }]);
+  });
 });

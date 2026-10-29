@@ -42,6 +42,10 @@ export const fakeLeafletStore = ({ leaflets = [], items = [], products = [] } = 
       guard("leafletsOn");
       return copy(db.leaflets.filter((l) => l.dateFrom <= dateIso && dateIso <= l.dateTo));
     },
+    async leafletsBetween(fromIso, toIso) {
+      guard("leafletsBetween");
+      return copy(db.leaflets.filter((l) => l.dateFrom <= toIso && fromIso <= l.dateTo));
+    },
     async leafletItems(leafletIds, barcodes) {
       guard("leafletItems");
       return copy(db.items.filter((i) => leafletIds.includes(i.leafletId) && (!barcodes || barcodes.includes(i.barcode))));

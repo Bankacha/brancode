@@ -39,6 +39,8 @@ const toItem = (row) => ({
 });
 
 const LEAFLET_COLUMNS = {
+  dateFrom: "date_from",
+  dateTo: "date_to",
   pricesAppliedAt: "prices_applied_at",
   pricesRestoredAt: "prices_restored_at",
   remindedTomorrowAt: "reminded_tomorrow_at",
@@ -74,6 +76,11 @@ export const createLeafletStore = (client) => {
 
     async leafletsOn(dateIso) {
       return check(await client.from("promo_leaflets").select("*").lte("date_from", dateIso).gte("date_to", dateIso)).map(toLeaflet);
+    },
+
+    // Leaflets running on any day from fromIso to toIso.
+    async leafletsBetween(fromIso, toIso) {
+      return check(await client.from("promo_leaflets").select("*").lte("date_from", toIso).gte("date_to", fromIso)).map(toLeaflet);
     },
 
     async leafletItems(leafletIds, barcodes) {

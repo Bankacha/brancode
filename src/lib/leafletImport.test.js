@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { importLeaflet } from "./leafletImport.js";
+import { findSameLeaflet, importLeaflet } from "./leafletImport.js";
 import { fakeLeafletStore } from "../test/fakeLeafletStore.js";
 
 const NOW = new Date("2026-09-26T08:00:00Z");
@@ -75,5 +75,63 @@ describe("importLeaflet", () => {
     const store = fakeLeafletStore({ products: [{ ...bueno, name: null }] });
     await importLeaflet(store, { ...leaflet, matches: [{ ...matches[0], existing: { ...bueno, name: null } }] }, "2026-09-26", NOW);
     expect(itemOf(store, "8005276").name).toBe("KINDER BUENO 43G");
+  });
+});
+
+describe("findSameLeaflet", () => {
+  // the open leaflet "Jutro Liflet Avg" 25.09.–31.10. with five articles
+  const codes = ["8600000000017", "8600000000024", "8600000000031", "8600000000048", "8600000000055"];
+  const open = () =>
+    fakeLeafletStore({
+      leaflets: [{ id: "L1", name: "Jutro Liflet Avg", dateFrom: "2026-09-25", dateTo: "2026-10-31", pricesAppliedAt: "x" }],
+      items: codes.map((barcode) => ({ leafletId: "L1", barcode, name: barcode, promoPrice: 1, regularPrice: 2 })),
+    });
+  const article = (barcode) => ({ ean: barcode, name: barcode, price: 1, existing: { barcode, name: barcode, price: 2 } });
+  const newLeaflet = (fields) => ({ name: "Novembar", dateFrom: "2026-10-25", dateTo: "2026-11-30", matches: codes.map(article), ...fields });
+
+  it("finds the open leaflet with the same name that overlaps", async () => {
+    expect((await findSameLeaflet(open(), newLeaflet({ name: " jutro liflet avg ", matches: [article("1")] })))?.id).toBe("L1");
+  });
+
+  it("finds an overlapping leaflet with most of the same articles under another name", async () => {
+    const matches = [...codes.slice(0, 4).map(article), article("8600000000062")];
+    expect((await findSameLeaflet(open(), newLeaflet({ matches })))?.id).toBe("L1");
+  });
+
+  it("doesn't ask for a new leaflet imported early with few of the same articles", async () => {
+    const matches = [article(codes[0]), ...["8600000000062", "8600000000079", "8600000000086", "8600000000093"].map(article)];
+    expect(await findSameLeaflet(open(), newLeaflet({ matches }))).toBeNull();
+  });
+
+  it("doesn't ask when the periods don't overlap", async () => {
+    expect(await findSameLeaflet(open(), newLeaflet({ name: "Jutro Liflet Avg", dateFrom: "2026-11-01" }))).toBeNull();
+  });
+
+  it("doesn't ask for the same name and the same dates, which is just the same import again", async () => {
+    expect(await findSameLeaflet(open(), newLeaflet({ name: "Jutro Liflet Avg", dateFrom: "2026-09-25", dateTo: "2026-10-31" }))).toBeNull();
+  });
+});
+
+describe("importLeaflet onto a leaflet with corrected dates", () => {
+  const store = (reminded) =>
+    fakeLeafletStore({
+      leaflets: [{ id: "L1", name: "Jutro Liflet Avg", dateFrom: "2026-09-25", dateTo: "2026-10-31", pricesAppliedAt: "x", remindedTomorrowAt: reminded, remindedTodayAt: reminded }],
+      items: [{ leafletId: "L1", barcode: "8005276", name: "KINDER BUENO", promoPrice: 99.99, regularPrice: 129.99 }],
+      products: [{ ...bueno, price: 99.99 }],
+    });
+
+  it("moves the existing leaflet to the new dates and asks again for the reminders of a new end", async () => {
+    const s = store("2026-10-30T05:00:00Z");
+    await importLeaflet(s, { name: "Jutro Liflet Avg", dateFrom: "2026-09-25", dateTo: "2026-11-02", matches: [{ ...matches[0], existing: { ...bueno, price: 99.99 } }], replaceId: "L1" }, "2026-10-28", NOW);
+    expect(s.db.leaflets).toHaveLength(1);
+    expect(s.db.leaflets[0]).toMatchObject({ dateFrom: "2026-09-25", dateTo: "2026-11-02", remindedTomorrowAt: null, remindedTodayAt: null });
+    expect(s.db.items).toHaveLength(1);
+    expect(s.db.items[0].regularPrice).toBe(129.99);
+  });
+
+  it("keeps the reminders when only the start was corrected", async () => {
+    const s = store("2026-10-30T05:00:00Z");
+    await importLeaflet(s, { name: "Jutro Liflet Avg", dateFrom: "2026-09-26", dateTo: "2026-10-31", matches: [{ ...matches[0], existing: { ...bueno, price: 99.99 } }], replaceId: "L1" }, "2026-10-28", NOW);
+    expect(s.db.leaflets[0]).toMatchObject({ dateFrom: "2026-09-26", remindedTomorrowAt: "2026-10-30T05:00:00Z" });
   });
 });
