@@ -2,12 +2,20 @@
 
 Jedno mesto za sitnice koje su pregledi koda našli, a nisu popravljene pre puštanja, i za stvari koje čekaju odluku ili proveru u radnji. Kad se nešto sredi, briše se odavde (istorija ostaje u git-u). Svako novo puštanje dopisuje svoje repove ovde, ne samo u izveštaj.
 
-Stanje: 29.10.2026, posle 0.13.0. Ostale su dve sitnice iz pregleda 0.12.2 i ono što čeka tebe ili proveru u radnji.
+Stanje: 29.10.2026, posle 0.13.0. Ostale su sitnice iz pregleda 0.12.2 i 0.13.0 i ono što čeka tebe ili proveru u radnji.
 
 ## Sitnice iz pregleda 0.12.2 (za sledeće sređivanje)
 
 1. Ako bi kutija za datum ikad bila široka 0 mm, canvas vraća prazan PNG umesto „nema slike“. Danas to nije moguće, jer je kutija uvek bar onolika kolike su decimale. Popravka je jedna provera.
 2. Kvadratić u PDF-u trebovanja izlazi 1 pt preko unutrašnje margine ćelije. Na papiru se ne vidi, a tako je bilo i ranije.
+
+## Sitnice iz pregleda 0.13.0 (za sledeće sređivanje)
+
+1. „Da, ispravi datume“ menja samo datume, a naziv lifleta ostaje stari. Kad je liflet prepoznat po artiklima, a ne po nazivu (npr. ranije uvezen pod imenom fajla), zapis i mejlovi podsetnici zadržavaju stari naziv. Popravka: upisati i novi naziv, uz proveru da isti naziv sa tim datumima već ne postoji.
+2. Posle „Da“, kad su akcijske cene već upisane, a početak je pomeren na kasniji dan, poruka kaže „Akcijske cene od dd.mm.“, iako su cene već u bazi i tamo ostaju.
+3. Dve oznake lifleta sa istim tekstom u istom redu trebovanja (dupli zapis u bazi) daju React upozorenje o istom ključu. Prikaz je ispravan. Ključ treba da bude `leafletId`.
+4. `promoCheck.js` i dalje izvozi `addDays`, a niko ga odatle ne uvozi (sada je u `listFormat.js`).
+5. Uvoz lifleta tri puta čita otvorene liflete iz baze. Pri ovoj veličini tabele to se ne oseća.
 
 ## Treba tvoja odluka, podešavanje ili provera u radnji
 

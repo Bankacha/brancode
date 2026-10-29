@@ -9,13 +9,18 @@ import { sameArticleCodes } from "./ean.js";
 // The leaflet a new import may be with corrected dates: an open one whose
 // period overlaps the new one and that has the same name or at least
 // SAME_SHARE of the new leaflet's articles in the database. An exact repeat
-// (same name and dates) is just imported again and isn't asked about.
+// (same name and dates) is just imported again and isn't asked about, and a
+// leaflet whose name another record already holds with the new dates can't
+// take them (name + dates are unique).
 const SAME_SHARE = 0.8;
 const sameName = (a, b) => a.trim().toLocaleLowerCase("sr") === b.trim().toLocaleLowerCase("sr");
 
 export const findSameLeaflet = async (store, { name, dateFrom, dateTo, matches }) => {
-  const candidates = (await store.openLeaflets()).filter(
-    (l) => l.dateFrom <= dateTo && dateFrom <= l.dateTo && !(sameName(l.name, name) && l.dateFrom === dateFrom && l.dateTo === dateTo)
+  const overlapping = await store.leafletsBetween(dateFrom, dateTo);
+  const hasNewDates = (l) => l.dateFrom === dateFrom && l.dateTo === dateTo;
+  if (overlapping.some((l) => sameName(l.name, name) && hasNewDates(l))) return null;
+  const candidates = overlapping.filter(
+    (l) => !l.pricesRestoredAt && !overlapping.some((other) => other.id !== l.id && other.name === l.name && hasNewDates(other))
   );
   if (candidates.length === 0) return null;
   const barcodes = [...new Set(matches.filter((m) => m.existing).map((m) => m.existing.barcode))];

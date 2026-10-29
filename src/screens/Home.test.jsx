@@ -174,6 +174,22 @@ describe("Home", () => {
     expect(vi.mocked(importLeaflet).mock.calls[0][1]).toMatchObject({ dateFrom: "2026-09-25", dateTo: "2099-11-02", replaceId: "L1" });
   });
 
+  it("asks again with the dates as changed after the question", async () => {
+    const rows = [{ ean: "8600000000017", name: "A", price: 1 }];
+    vi.mocked(parseLeafletPdf).mockResolvedValueOnce({ rows, period: { name: "Jutro Liflet Avg", dateFrom: "2026-09-25", dateTo: "2099-11-02" } });
+    vi.mocked(findSameLeaflet).mockResolvedValueOnce({ id: "L1", name: "Jutro Liflet Avg", dateFrom: "2026-09-25", dateTo: "2099-10-31" });
+    vi.mocked(findSameLeaflet).mockClear();
+    const { container } = render(<Harness initial={[]} />);
+    fireEvent.change(container.querySelector('input[type="file"]'), { target: { files: [{ name: "liflet.pdf", arrayBuffer: async () => new ArrayBuffer(1) }] } });
+    fireEvent.click(await screen.findByRole("button", { name: "Uvezi u listu" }));
+    await screen.findByRole("button", { name: "Da, ispravi datume" });
+    fireEvent.change(screen.getByLabelText("Akcija do"), { target: { value: "2099-11-05" } });
+    expect(screen.queryByRole("button", { name: "Da, ispravi datume" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Uvezi u listu" }));
+    await waitFor(() => expect(findSameLeaflet).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(findSameLeaflet).mock.calls[1][1]).toMatchObject({ dateFrom: "2026-09-25", dateTo: "2099-11-05" });
+  });
+
   it("imports at once when no leaflet looks the same", async () => {
     const rows = [{ ean: "8600000000017", name: "A", price: 1 }];
     vi.mocked(parseLeafletPdf).mockResolvedValueOnce({ rows, period: { name: "Novembar", dateFrom: "2026-11-01", dateTo: "2099-11-30" } });

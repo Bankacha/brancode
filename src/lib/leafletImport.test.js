@@ -110,6 +110,24 @@ describe("findSameLeaflet", () => {
   it("doesn't ask for the same name and the same dates, which is just the same import again", async () => {
     expect(await findSameLeaflet(open(), newLeaflet({ name: "Jutro Liflet Avg", dateFrom: "2026-09-25", dateTo: "2026-10-31" }))).toBeNull();
   });
+
+  // Records from before 0.13.0: the same leaflet saved twice, the second time with corrected dates.
+  const twice = (name) =>
+    fakeLeafletStore({
+      leaflets: [
+        { id: "L1", name, dateFrom: "2026-09-25", dateTo: "2026-10-31", pricesAppliedAt: "x" },
+        { id: "L2", name, dateFrom: "2026-09-25", dateTo: "2026-11-02", pricesAppliedAt: "x" },
+      ],
+      items: ["L1", "L2"].flatMap((leafletId) => codes.map((barcode) => ({ leafletId, barcode, name: barcode, promoPrice: 1, regularPrice: 2 }))),
+    });
+
+  it("doesn't ask when a record with the same name already has the new dates, which the import goes onto", async () => {
+    expect(await findSameLeaflet(twice("Jutro Liflet Avg"), newLeaflet({ name: "Jutro Liflet Avg", dateFrom: "2026-09-25", dateTo: "2026-11-02" }))).toBeNull();
+  });
+
+  it("never offers a leaflet whose name already has the new dates on another record", async () => {
+    expect((await findSameLeaflet(twice("liflet-okt"), newLeaflet({ dateFrom: "2026-09-25", dateTo: "2026-11-02" })))?.id).toBe("L2");
+  });
 });
 
 describe("importLeaflet onto a leaflet with corrected dates", () => {

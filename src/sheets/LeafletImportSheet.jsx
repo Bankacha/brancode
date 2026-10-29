@@ -29,12 +29,21 @@ const periodNote = ({ dateFrom, dateTo, found, today }) => {
 // The promotion's period comes from the PDF and can be corrected here.
 // sameLeaflet: an open leaflet this one may be with corrected dates
 // (findSameLeaflet); then the sheet asks before importing and onAnswer(isSame)
-// carries on.
-export default function LeafletImportSheet({ open, onClose, fileName, leafletName, matches, period, today, queueLength, saving, onConfirm, sameLeaflet = null, onAnswer }) {
+// carries on. The question was asked for the dates confirmed then, so
+// changing a date calls onPeriodChange to take it back.
+export default function LeafletImportSheet({ open, onClose, fileName, leafletName, matches, period, today, queueLength, saving, onConfirm, sameLeaflet = null, onAnswer, onPeriodChange }) {
   const n = matches.length;
   const inDb = matches.filter((m) => m.existing).length;
-  const [dateFrom, setDateFrom] = useState(period?.dateFrom ?? "");
-  const [dateTo, setDateTo] = useState(period?.dateTo ?? "");
+  const [dateFrom, setDateFromState] = useState(period?.dateFrom ?? "");
+  const [dateTo, setDateToState] = useState(period?.dateTo ?? "");
+  const setDateFrom = (value) => {
+    setDateFromState(value);
+    onPeriodChange?.();
+  };
+  const setDateTo = (value) => {
+    setDateToState(value);
+    onPeriodChange?.();
+  };
   const note = periodNote({ dateFrom, dateTo, found: Boolean(period), today });
   return (
     <BottomSheet open={open} onClose={onClose} dismissible={!saving}>

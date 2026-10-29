@@ -304,6 +304,7 @@ export default function Home({ queue, setQueue, editor }) {
           onConfirm={confirmLeaflet}
           sameLeaflet={sameLeaflet?.leaflet ?? null}
           onAnswer={answerSameLeaflet}
+          onPeriodChange={() => setSameLeaflet(null)}
         />
       )}
     </div>
