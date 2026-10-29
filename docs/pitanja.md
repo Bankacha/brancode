@@ -22,6 +22,18 @@ Odluke koje sam doneo sam dok smo radili meni, cene, popis i trebovanje, i tvoji
 - **Prijava:** ✅ pozdrav prati doba dana na telefonu: „Dobro jutro.“ od 5 do 11, „Dobar dan.“ od 11 do 18 i „Dobro veče.“ od 18 pa kroz noć do 5.
 - Sve ostalo ispod ostaje kako je urađeno.
 
+## 0.13.0 Kolona „Akcija“ na trebovanju, isti liflet pri uvozu (29.10.)
+
+Tvoje odluke: kolona „Akcija“ sa „Liflet <cena>“ i datumima, oznaka „USKORO“ za liflet koji nije počeo (varijanta B), pitanje pri uvozu da li je liflet isti sa ispravljenim datumima, i bez dugmeta za brisanje lifleta.
+
+Moje odluke:
+- **Koji lifleti se vide:** onaj koji važi na datum trebovanja i svaki koji počinje najviše 14 dana posle tog datuma. Radnja uvozi do 7 dana unapred, pa 14 ostavlja rezervu, a staro trebovanje iz arhive ne pokazuje liflete iz kasnijih meseci.
+- **Cena na stavci ne mora da bude liflet cena.** Ranije se „Liflet“ video samo kad je cena u bazi baš liflet cena, pa novi liflet nije mogao da se vidi pre početka.
+- **„USKORO“** je bela reč na crnoj podlozi, jer pdfmake ne crta okvir oko reči u redu. Tako se vidi i na crno-beloj štampi.
+- **Senčenje reda i podebljan naziv ostaju** za svaki red sa zapisom u koloni „Akcija“. Natpis „LIFLET“ iznad cene je uklonjen.
+- **U aplikaciji** svaki liflet je mala oznaka ispod reda: popunjena za liflet koji traje, uokvirena za „USKORO“.
+- **Isti liflet:** pita se kad otvoren liflet (cene mu još nisu vraćene), čiji se period preklapa sa novim, ima isti naziv ili bar 80% istih artikala iz baze. Ako se promeni datum kraja, podsetnici se šalju ponovo za novi kraj. Već upisane akcijske cene ostaju.
+
 ## 0.12.2 Datum ispod decimala, barkod do dna cene, trebovanje (28.10.)
 
 - **Datum akcije** na rafu i frižideru stoji ispod „,99“, u dva reda. Kod duge cene ide u tri reda i manji je, jer su i decimale uže. Na voću ostaje na vrhu.
