@@ -69,20 +69,53 @@ describe("requisitionPdfDefinition", () => {
     expect(mleko[4].canvas[0]).toMatchObject({ type: "rect" });
   });
 
-  it("marks a leaflet price clearly: a shaded row, a bold name and LIFLET over the price, without a new column", () => {
-    const t = table(requisitionPdfDefinition(trebovanje, [{ ...rows[0], onLeaflet: true }, rows[1]], new Date(2026, 9, 18, 9, 0)));
-    expect(t.body[0]).toHaveLength(5);
-    const [, mleko, hleb] = t.body;
-    expect(mleko[2]).toMatchObject({
-      stack: [
-        { text: "LIFLET", fontSize: 8, bold: true, alignment: "right" },
-        { text: "100,00", alignment: "right" },
-      ],
+  describe("with leaflets", () => {
+    const running = { leafletId: "L1", promoPrice: 99.99, dateFrom: "2026-09-25", dateTo: "2026-10-31", upcoming: false };
+    const upcoming = { leafletId: "L2", promoPrice: 89.99, dateFrom: "2026-11-01", dateTo: "2026-11-30", upcoming: true };
+    const withLeaflets = () =>
+      table(
+        requisitionPdfDefinition(
+          trebovanje,
+          [
+            { ...rows[0], onLeaflet: true, leaflets: [running] },
+            { ...rows[0], id: "c", name: "Jogurt", onLeaflet: true, leaflets: [running, upcoming] },
+            { ...rows[1], leaflets: [] },
+          ],
+          new Date(2026, 9, 18, 9, 0)
+        )
+      );
+    const texts = (cell) => cell.stack.map((entry) => entry.stack.map((line) => (Array.isArray(line.text) ? line.text.map((t) => t.text).join("") : line.text)));
+
+    it("adds an Akcija column with the leaflet price and until when it lasts", () => {
+      const t = withLeaflets();
+      expect(t.widths).toEqual(["*", 80, 50, 96, 44, 24]);
+      expect(t.body[0].map((cell) => cell.text)).toEqual(["Naziv", "Barkod", "Cena", "Akcija", "Količina", ""]);
+      expect(texts(t.body[1][3])).toEqual([["Liflet 99,99", "do 31.10."]]);
     });
-    expect(mleko[0]).toMatchObject({ text: "Mleko", bold: true });
-    expect(mleko.every((cell) => cell.fillColor === "#e4e4e4")).toBe(true);
-    expect(hleb[2]).toEqual({ text: "", alignment: "right" });
-    expect(hleb.some((cell) => cell?.fillColor)).toBe(false);
+
+    it("lists both leaflets, the upcoming one with a USKORO mark and its start", () => {
+      const cell = withLeaflets().body[2][3];
+      expect(texts(cell)).toEqual([
+        ["Liflet 99,99", "do 31.10."],
+        ["Liflet 89,99  USKORO ", "od 01.11. do 30.11."],
+      ]);
+      const marks = cell.stack.flatMap((entry) => entry.stack[0].text).filter((t) => t.background);
+      expect(marks).toEqual([expect.objectContaining({ text: " USKORO ", background: "#111111", color: "#ffffff" })]);
+    });
+
+    it("shades a leaflet row with a bold name and a plain price, without LIFLET over it", () => {
+      const [, mleko, , hleb] = withLeaflets().body;
+      expect(mleko[0]).toMatchObject({ text: "Mleko", bold: true, fillColor: "#e4e4e4" });
+      expect(mleko[2]).toEqual({ text: "100,00", alignment: "right", fillColor: "#e4e4e4" });
+      expect(hleb.some((cell) => cell?.fillColor)).toBe(false);
+      expect(hleb[3]).toEqual({ text: "" });
+    });
+  });
+
+  it("has no Akcija column when no article is on a leaflet", () => {
+    const t = table(def());
+    expect(t.widths).toEqual(["*", 88, 60, 52, 24]);
+    expect(t.body[0]).toHaveLength(5);
   });
 
   it("draws its own box on every row (pdfmake draws a shared canvas only once)", () => {

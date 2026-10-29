@@ -1,5 +1,6 @@
 import { formatPrice } from "./format.js";
 import { formatDate, formatQuantity, itemCount, todayIso } from "./listFormat.js";
+import { leafletDateText } from "./leafletMarks.js";
 
 // PDF exports of the lists (pdfmake). The document definitions are plain
 // data, tested on their own; pdfmake and its Roboto font (č ć š ž đ) load
@@ -47,30 +48,52 @@ export const inventoryPdfFilename = (inventory) => `popis-${formatDate(inventory
 const tickBox = () => ({ canvas: [{ type: "rect", x: 3, y: 0, w: 14, h: 14, lineWidth: 1, lineColor: "#333333" }], margin: [0, 1, 0, 2] });
 const orEmpty = (value, format) => (value === null || value === undefined ? "" : format(value));
 
-// A leaflet price stands out for the people buying in: the row is shaded, the
-// name bold and "LIFLET" sits over the amount — no extra column, so shops
-// without leaflets see no change.
+// For the people buying in, the leaflets an article is on (running, or
+// starting soon) stand out: the row is shaded and its name bold, and an
+// "Akcija" column lists each leaflet's price and dates, an upcoming one with
+// a dark "USKORO" mark. The column only appears when some article is on a
+// leaflet, so shops without leaflets see no change.
 const LEAFLET_SHADE = "#e4e4e4";
-const requisitionPrice = (item) => {
-  const price = right(orEmpty(item.price, formatPrice));
-  return item.onLeaflet ? { stack: [{ text: "LIFLET", fontSize: 8, bold: true, alignment: "right" }, price] } : price;
-};
-const requisitionRow = (item) => {
-  const cells = [item.name, item.barcode ?? "", requisitionPrice(item), right(orEmpty(item.quantity, formatQuantity)), tickBox()];
+const SOON_MARK = { text: " USKORO ", bold: true, fontSize: 7, color: "#ffffff", background: "#111111" };
+
+const leafletCell = (leaflets) =>
+  leaflets.length === 0
+    ? { text: "" }
+    : {
+        stack: leaflets.map((leaflet, i) => ({
+          stack: [
+            { text: [{ text: `Liflet ${formatPrice(leaflet.promoPrice)}`, bold: true }, ...(leaflet.upcoming ? [{ text: " " }, SOON_MARK] : [])], fontSize: 9 },
+            { text: leafletDateText(leaflet), fontSize: 8.5 },
+          ],
+          margin: [0, i === 0 ? 0 : 3, 0, 0],
+        })),
+      };
+
+const requisitionRow = (withColumn) => (item) => {
+  const cells = [
+    item.name,
+    item.barcode ?? "",
+    right(orEmpty(item.price, formatPrice)),
+    ...(withColumn ? [leafletCell(item.leaflets ?? [])] : []),
+    right(orEmpty(item.quantity, formatQuantity)),
+    tickBox(),
+  ];
   if (!item.onLeaflet) return cells;
   const shaded = cells.map((cell) => ({ ...(typeof cell === "string" ? { text: cell } : cell), fillColor: LEAFLET_SHADE }));
   shaded[0].bold = true;
   return shaded;
 };
 
-export const requisitionPdfDefinition = (requisition, items, now = new Date()) =>
-  tableDocument({
+export const requisitionPdfDefinition = (requisition, items, now = new Date()) => {
+  const withColumn = items.some((item) => item.leaflets?.length > 0);
+  return tableDocument({
     title: requisition.title.trim() ? `Trebovanje · ${requisition.title.trim()}` : "Trebovanje",
     lines: [`Datum: ${formatDate(requisition.date)}`, `Izrađeno ${formatDate(todayIso(now))} · ${itemCount(items.length)}`],
-    widths: ["*", 88, 60, 52, 24],
-    head: [["Naziv"], ["Barkod"], ["Cena", "right"], ["Količina", "right"], [""]],
-    rows: items.map(requisitionRow),
+    widths: withColumn ? ["*", 80, 50, 96, 44, 24] : ["*", 88, 60, 52, 24],
+    head: [["Naziv"], ["Barkod"], ["Cena", "right"], ...(withColumn ? [["Akcija"]] : []), ["Količina", "right"], [""]],
+    rows: items.map(requisitionRow(withColumn)),
   });
+};
 
 export const requisitionPdfFilename = (requisition) => `trebovanje-${formatDate(requisition.date)}.pdf`;
 

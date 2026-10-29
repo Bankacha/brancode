@@ -11,8 +11,22 @@ vi.mock("../lib/requisitions.js", async (importOriginal) => ({
   requisitionStore: { get: vi.fn(), items: vi.fn(), list: vi.fn(), update: vi.fn(), removeItem: vi.fn(), restoreItem: vi.fn(), updateItem: vi.fn(), findItem: vi.fn(), addItem: vi.fn(), addQuantity: vi.fn() },
 }));
 vi.mock("../lib/products.js", () => ({ lookupArticle: vi.fn() }));
-vi.mock("../lib/leafletMarks.js", () => ({
-  withLeafletMarks: vi.fn(async (_store, _date, list) => list.map((item) => ({ ...item, onLeaflet: item.id === "a" }))),
+vi.mock("../lib/leafletMarks.js", async (importOriginal) => ({
+  ...(await importOriginal()),
+  withLeafletMarks: vi.fn(async (_store, _date, list) =>
+    list.map((item) =>
+      item.id === "a"
+        ? {
+            ...item,
+            onLeaflet: true,
+            leaflets: [
+              { leafletId: "L1", promoPrice: 99.99, dateFrom: "2026-09-25", dateTo: "2026-10-31", upcoming: false },
+              { leafletId: "L2", promoPrice: 89.99, dateFrom: "2026-11-01", dateTo: "2026-11-30", upcoming: true },
+            ],
+          }
+        : { ...item, onLeaflet: false, leaflets: [] }
+    )
+  ),
 }));
 
 export const trebovanje = { id: "t1", title: "Pekara", date: "2026-10-18", createdAt: "x" };
@@ -50,11 +64,13 @@ describe("Requisition", () => {
     expect(hleb.textContent).toBe("Hleb za sendviče");
   });
 
-  it("marks the price that is the leaflet price", async () => {
+  it("shows every leaflet an article is on, the upcoming one marked USKORO", async () => {
     setup();
     await screen.findByText("Pekara 18.10.2026");
-    expect(within(screen.getByText("MAJONEZ 175").closest("li")).getByText("Liflet")).toBeTruthy();
-    expect(within(screen.getByText("Hleb za sendviče").closest("li")).queryByText("Liflet")).toBeNull();
+    const majonez = within(screen.getByText("MAJONEZ 175").closest("li"));
+    expect(majonez.getByText("Liflet 99,99 do 31.10.")).toBeTruthy();
+    expect(majonez.getByText("Liflet 89,99 · USKORO od 01.11.")).toBeTruthy();
+    expect(within(screen.getByText("Hleb za sendviče").closest("li")).queryByText(/Liflet/)).toBeNull();
   });
 
   it("goes back to the list of trebovanja when this one no longer exists", async () => {

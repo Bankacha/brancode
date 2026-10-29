@@ -11,6 +11,12 @@ export const formatDate = (iso) => {
 const isoOf = (date) =>
   [date.getFullYear(), String(date.getMonth() + 1).padStart(2, "0"), String(date.getDate()).padStart(2, "0")].join("-");
 
+// An ISO date n days later (n may be negative).
+export const addDays = (iso, n) => {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10);
+};
+
 // Local time: late in the evening it's still today in the shop.
 export const todayIso = (now = new Date()) => isoOf(now);
 export const monthStartIso = (now = new Date()) => isoOf(new Date(now.getFullYear(), now.getMonth(), 1));

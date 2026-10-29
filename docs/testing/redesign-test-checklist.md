@@ -116,7 +116,7 @@ Ovo nije provereno na pravom telefonu i papiru, pa ostaje za zajednički test. �
 - [ ] Cenovnik (raf, frižider, voće): sitno „Akcija važi do dd.mm.yyyy.“ između naziva i cifre, ne dira cifru; na frižideru se vidi i kad je cenovnik u držaču; broj cenovnika po strani je isti.
 - [ ] Mejl „Akcija ističe sutra“ stiže dan pre kraja, „Akcija ističe danas“ na dan kraja, svaki samo jednom, sa spiskom artikala.
 - [ ] Jutro posle kraja: redovne cene su vraćene u bazu; artikal kome je cena ručno menjana tokom akcije ostaje i stiže mejl „Redovne cene vraćene“ sa njim.
-- [ ] Trebovanje sa artiklom sa lifleta (datum u periodu akcije, cena iz baze): pločica „Liflet“ u redu i „LIFLET“ iznad cene u PDF-u; posle akcije (novo trebovanje) je nema.
+- [ ] Trebovanje sa artiklom sa lifleta (datum u periodu akcije): oznaka „Liflet <cena> do dd.mm.“ u redu i zapis u koloni „Akcija“ u PDF-u (od 0.13.0); posle akcije (novo trebovanje) ga nema.
 
 ## 2d. Mix štampa (0.12.0)
 
@@ -133,7 +133,15 @@ Ovo nije provereno na pravom telefonu i papiru, pa ostaje za zajednički test. �
 
 - [ ] Raf i frižider sa akcijom: „Akcija važi do / datum“ ispod „,99“; duga cena daje tri sitnija reda; ništa ne dodiruje cifre ni barkod.
 - [ ] Uspravni barkod se završava u liniji dna cene; ceo se vidi u držaču na frižideru; telefon ga skenira.
-- [ ] Trebovanje PDF: red sa liflet cenom je osenčen, naziv podebljan, „LIFLET“ iznad cene; svaki red ima veći kvadratić.
+- [ ] Trebovanje PDF: svaki red ima veći kvadratić.
+
+## 2f. Kolona „Akcija“ i isti liflet (0.13.0)
+
+- [ ] Uvezi novi liflet dok stari još traje: prozor ne pita ništa (drugi naziv, drugi artikli) i nastaje novi liflet.
+- [ ] Uvezi isti liflet sa ispravljenim datumom: prozor pita „Da li je ovo isti liflet sa ispravljenim datumima?“. „Da, ispravi datume“ menja datume postojećem (u Supabase-u nema drugog zapisa), „Ne, ovo je novi liflet“ pravi novi.
+- [ ] Trebovanje dok se dva lifleta preklapaju: artikal sa starog lifleta ima oznaku „Liflet 99,99 do 31.10.“, artikal sa novog „Liflet 89,99 · USKORO od 01.11.“, artikal na oba ima dve oznake.
+- [ ] Trebovanje PDF: kolona „Akcija“ između „Cena“ i „Količina“, „Liflet <cena>“ podebljano, „USKORO“ na crnoj podlozi za liflet koji nije počeo, datumi ispod; red je osenčen, naziv podebljan.
+- [ ] Trebovanje bez ijednog artikla na lifletu: PDF bez kolone „Akcija“, kao ranije.
 
 ## 3. Štampa
 

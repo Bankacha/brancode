@@ -1,48 +1,74 @@
 import { describe, it, expect, vi } from "vitest";
-import { withLeafletMarks } from "./leafletMarks.js";
+import { leafletBadgeText, withLeafletMarks } from "./leafletMarks.js";
 import { fakeLeafletStore } from "../test/fakeLeafletStore.js";
 
+// Trebovanje of 27.10.: L1 runs (25.09.–31.10.), L2 starts in five days
+// (01.11.–30.11.), L3 too late (20.11.–30.11.), L0 is over (01.09.–24.09.).
 const store = () =>
   fakeLeafletStore({
-    leaflets: [{ id: "L1", name: "Jutro Liflet Avg", dateFrom: "2026-09-25", dateTo: "2026-10-31", pricesAppliedAt: "x" }],
+    leaflets: [
+      { id: "L0", name: "Avg", dateFrom: "2026-09-01", dateTo: "2026-09-24", pricesAppliedAt: "x" },
+      { id: "L1", name: "Jutro Liflet Avg", dateFrom: "2026-09-25", dateTo: "2026-10-31", pricesAppliedAt: "x" },
+      { id: "L2", name: "Novembar", dateFrom: "2026-11-01", dateTo: "2026-11-30" },
+      { id: "L3", name: "Kasni", dateFrom: "2026-11-20", dateTo: "2026-11-30" },
+    ],
     items: [
+      { leafletId: "L0", barcode: "8005276", name: "KINDER BUENO", promoPrice: 89.99, regularPrice: 129.99 },
       { leafletId: "L1", barcode: "8005276", name: "KINDER BUENO", promoPrice: 99.99, regularPrice: 129.99 },
       { leafletId: "L1", barcode: "860000500012", name: "MAJONEZ", promoPrice: 84.99, regularPrice: 99.99 },
+      { leafletId: "L2", barcode: "8600005000122", name: "MAJONEZ", promoPrice: 79.99, regularPrice: 99.99 },
+      { leafletId: "L2", barcode: "8606107654321", name: "JOGURT", promoPrice: 169.99, regularPrice: 189.99 },
+      { leafletId: "L3", barcode: "8600939000001", name: "MLEKO", promoPrice: 99.99, regularPrice: 129.99 },
     ],
   });
-const marks = async (items, date = "2026-10-18", s = store()) => (await withLeafletMarks(s, date, items)).map((i) => i.onLeaflet);
+const marked = async (item, date = "2026-10-27", s = store()) => (await withLeafletMarks(s, date, [{ id: "a", name: "A", price: 1, ...item }]))[0];
 
 describe("withLeafletMarks", () => {
-  it("marks an article whose price is the leaflet price on the trebovanje's date", async () => {
-    expect(await marks([{ id: "a", barcode: "80052760", name: "KINDER BUENO", price: 99.99 }])).toEqual([true]);
+  it("lists a running leaflet, whatever price the item has", async () => {
+    const item = await marked({ barcode: "80052760", price: 129.99 });
+    expect(item.leaflets).toEqual([{ leafletId: "L1", promoPrice: 99.99, dateFrom: "2026-09-25", dateTo: "2026-10-31", upcoming: false }]);
+    expect(item.onLeaflet).toBe(true);
   });
 
-  it("doesn't mark it outside the promotion", async () => {
-    expect(await marks([{ id: "a", barcode: "80052760", name: "KINDER BUENO", price: 99.99 }], "2026-11-01")).toEqual([false]);
+  it("lists a leaflet that starts within 14 days as upcoming", async () => {
+    expect((await marked({ barcode: "8606107654321" })).leaflets).toEqual([
+      { leafletId: "L2", promoPrice: 169.99, dateFrom: "2026-11-01", dateTo: "2026-11-30", upcoming: true },
+    ]);
   });
 
-  it("doesn't mark a price that isn't the leaflet price", async () => {
-    expect(await marks([{ id: "a", barcode: "80052760", name: "KINDER BUENO", price: 129.99 }])).toEqual([false]);
+  it("lists both leaflets of an article on both, the running one first, once each whatever code they stored", async () => {
+    const item = await marked({ barcode: "8600005000122" });
+    expect(item.leaflets.map((l) => [l.leafletId, l.upcoming])).toEqual([
+      ["L1", false],
+      ["L2", true],
+    ]);
   });
 
-  it("finds a 13-digit item on a leaflet that stored 12 digits", async () => {
-    expect(await marks([{ id: "a", barcode: "8600005000122", name: "MAJONEZ", price: 84.99 }])).toEqual([true]);
+  it("leaves out leaflets starting more than 14 days after the trebovanje, and those already over", async () => {
+    expect((await marked({ barcode: "8600939000001" })).leaflets).toEqual([]);
+    expect((await marked({ barcode: "80052760" }, "2026-10-27")).leaflets.map((l) => l.leafletId)).toEqual(["L1"]);
   });
 
-  it("never marks an item without a barcode or a price", async () => {
-    expect(
-      await marks([
-        { id: "a", barcode: null, name: "Hleb", price: 99.99 },
-        { id: "b", barcode: "80052760", name: "KINDER BUENO", price: null },
-      ])
-    ).toEqual([false, false]);
+  it("has no leaflets for an item without a barcode", async () => {
+    const item = await marked({ barcode: null });
+    expect(item.leaflets).toEqual([]);
+    expect(item.onLeaflet).toBe(false);
   });
 
-  it("shows the trebovanje unmarked when the leaflets can't be read", async () => {
+  it("shows the trebovanje without leaflets when they can't be read", async () => {
     const s = store();
-    s.failNext("leafletsOn");
+    s.failNext("leafletsBetween");
     vi.spyOn(console, "error").mockImplementation(() => {});
-    const items = [{ id: "a", barcode: "80052760", name: "KINDER BUENO", price: 99.99 }];
-    expect(await withLeafletMarks(s, "2026-10-18", items)).toEqual([{ ...items[0], onLeaflet: false }]);
+    expect((await marked({ barcode: "80052760" }, "2026-10-27", s)).leaflets).toEqual([]);
+  });
+});
+
+describe("leafletBadgeText", () => {
+  it("says until when a running leaflet lasts", () => {
+    expect(leafletBadgeText({ promoPrice: 99.99, dateFrom: "2026-09-25", dateTo: "2026-10-31", upcoming: false })).toBe("Liflet 99,99 do 31.10.");
+  });
+
+  it("says when an upcoming one starts", () => {
+    expect(leafletBadgeText({ promoPrice: 89.99, dateFrom: "2026-11-01", dateTo: "2026-11-30", upcoming: true })).toBe("Liflet 89,99 · USKORO od 01.11.");
   });
 });

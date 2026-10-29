@@ -27,11 +27,23 @@ const periodNote = ({ dateFrom, dateTo, found, today }) => {
 
 // Handoff "07 · Uvoz akcijskog lifleta", shown once the PDF has been read.
 // The promotion's period comes from the PDF and can be corrected here.
-export default function LeafletImportSheet({ open, onClose, fileName, leafletName, matches, period, today, queueLength, saving, onConfirm }) {
+// sameLeaflet: an open leaflet this one may be with corrected dates
+// (findSameLeaflet); then the sheet asks before importing and onAnswer(isSame)
+// carries on. The question was asked for the dates confirmed then, so
+// changing a date calls onPeriodChange to take it back.
+export default function LeafletImportSheet({ open, onClose, fileName, leafletName, matches, period, today, queueLength, saving, onConfirm, sameLeaflet = null, onAnswer, onPeriodChange }) {
   const n = matches.length;
   const inDb = matches.filter((m) => m.existing).length;
-  const [dateFrom, setDateFrom] = useState(period?.dateFrom ?? "");
-  const [dateTo, setDateTo] = useState(period?.dateTo ?? "");
+  const [dateFrom, setDateFromState] = useState(period?.dateFrom ?? "");
+  const [dateTo, setDateToState] = useState(period?.dateTo ?? "");
+  const setDateFrom = (value) => {
+    setDateFromState(value);
+    onPeriodChange?.();
+  };
+  const setDateTo = (value) => {
+    setDateToState(value);
+    onPeriodChange?.();
+  };
   const note = periodNote({ dateFrom, dateTo, found: Boolean(period), today });
   return (
     <BottomSheet open={open} onClose={onClose} dismissible={!saving}>
@@ -63,9 +75,24 @@ export default function LeafletImportSheet({ open, onClose, fileName, leafletNam
           <p>{`Trenutna lista (${queueLength}) biće zamenjena. Nepotrebne artikle ukloni pre štampe.`}</p>
         </div>
       )}
-      <Button variant="dark" disabled={saving || note.blocks} onClick={() => onConfirm({ dateFrom, dateTo })} className="mt-1 w-full">
-        {queueLength > 0 ? "Zameni listu i uvezi" : "Uvezi u listu"}
-      </Button>
+      {sameLeaflet ? (
+        <>
+          <div className="rounded-field bg-surface-muted p-3.5 text-[14px] leading-snug text-ink">
+            <p>{`Već postoji liflet „${sameLeaflet.name}“ (${formatDate(sameLeaflet.dateFrom)}. – ${formatDate(sameLeaflet.dateTo)}.).`}</p>
+            <p className="mt-1 font-semibold">Da li je ovo isti liflet sa ispravljenim datumima?</p>
+          </div>
+          <Button variant="dark" disabled={saving} onClick={() => onAnswer(true)} className="mt-1 w-full">
+            Da, ispravi datume
+          </Button>
+          <Button variant="outline" disabled={saving} onClick={() => onAnswer(false)} className="w-full">
+            Ne, ovo je novi liflet
+          </Button>
+        </>
+      ) : (
+        <Button variant="dark" disabled={saving || note.blocks} onClick={() => onConfirm({ dateFrom, dateTo })} className="mt-1 w-full">
+          {queueLength > 0 ? "Zameni listu i uvezi" : "Uvezi u listu"}
+        </Button>
+      )}
       <Button variant="text" size="md" disabled={saving} onClick={onClose} className="w-full">
         Otkaži
       </Button>

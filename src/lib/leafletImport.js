@@ -6,8 +6,53 @@ import { sameArticleCodes } from "./ean.js";
 // started; otherwise the morning check (promoCheck.js) writes them on its
 // first day. Articles that aren't in `products` are never added.
 
-export const importLeaflet = async (store, { name, dateFrom, dateTo, matches }, today, now = new Date()) => {
-  const leaflet = await store.saveLeaflet({ name, dateFrom, dateTo });
+// The leaflet a new import may be with corrected dates: an open one whose
+// period overlaps the new one and that has the same name or at least
+// SAME_SHARE of the new leaflet's articles in the database. An exact repeat
+// (same name and dates) is just imported again and isn't asked about, and a
+// leaflet whose name another record already holds with the new dates can't
+// take them (name + dates are unique).
+const SAME_SHARE = 0.8;
+const sameName = (a, b) => a.trim().toLocaleLowerCase("sr") === b.trim().toLocaleLowerCase("sr");
+
+export const findSameLeaflet = async (store, { name, dateFrom, dateTo, matches }) => {
+  const overlapping = await store.leafletsBetween(dateFrom, dateTo);
+  const hasNewDates = (l) => l.dateFrom === dateFrom && l.dateTo === dateTo;
+  if (overlapping.some((l) => sameName(l.name, name) && hasNewDates(l))) return null;
+  const candidates = overlapping.filter(
+    (l) => !l.pricesRestoredAt && !overlapping.some((other) => other.id !== l.id && other.name === l.name && hasNewDates(other))
+  );
+  if (candidates.length === 0) return null;
+  const barcodes = [...new Set(matches.filter((m) => m.existing).map((m) => m.existing.barcode))];
+  const items = barcodes.length
+    ? await store.leafletItems(
+        candidates.map((l) => l.id),
+        [...new Set(barcodes.flatMap((b) => sameArticleCodes(b)))]
+      )
+    : [];
+  const share = (leaflet) => {
+    if (sameName(leaflet.name, name)) return 1;
+    if (barcodes.length === 0) return 0;
+    const theirs = items.filter((i) => i.leafletId === leaflet.id).map((i) => i.barcode);
+    return barcodes.filter((b) => sameArticleCodes(b).some((code) => theirs.includes(code))).length / barcodes.length;
+  };
+  const best = candidates.map((l) => ({ l, share: share(l) })).sort((a, b) => b.share - a.share)[0];
+  return best.share >= SAME_SHARE ? best.l : null;
+};
+
+// replaceId: the leaflet found by findSameLeaflet, when the shop said it is
+// the same one with corrected dates — it gets the new dates (and its
+// reminders again for a new end) instead of a second record.
+export const importLeaflet = async (store, { name, dateFrom, dateTo, matches, replaceId }, today, now = new Date()) => {
+  let leaflet;
+  if (replaceId) {
+    const previous = (await store.openLeaflets()).find((l) => l.id === replaceId);
+    const newEnd = previous?.dateTo !== dateTo;
+    await store.markLeaflet(replaceId, { dateFrom, dateTo, ...(newEnd && { remindedTomorrowAt: null, remindedTodayAt: null }) });
+    leaflet = { ...previous, id: replaceId, dateFrom, dateTo };
+  } else {
+    leaflet = await store.saveLeaflet({ name, dateFrom, dateTo });
+  }
 
   // One per database row: two leaflet codes can find the same row.
   const byBarcode = new Map();

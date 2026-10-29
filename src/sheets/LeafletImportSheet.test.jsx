@@ -97,4 +97,16 @@ describe("LeafletImportSheet", () => {
     fireEvent.click(importButton());
     expect(onConfirm).toHaveBeenCalledWith({ dateFrom: "2026-09-25", dateTo: "2026-10-30" });
   });
+
+  it("asks whether this is the same leaflet with corrected dates", () => {
+    const onAnswer = vi.fn();
+    setup({ sameLeaflet: { id: "L1", name: "Jutro Liflet Avg", dateFrom: "2026-09-25", dateTo: "2026-10-31" }, onAnswer });
+    expect(screen.getByText("Već postoji liflet „Jutro Liflet Avg“ (25.09.2026. – 31.10.2026.).")).toBeTruthy();
+    expect(screen.getByText("Da li je ovo isti liflet sa ispravljenim datumima?")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /uvezi/i })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Da, ispravi datume" }));
+    expect(onAnswer).toHaveBeenLastCalledWith(true);
+    fireEvent.click(screen.getByRole("button", { name: "Ne, ovo je novi liflet" }));
+    expect(onAnswer).toHaveBeenLastCalledWith(false);
+  });
 });

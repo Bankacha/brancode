@@ -4,7 +4,7 @@ import { Check, CircleAlert, Eye, FileUp, Keyboard, Printer, ScanBarcode, WifiOf
 import { parseLeafletPdf, matchLeafletRows } from "../promoLeaflet.js";
 import { supabase } from "../supabaseClient.js";
 import { createLeafletStore } from "../lib/leafletStore.js";
-import { importLeaflet } from "../lib/leafletImport.js";
+import { findSameLeaflet, importLeaflet } from "../lib/leafletImport.js";
 import { plural } from "../lib/plural.js";
 import { formatPrice } from "../lib/format.js";
 import { formatDate, todayIso } from "../lib/listFormat.js";
@@ -45,6 +45,7 @@ export default function Home({ queue, setQueue, editor }) {
   const leafletInputRef = useRef(null);
   const [leaflet, setLeaflet] = useState(null); // { readAt, fileName, name, period, matches } once a PDF has been read
   const [leafletSaving, setLeafletSaving] = useState(false);
+  const [sameLeaflet, setSameLeaflet] = useState(null); // { leaflet, dates } while the sheet asks whether it is the same one
 
   const check = queue.filter((q) => q.notInDb);
   const ready = queue.filter((q) => !q.notInDb);
@@ -96,6 +97,7 @@ export default function Home({ queue, setQueue, editor }) {
       toast.hide();
       // The name printed on the leaflet, or the file's when the PDF has none.
       const name = period?.name ?? file.name.replace(/\.pdf$/i, "");
+      setSameLeaflet(null);
       setLeaflet({ readAt: Date.now(), fileName: file.name, name, period, matches });
       sheet.open("leaflet");
     } catch (err) {
@@ -109,34 +111,62 @@ export default function Home({ queue, setQueue, editor }) {
   };
 
   // The leaflet and its regular prices are remembered, so the morning check
-  // can bring the regular prices back once the promotion is over.
-  const confirmLeaflet = async ({ dateFrom, dateTo }) => {
+  // can bring the regular prices back once the promotion is over. replaceId:
+  // the existing leaflet this one is, with corrected dates.
+  const importLeafletNow = async ({ dateFrom, dateTo }, replaceId) => {
+    const { applied } = await importLeaflet(
+      createLeafletStore(supabase),
+      { name: leaflet.name, dateFrom, dateTo, matches: leaflet.matches, ...(replaceId && { replaceId }) },
+      todayIso()
+    );
+    const stamp = Date.now();
+    // Every leaflet article goes on the list (the user prunes it with X);
+    // ones we don't carry are flagged so they're easy to spot. Each tag
+    // prints the promotion's last day.
+    const imported = leaflet.matches.map(({ ean, name, price, existing }, i) => ({
+      id: `${ean}-${stamp}-${i}`,
+      barcode: ean,
+      name: existing?.name || name,
+      price,
+      notInDb: !existing,
+      promo: { dateFrom, dateTo },
+    }));
+    setQueue(imported);
+    sheet.close();
+    setLeaflet(null);
+    setSameLeaflet(null);
+    toast.show({
+      kind: "success",
+      text: `Uvezeno u listu: ${imported.length}`,
+      detail: applied ? undefined : `Akcijske cene od ${formatDate(dateFrom).slice(0, 6)}`,
+    });
+  };
+
+  const saveFailed = (err) => {
+    console.error("leaflet save failed", err);
+    toast.show({ kind: "error", icon: CircleAlert, text: "Čuvanje akcijskih cena nije uspelo. Proveri internet konekciju i probaj ponovo." });
+  };
+
+  // First: is this a leaflet already imported, now with corrected dates?
+  // If one looks like it, the sheet asks; otherwise it is imported at once.
+  const confirmLeaflet = async (dates) => {
     setLeafletSaving(true);
     try {
-      const { applied } = await importLeaflet(createLeafletStore(supabase), { name: leaflet.name, dateFrom, dateTo, matches: leaflet.matches }, todayIso());
-      const stamp = Date.now();
-      // Every leaflet article goes on the list (the user prunes it with X);
-      // ones we don't carry are flagged so they're easy to spot. Each tag
-      // prints the promotion's last day.
-      const imported = leaflet.matches.map(({ ean, name, price, existing }, i) => ({
-        id: `${ean}-${stamp}-${i}`,
-        barcode: ean,
-        name: existing?.name || name,
-        price,
-        notInDb: !existing,
-        promo: { dateFrom, dateTo },
-      }));
-      setQueue(imported);
-      sheet.close();
-      setLeaflet(null);
-      toast.show({
-        kind: "success",
-        text: `Uvezeno u listu: ${imported.length}`,
-        detail: applied ? undefined : `Akcijske cene od ${formatDate(dateFrom).slice(0, 6)}`,
-      });
+      const same = await findSameLeaflet(createLeafletStore(supabase), { name: leaflet.name, ...dates, matches: leaflet.matches });
+      if (same) setSameLeaflet({ leaflet: same, dates });
+      else await importLeafletNow(dates);
     } catch (err) {
-      console.error("leaflet save failed", err);
-      toast.show({ kind: "error", icon: CircleAlert, text: "Čuvanje akcijskih cena nije uspelo. Proveri internet konekciju i probaj ponovo." });
+      saveFailed(err);
+    }
+    setLeafletSaving(false);
+  };
+
+  const answerSameLeaflet = async (isSame) => {
+    setLeafletSaving(true);
+    try {
+      await importLeafletNow(sameLeaflet.dates, isSame ? sameLeaflet.leaflet.id : undefined);
+    } catch (err) {
+      saveFailed(err);
     }
     setLeafletSaving(false);
   };
@@ -272,6 +302,9 @@ export default function Home({ queue, setQueue, editor }) {
           queueLength={n}
           saving={leafletSaving}
           onConfirm={confirmLeaflet}
+          sameLeaflet={sameLeaflet?.leaflet ?? null}
+          onAnswer={answerSameLeaflet}
+          onPeriodChange={() => setSameLeaflet(null)}
         />
       )}
     </div>

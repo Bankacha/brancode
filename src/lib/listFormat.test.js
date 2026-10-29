@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { formatDate, formatQuantity, inventoryTitle, isArchived, monthStartIso, parseQuantity, requisitionTitle, todayIso } from "./listFormat.js";
+import { addDays, formatDate, formatQuantity, inventoryTitle, isArchived, monthStartIso, parseQuantity, requisitionTitle, todayIso } from "./listFormat.js";
 
 describe("dates", () => {
   it("prints an ISO date the Serbian way", () => {
@@ -65,5 +65,11 @@ describe("isArchived", () => {
   it("archives older ones, across a month and a clock change", () => {
     expect(isArchived("2026-09-27", now)).toBe(true);
     expect(isArchived("2026-11-15", new Date(2026, 11, 6, 0, 30))).toBe(true); // 21 days, over the end of DST
+  });
+});
+
+describe("addDays", () => {
+  it("counts days across a month", () => {
+    expect(addDays("2026-10-27", 14)).toBe("2026-11-10");
   });
 });
