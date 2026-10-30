@@ -67,11 +67,31 @@ describe("PriceTag", () => {
     expect(decimals.style.verticalAlign).toBe("top");
   });
 
-  it("puts a top-aligned (fridge) price as low as Excel does, a centered one where it was", () => {
+  it("puts a bottom-aligned (fridge) price as high as Excel does, a centered one where it was", () => {
     render(<PriceTag item={{ name: "A", price: 99, barcode: "1" }} format="fridge" sideBarcodeImage={fakeBarcode} />);
-    expect(screen.getByText("99").parentElement.parentElement.style.paddingTop).toBe("15.666pt");
+    expect(screen.getByText("99").parentElement.parentElement.style.paddingBottom).toBe("13.818pt");
     render(<PriceTag item={{ name: "B", price: 98, barcode: "1" }} format="shelf" sideBarcodeImage={fakeBarcode} />);
-    expect(screen.getByText("98").parentElement.parentElement.style.paddingTop).toBe("");
+    expect(screen.getByText("98").parentElement.parentElement.style.paddingBottom).toBe("");
+  });
+
+  it("draws the blank band under a fridge price, inside the outline with no line above it", () => {
+    const { container } = render(<PriceTag item={{ name: "A", price: 99, barcode: "1" }} format="fridge" sideBarcodeImage={fakeBarcode} />);
+    const rows = container.querySelectorAll("tr");
+    expect(rows).toHaveLength(3);
+    const [band] = rows[2].querySelectorAll("td");
+    expect(band.colSpan).toBe(2);
+    expect(band.style.height).toBe(`${tagGeometry("fridge").holderHeightMm.toFixed(2)}mm`);
+    expect(band.className).toContain("border-t-0");
+    rows[1].querySelectorAll("td").forEach((td) => expect(td.className).toContain("border-b-0"));
+  });
+
+  it("draws the band on every fridge tag of an A4 page, and none under a shelf price", () => {
+    const tag = (id) => ({ id, name: id, price: 1, barcode: "1" });
+    const { container, rerender } = render(<PrintPage rows={[[tag("a"), tag("b")], [tag("c")]]} format="fridge" sideBarcodeImage={fakeBarcode} />);
+    expect(container.querySelectorAll("tr")).toHaveLength(6);
+    expect(container.querySelectorAll("tr")[2].querySelectorAll("td")).toHaveLength(2);
+    rerender(<PrintPage rows={[[tag("a"), tag("b")], [tag("c")]]} format="shelf" sideBarcodeImage={fakeBarcode} />);
+    expect(container.querySelectorAll("tr")).toHaveLength(4);
   });
 
   it("keeps fruit prices in one piece", () => {

@@ -1,6 +1,6 @@
 import { Fragment } from "react";
 import { PAGE_MARGINS_IN, PRICE_TAG_STYLES, tagGeometry } from "../lib/priceTags.js";
-import { BarcodeCell, NameCell, PriceCell, SideBarcodeCell, TagColumns } from "./PriceTag.jsx";
+import { BarcodeCell, HolderCell, NameCell, PriceCell, SideBarcodeCell, TagColumns } from "./PriceTag.jsx";
 
 const MM_PER_IN = 25.4;
 
@@ -35,6 +35,13 @@ export default function PrintPage({ rows, format, barcodeImage, sideBarcodeImage
                 <tr>
                   {row.map((item) => (
                     <BarcodeCell key={item.id} code={item.barcode} format={format} barcodeImage={barcodeImage} />
+                  ))}
+                </tr>
+              )}
+              {style.holderRowHeight && (
+                <tr>
+                  {row.map((item) => (
+                    <HolderCell key={item.id} format={format} />
                   ))}
                 </tr>
               )}

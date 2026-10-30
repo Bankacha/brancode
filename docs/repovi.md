@@ -21,10 +21,10 @@ Stanje: 29.10.2026, posle 0.13.0. Ostale su sitnice iz pregleda 0.12.2 i 0.13.0 
 
 - **Prvo jutro jutarnje provere:** `CRON_SECRET` i `SUPABASE_SERVICE_ROLE_KEY` su dodati u Vercel. Ostaje da se vidi da je provera radila: Vercel → projekat → **Logs** (putanja `/api/promo-check`, oko 6 h) bez greške, ili Settings → Cron Jobs → **Run**. Ako piše da nema ključa za bazu, ključ nije dobro unet.
 - **Dupli zapisi lifleta u bazi:** pogledaj u Supabase (Table Editor → `promo_leaflets`) da li već postoji zapis sa pogrešnim datumima i obriši ga. Od 0.13.0 uvoz sam pita da li je liflet isti sa ispravljenim datumima, pa novi duplikati ne nastaju. Dugme za brisanje za sada ne treba (odluka od 29.10.).
-- **Probna štampa** za raf („99,99“, „1.249,99“, „12.499,99“) i frižider („99,99“, „12.499,99“), svaki sa akcijom. „12.499,99“ na frižideru daje najkraći barkod (oko 16 mm) i najsitniji datum:
+- **Probna štampa** za raf („99,99“, „1.249,99“, „12.499,99“) i frižider („99,99“, „12.499,99“), svaki sa akcijom. „12.499,99“ daje najsitniji datum:
   - datum ispod decimala ne dodiruje cifre i čita se;
-  - uspravni barkod, sada do dna cene, ceo se vidi u držaču i telefon ga skenira;
-  - cifra na frižideru stoji gde je pregled pokazuje (pregled od 0.11.0 crta je niže, po proceni za Excel na Windows-u).
+  - uspravni barkod se vidi u držaču i telefon ga skenira;
+  - **frižider od 0.13.1:** cena stoji odmah ispod linije (oko 2 mm), kao u pregledu, i u držaču se vidi cela. Ako Excel ipak spusti cenu na dno njenog reda ili joj odseče vrh, javi, pa se vraća na staro. Barkod je iste dužine kao pre.
 - **Oznaka „Liflet“ i kolona „Akcija“ na trebovanju:** oktobarski liflet je uvezen pre 0.11.0, pa ga treba ponovo uvesti da bi se oznake pojavile (ističe 31.10., pa ima smisla samo ako se trebuje do tada).
 - **Trebovanje dok se dva lifleta preklapaju** (od 0.13.0): prvi put kad se novi liflet uveze dok stari traje, pogledaj trebovanje u aplikaciji i u PDF-u (oznake, „USKORO“, kolona „Akcija“).
 - **Čitač barkoda:** ugrađeni ili zxing. Posle odluke se iz Podešavanja uklanja probni izbor „Čitač barkoda (test)“.
