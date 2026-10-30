@@ -132,8 +132,14 @@ Ovo nije provereno na pravom telefonu i papiru, pa ostaje za zajednički test. �
 ## 2e. Datum, barkod i trebovanje (0.12.2)
 
 - [ ] Raf i frižider sa akcijom: „Akcija važi do / datum“ ispod „,99“; duga cena daje tri sitnija reda; ništa ne dodiruje cifre ni barkod.
-- [ ] Uspravni barkod se završava u liniji dna cene; ceo se vidi u držaču na frižideru; telefon ga skenira.
+- [ ] Uspravni barkod na rafu se završava u liniji dna cene (na frižideru od 0.13.1 ide do praznog pojasa); telefon ga skenira.
 - [ ] Trebovanje PDF: svaki red ima veći kvadratić.
+
+## 2g. Frižider: cena do linije (0.13.1)
+
+- [ ] Friz cenovnik u pregledu štampe: cena stoji odmah ispod linije koja deli naziv i cenu, ispod nje je prazan pojas; cenovnik je iste visine i na strani ih je i dalje 15.
+- [ ] Odštampan u Excel-u: cena je na istom mestu kao u pregledu, vrh podignutih decimala „,99“ nije odsečen, i u držaču na frižideru se cena vidi cela (i „12.499,99“).
+- [ ] Barkod na frižideru je iste dužine kao pre i telefon ga skenira.
 
 ## 2f. Kolona „Akcija“ i isti liflet (0.13.0)
 

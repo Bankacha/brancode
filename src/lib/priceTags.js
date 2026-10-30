@@ -11,11 +11,20 @@ import { expandCopies } from "./printQueue.js";
 // them (the part that stays visible), instead of centering them.
 const MM_TO_PT = 2.834645669;
 const FRIDGE_TOP_BUFFER_MM = 1; // blank space above the name, hidden behind the holder's top edge
-const FRIDGE_BOTTOM_BUFFER_MM = 5; // blank space below the price digit, hidden behind the holder's bottom edge
+const FRIDGE_BOTTOM_BUFFER_MM = 5; // what the strip had below the shelf price row's height, for the holder's bottom edge
 // Always give the fridge name row the extra headroom a wrapped 2-line name
 // would need — simpler and more consistent than only adding it for long names.
 const FRIDGE_EXTRA_TOP_MM = 4;
 const FRIDGE_PRICE_FONT_SIZE = 42; // always the "over 1000 din" size, for a consistent look
+// Under the name the strip keeps its height (the price row it had when the
+// price was top-aligned), but Excel puts a top-aligned price a whole Oswald
+// line gap (7.6 mm) under the name, low enough for the holder to cover the
+// digits' bottom. So the price sits at the bottom of a row that leaves
+// FRIDGE_PRICE_GAP_MM above the digits (the empty line gap above that is
+// clipped), and the rest is a blank band below it, behind the holder's edge.
+// The raised decimals stand about 1 mm above the digits, inside that gap.
+const FRIDGE_UNDER_NAME_PT = 77.25 + (FRIDGE_BOTTOM_BUFFER_MM - FRIDGE_EXTRA_TOP_MM) * MM_TO_PT;
+const FRIDGE_PRICE_GAP_MM = 2.5;
 
 // Fruit tags are much bigger (~6cm total) and print 2 per row instead of 3,
 // with a scannable barcode image in a 3rd row below the price.
@@ -35,6 +44,9 @@ const SIDE_BARCODE_INSET_MM = { top: 0.8, bottom: 0.8, side: 0.6 };
 // Excel draws superscript smaller than its stated size; 0.75 of the price
 // size comes out at about half. The preview draws the decimals at half.
 const DECIMALS_SUPERSCRIPT_SCALE = 0.75;
+// Excel lays a line out with the font's winAscent/winDescent; digits are cap height.
+export const OSWALD = { ascent: 1.325, descent: 0.377, cap: 0.81 }; // em
+const FRIDGE_PRICE_ROW_PT = FRIDGE_PRICE_GAP_MM * MM_TO_PT + FRIDGE_PRICE_FONT_SIZE * (OSWALD.cap + OSWALD.descent);
 
 export const PRICE_TAG_STYLES = {
   shelf: {
@@ -61,14 +73,15 @@ export const PRICE_TAG_STYLES = {
     columns: 3,
     columnWidths: SIDE_BARCODE_COLUMNS,
     nameRowHeight: 28.5 + (FRIDGE_TOP_BUFFER_MM + FRIDGE_EXTRA_TOP_MM) * MM_TO_PT,
-    priceRowHeight: 77.25 + FRIDGE_BOTTOM_BUFFER_MM * MM_TO_PT - FRIDGE_EXTRA_TOP_MM * MM_TO_PT,
+    priceRowHeight: FRIDGE_PRICE_ROW_PT,
+    holderRowHeight: FRIDGE_UNDER_NAME_PT - FRIDGE_PRICE_ROW_PT, // blank, behind the holder's bottom edge
     nameFontSize: 12,
     nameAlignment: { horizontal: "center", vertical: "bottom", wrapText: true },
-    priceAlignment: { horizontal: "center", vertical: "top", shrinkToFit: true },
+    priceAlignment: { horizontal: "center", vertical: "bottom", shrinkToFit: true },
     priceFontSize: () => FRIDGE_PRICE_FONT_SIZE,
     barcode: "side",
-    // the barcode must stay in the band the holder leaves visible
-    sideBarcodeInsetMm: { ...SIDE_BARCODE_INSET_MM, bottom: FRIDGE_BOTTOM_BUFFER_MM + SIDE_BARCODE_INSET_MM.bottom },
+    // down to the holder band, with no line between them: as long as before
+    sideBarcodeInsetMm: { ...SIDE_BARCODE_INSET_MM, bottom: 0 },
   },
   fruit: {
     label: "Cene za voće",
@@ -95,7 +108,7 @@ const PAGE_FIT_SAFETY_PT = 4; // slack for printer/renderer rounding
 // wouldn't fit whole on the current page.
 export const tagRowsPerPage = (format) => {
   const style = PRICE_TAG_STYLES[format];
-  const tagHeightPt = style.nameRowHeight + style.priceRowHeight + (style.barcodeRowHeight ?? 0);
+  const tagHeightPt = style.nameRowHeight + style.priceRowHeight + (style.barcodeRowHeight ?? 0) + (style.holderRowHeight ?? 0);
   const usableHeightPt = A4_HEIGHT_PT - (PAGE_MARGINS_IN.top + PAGE_MARGINS_IN.bottom) * 72 - PAGE_FIT_SAFETY_PT;
   return Math.max(1, Math.floor(usableHeightPt / tagHeightPt));
 };
@@ -266,6 +279,7 @@ export const tagGeometry = (format) => {
   const nameHeightMm = ptToMm(style.nameRowHeight);
   const priceHeightMm = ptToMm(style.priceRowHeight);
   const barcodeHeightMm = style.barcode === "row" ? ptToMm(style.barcodeRowHeight) : 0;
+  const holderHeightMm = style.holderRowHeight ? ptToMm(style.holderRowHeight) : 0;
   const columnWidthsMm = style.columnWidths.map(columnWidthMm);
   return {
     columns: style.columns,
@@ -275,7 +289,8 @@ export const tagGeometry = (format) => {
     nameHeightMm,
     priceHeightMm,
     barcodeHeightMm,
-    heightMm: nameHeightMm + priceHeightMm + barcodeHeightMm,
+    holderHeightMm,
+    heightMm: nameHeightMm + priceHeightMm + barcodeHeightMm + holderHeightMm,
   };
 };
 
@@ -293,23 +308,24 @@ export const layoutTagPages = (queue, format) => {
 };
 
 // Where the upright barcode sits inside its column of the price row.
-// It runs from just under the name down to the bottom of the price digits,
-// so a fridge holder never hides any of it (bars or digits).
+// It runs from just under the name down to the bottom of the price digits;
+// above a fridge holder band, down to the band (the fridge price sits higher).
 export const sideBarcodeBox = (format, price, measure = measureOswaldMm) => {
   const style = PRICE_TAG_STYLES[format];
   if (style.barcode !== "side") return null;
   const { columnWidthsMm, priceHeightMm } = tagGeometry(format);
   const { top, bottom, side } = style.sideBarcodeInsetMm;
-  const end = Math.min(priceLayout(price, format, measure).baselineMm, priceHeightMm - bottom);
+  const rowEnd = priceHeightMm - bottom;
+  const end = style.holderRowHeight ? rowEnd : Math.min(priceLayout(price, format, measure).baselineMm, rowEnd);
   return { leftMm: side, topMm: top, widthMm: columnWidthsMm[1] - 2 * side, heightMm: end - top };
 };
 
 // --- One shelf/fridge price as Excel on Windows lays it out (Oswald) ---
 // Where the digits and the raised decimals land in the price cell, for what
 // goes around them: the promo note under the decimals, the barcode's end.
-// Excel lays a line out with the font's winAscent/winDescent; the decimals
-// (superscript at 0.75) come out at about half the price size, top-aligned.
-const OSWALD = { ascent: 1.325, descent: 0.377, cap: 0.81 }; // em
+// Excel lays a line out with the font's winAscent/winDescent (OSWALD); the
+// decimals (superscript at 0.75) come out at about half the price size,
+// top-aligned.
 const DECIMALS_DRAWN_SCALE = 0.5;
 
 let measureContext; // undefined: not tried yet; null: no canvas here
@@ -345,7 +361,7 @@ export const priceLayout = (price, format, measure = measureOswaldMm) => {
   const decimalsMm = decimalsAtBase * scale;
   const em = fontPt * PT_TO_MM;
   const baselineMm =
-    style.priceAlignment.vertical === "top" ? OSWALD.ascent * em : priceHeightMm / 2 + ((OSWALD.ascent - OSWALD.descent) / 2) * em;
+    style.priceAlignment.vertical === "bottom" ? priceHeightMm - OSWALD.descent * em : priceHeightMm / 2 + ((OSWALD.ascent - OSWALD.descent) / 2) * em;
   return { fontPt, baselineMm, capTopMm: baselineMm - OSWALD.cap * em, textLeftMm: (priceWidthMm - wholeMm - decimalsMm) / 2, wholeMm, decimalsMm };
 };
 
@@ -409,7 +425,7 @@ export const buildWorkbook = (
   { barcodeImage = makeBarcodeDataUrl, sideBarcodeImage = makeSideBarcodeDataUrl, promoLineImage = makePromoLineDataUrl } = {}
 ) => {
   const style = PRICE_TAG_STYLES[format];
-  const rowsPerItem = style.barcode === "row" ? 3 : 2;
+  const rowsPerItem = style.barcode === "row" || style.holderRowHeight ? 3 : 2;
 
   const workbook = new ExcelJS.Workbook();
   // Excel draws its grey grid on screen wherever a cell has no border of its
@@ -472,15 +488,23 @@ const addTag = (workbook, sheet, format, item, groupIndex, col, rowsPerItem, { b
         { text: decimals, font: { name: "Oswald", size: Math.round(priceSize * DECIMALS_SUPERSCRIPT_SCALE), vertAlign: "superscript" } },
       ],
     };
-    // one outline around price and barcode, no line between them
-    priceCell.border = { top: thin, bottom: thin, left: thin };
-    priceRow.getCell(col + 1).border = { top: thin, bottom: thin, right: thin };
+    // one outline around price and barcode (and the holder band), no line between them
+    const bottom = style.holderRowHeight ? {} : { bottom: thin };
+    priceCell.border = { top: thin, left: thin, ...bottom };
+    priceRow.getCell(col + 1).border = { top: thin, right: thin, ...bottom };
     addSideBarcode(workbook, sheet, format, item, nameRowNumber, col, sideBarcodeImage);
   } else {
     priceCell.value = priceText;
     priceCell.border = thinBorder;
   }
   if (item.promo?.dateTo) addPromoLine(workbook, sheet, format, item, nameRowNumber, col, promoLineImage);
+
+  if (style.holderRowHeight) {
+    const holderRow = sheet.getRow(nameRowNumber + 2);
+    holderRow.height = style.holderRowHeight;
+    holderRow.getCell(col).border = { left: thin, bottom: thin };
+    holderRow.getCell(col + 1).border = { right: thin, bottom: thin };
+  }
 
   if (style.barcode === "row") {
     const barcodeRow = sheet.getRow(groupIndex * rowsPerItem + 3);

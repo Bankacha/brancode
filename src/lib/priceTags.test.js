@@ -47,7 +47,7 @@ describe("buildWorkbook page breaks", () => {
 
   it.each([
     ["shelf", [12, 24]],
-    ["fridge", [10, 20]],
+    ["fridge", [15, 30]], // three rows a tag: name, price, the band the holder hides
     ["fruit", [12, 24, 36, 48]],
   ])("breaks 40 %s tags before the same rows as before", (format, expected) => {
     expect(breakRows(format, 40)).toEqual(expected);
@@ -95,10 +95,31 @@ describe("buildWorkbook cells", () => {
   });
 
   it("closes the outline around the price and barcode cells without a line between them", () => {
-    const sheet = sheetFor("fridge", items(1));
+    const sheet = sheetFor("shelf", items(1));
     expect(Object.keys(sheet.getCell("A2").border).sort()).toEqual(["bottom", "left", "top"]);
     expect(Object.keys(sheet.getCell("B2").border).sort()).toEqual(["bottom", "right", "top"]);
     expect(Object.keys(sheet.getCell("B1").border).sort()).toEqual(["bottom", "left", "right", "top"]);
+  });
+
+  it("puts a blank band under the fridge price, for the holder's bottom edge, inside the outline", () => {
+    const sheet = sheetFor("fridge", items(1));
+    const g = tagGeometry("fridge");
+    expect(ptToMm(sheet.getRow(2).height)).toBeCloseTo(g.priceHeightMm, 5);
+    expect(ptToMm(sheet.getRow(3).height)).toBeCloseTo(g.holderHeightMm, 5);
+    expect(sheet.getCell("A2").alignment.vertical).toBe("bottom");
+    expect(Object.keys(sheet.getCell("A2").border).sort()).toEqual(["left", "top"]);
+    expect(Object.keys(sheet.getCell("B2").border).sort()).toEqual(["right", "top"]);
+    expect(Object.keys(sheet.getCell("A3").border).sort()).toEqual(["bottom", "left"]);
+    expect(Object.keys(sheet.getCell("B3").border).sort()).toEqual(["bottom", "right"]);
+    expect(sheet.getCell("A4").value).toBeNull();
+  });
+
+  it("anchors a fridge tag's barcode and promo note in its own price row, three rows a tag", () => {
+    const images = sheetFor("fridge", items(4).map((item) => ({ ...item, promo })))
+      .getImages()
+      .map((img) => [img.range.tl.nativeCol, img.range.tl.nativeRow]);
+    expect(images.filter(([col]) => col === 1)).toEqual([[1, 1], [1, 4]]); // barcodes of the first tag in each row
+    expect(images.filter(([col]) => col === 0)).toEqual([[0, 1], [0, 4]]); // promo notes
   });
 
   it("puts one upright barcode beside each shelf and fridge price, in its own column", () => {
@@ -203,13 +224,26 @@ describe("print geometry", () => {
     expect(box.heightMm).toBeGreaterThan(18);
   });
 
-  it("ends the fridge barcode at the bottom of the price, well above the part the holder hides", () => {
+  it("runs the fridge barcode down to the band the holder hides, as long as before", () => {
     const g = tagGeometry("fridge");
     const box = sideBarcodeBox("fridge", 99, fake);
-    expect(box.topMm + box.heightMm).toBeCloseTo(priceLayout(99, "fridge", fake).baselineMm, 5);
-    expect(box.topMm + box.heightMm).toBeLessThanOrEqual(g.priceHeightMm - 5);
-    expect(box.heightMm).toBeGreaterThan(15);
+    expect(box.topMm + box.heightMm).toBeCloseTo(g.priceHeightMm, 5);
+    expect(box.heightMm).toBeGreaterThan(18.5); // 18.8 mm when it ended at the digits of a top-aligned price
     expect(sideBarcodeBox("fruit", 99, fake)).toBeNull();
+  });
+
+  it("puts the fridge price just under the name, well above the band the holder hides", () => {
+    const g = tagGeometry("fridge");
+    const layout = priceLayout(99.99, "fridge", fake);
+    expect(layout.capTopMm).toBeGreaterThan(2.4); // the raised decimals stand about 1 mm higher
+    expect(layout.capTopMm).toBeLessThan(3); // 7.6 mm when top-aligned
+    expect(g.heightMm - g.nameHeightMm - layout.baselineMm).toBeGreaterThan(13.5); // the digits' bottom off the strip's edge (8.6 mm before)
+    // a long price shrinks to fit, from its bottom up
+    for (const price of [1249.99, 12499.99]) expect(g.priceHeightMm - priceLayout(price, "fridge", fake).baselineMm).toBeGreaterThan(3);
+  });
+
+  it("keeps the fridge strip as tall as before", () => {
+    expect(tagGeometry("fridge").heightMm).toBeCloseTo(43.31, 2);
   });
 
   it("places the barcode image where the Excel export puts it", () => {
@@ -410,9 +444,9 @@ describe("promo note under the decimals", () => {
     expect(promoNoteBox(12499.99, "shelf", fake).widthMm).toBeLessThan(promoNoteBox(99.99, "shelf", fake).widthMm);
   });
 
-  it("stays above the part a fridge holder hides", () => {
+  it("stays above the band a fridge holder hides", () => {
     const box = promoNoteBox(1249.99, "fridge", fake);
-    expect(box.topMm + box.heightMm).toBeLessThanOrEqual(tagGeometry("fridge").priceHeightMm - 5);
+    expect(box.topMm + box.heightMm).toBeLessThanOrEqual(tagGeometry("fridge").priceHeightMm - 3);
   });
 
   it("keeps the fruit line at the top of the price cell", () => {

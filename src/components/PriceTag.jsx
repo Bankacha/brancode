@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import "@fontsource/oswald/400.css";
 import "@fontsource/barlow-semi-condensed/700.css";
 import {
+  OSWALD,
   PRICE_TAG_STYLES,
   barcodeImageBox,
   makeBarcodeDataUrl,
@@ -26,11 +27,12 @@ const NAME_FONT = "'Bahnschrift SemiBold', 'Bahnschrift', 'Barlow Semi Condensed
 const PRICE_FONT = "'Oswald', sans-serif";
 const PX_PER_MM = 96 / 25.4;
 
-// Excel on Windows lays a line out with the font's winAscent above the
-// baseline (Oswald: 1.325 em); at line-height 1 the browser puts the baseline
-// 0.952 em down (hhea 1.193 / −0.289). A centred price comes out the same
-// either way, but a top-aligned one (fridge) prints this much lower.
-const EXCEL_TOP_ALIGN_OFFSET_EM = 0.373;
+// Excel on Windows lays a line out with the font's winDescent under the
+// baseline (Oswald: 0.377 em); at line-height 1 the browser leaves 0.048 em
+// (hhea 1.193 / −0.289). A centred price comes out the same either way, but a
+// bottom-aligned one (fridge) prints this much higher.
+const BROWSER_DESCENT_AT_LINE_HEIGHT_1_EM = 0.048;
+const EXCEL_BOTTOM_ALIGN_OFFSET_EM = OSWALD.descent - BROWSER_DESCENT_AT_LINE_HEIGHT_1_EM;
 
 const justify = { left: "flex-start", center: "center", right: "flex-end" };
 const align = { top: "flex-start", middle: "center", bottom: "flex-end" };
@@ -127,7 +129,7 @@ function PromoLine({ dateTo, price, format, promoLineImage = cachedPromoLine }) 
 
 export function PriceCell({ price, format, promoUntil, promoLineImage }) {
   const style = PRICE_TAG_STYLES[format];
-  const { priceHeightMm, priceWidthMm } = tagGeometry(format);
+  const { priceHeightMm, priceWidthMm, holderHeightMm } = tagGeometry(format);
   const side = style.barcode === "side";
   const text = formatPrice(price);
   const basePt = style.priceFontSize(text);
@@ -155,12 +157,15 @@ export function PriceCell({ price, format, promoUntil, promoLineImage }) {
 
   const { whole, decimals } = priceParts(price);
   return (
-    <td className={`relative border border-black p-0 align-top ${side ? "border-r-0" : ""}`} style={{ height: `${priceHeightMm.toFixed(2)}mm` }}>
+    <td
+      className={`relative border border-black p-0 align-top ${side ? "border-r-0" : ""} ${holderHeightMm ? "border-b-0" : ""}`}
+      style={{ height: `${priceHeightMm.toFixed(2)}mm` }}
+    >
       {promoUntil && <PromoLine dateTo={promoUntil} price={price} format={format} promoLineImage={promoLineImage} />}
       <div
         style={{
           ...box(style.priceAlignment, priceHeightMm),
-          ...(style.priceAlignment.vertical === "top" && { paddingTop: `${+(EXCEL_TOP_ALIGN_OFFSET_EM * fontPt).toFixed(3)}pt`, boxSizing: "border-box" }),
+          ...(style.priceAlignment.vertical === "bottom" && { paddingBottom: `${+(EXCEL_BOTTOM_ALIGN_OFFSET_EM * fontPt).toFixed(3)}pt`, boxSizing: "border-box" }),
           fontFamily: PRICE_FONT,
           fontWeight: 400,
           lineHeight: 1,
@@ -226,10 +231,10 @@ const cachedSideBarcode = (code, placement) => {
 };
 
 // The narrow column beside a shelf/fridge price with the upright barcode,
-// which ends at the bottom of the price digits.
+// which ends at the bottom of the price digits (fridge: at the holder band).
 export function SideBarcodeCell({ code, price, format, sideBarcodeImage = cachedSideBarcode }) {
   const fontLoaded = useOswaldLoaded();
-  const { priceHeightMm } = tagGeometry(format);
+  const { priceHeightMm, holderHeightMm } = tagGeometry(format);
   const placement = sideBarcodeBox(format, price);
   const src = useMemo(() => {
     try {
@@ -239,7 +244,7 @@ export function SideBarcodeCell({ code, price, format, sideBarcodeImage = cached
     }
   }, [sideBarcodeImage, code, price, format, fontLoaded]); // placement follows from price, format and the font
   return (
-    <td className="relative border border-l-0 border-black p-0" style={{ height: `${priceHeightMm.toFixed(2)}mm` }}>
+    <td className={`relative border border-l-0 border-black p-0 ${holderHeightMm ? "border-b-0" : ""}`} style={{ height: `${priceHeightMm.toFixed(2)}mm` }}>
       {src && (
         <img
           src={src}
@@ -255,6 +260,12 @@ export function SideBarcodeCell({ code, price, format, sideBarcodeImage = cached
       )}
     </td>
   );
+}
+
+// The blank band under a fridge price, behind the holder's bottom edge.
+export function HolderCell({ format }) {
+  const { holderHeightMm, columnWidthsMm } = tagGeometry(format);
+  return <td colSpan={columnWidthsMm.length} className="border border-t-0 border-black p-0" style={{ height: `${holderHeightMm.toFixed(2)}mm` }} />;
 }
 
 export const TagColumns = ({ format, count }) => {
@@ -282,6 +293,11 @@ export default function PriceTag({ item, format, barcodeImage, sideBarcodeImage,
         {PRICE_TAG_STYLES[format].barcode === "row" && (
           <tr>
             <BarcodeCell code={item.barcode} format={format} barcodeImage={barcodeImage} />
+          </tr>
+        )}
+        {PRICE_TAG_STYLES[format].holderRowHeight && (
+          <tr>
+            <HolderCell format={format} />
           </tr>
         )}
       </tbody>
