@@ -11,7 +11,7 @@ import { expandCopies } from "./printQueue.js";
 // them (the part that stays visible), instead of centering them.
 const MM_TO_PT = 2.834645669;
 const FRIDGE_TOP_BUFFER_MM = 1; // blank space above the name, hidden behind the holder's top edge
-const FRIDGE_BOTTOM_BUFFER_MM = 5; // blank space below the price digit, hidden behind the holder's bottom edge
+const FRIDGE_BOTTOM_BUFFER_MM = 5; // what the strip had below the shelf price row's height, for the holder's bottom edge
 // Always give the fridge name row the extra headroom a wrapped 2-line name
 // would need — simpler and more consistent than only adding it for long names.
 const FRIDGE_EXTRA_TOP_MM = 4;
@@ -22,8 +22,9 @@ const FRIDGE_PRICE_FONT_SIZE = 42; // always the "over 1000 din" size, for a con
 // digits' bottom. So the price sits at the bottom of a row that leaves
 // FRIDGE_PRICE_GAP_MM above the digits (the empty line gap above that is
 // clipped), and the rest is a blank band below it, behind the holder's edge.
+// The raised decimals stand about 1 mm above the digits, inside that gap.
 const FRIDGE_UNDER_NAME_PT = 77.25 + (FRIDGE_BOTTOM_BUFFER_MM - FRIDGE_EXTRA_TOP_MM) * MM_TO_PT;
-const FRIDGE_PRICE_GAP_MM = 2;
+const FRIDGE_PRICE_GAP_MM = 2.5;
 
 // Fruit tags are much bigger (~6cm total) and print 2 per row instead of 3,
 // with a scannable barcode image in a 3rd row below the price.
@@ -44,7 +45,7 @@ const SIDE_BARCODE_INSET_MM = { top: 0.8, bottom: 0.8, side: 0.6 };
 // size comes out at about half. The preview draws the decimals at half.
 const DECIMALS_SUPERSCRIPT_SCALE = 0.75;
 // Excel lays a line out with the font's winAscent/winDescent; digits are cap height.
-const OSWALD = { ascent: 1.325, descent: 0.377, cap: 0.81 }; // em
+export const OSWALD = { ascent: 1.325, descent: 0.377, cap: 0.81 }; // em
 const FRIDGE_PRICE_ROW_PT = FRIDGE_PRICE_GAP_MM * MM_TO_PT + FRIDGE_PRICE_FONT_SIZE * (OSWALD.cap + OSWALD.descent);
 
 export const PRICE_TAG_STYLES = {

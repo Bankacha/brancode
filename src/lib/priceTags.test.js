@@ -114,6 +114,14 @@ describe("buildWorkbook cells", () => {
     expect(sheet.getCell("A4").value).toBeNull();
   });
 
+  it("anchors a fridge tag's barcode and promo note in its own price row, three rows a tag", () => {
+    const images = sheetFor("fridge", items(4).map((item) => ({ ...item, promo })))
+      .getImages()
+      .map((img) => [img.range.tl.nativeCol, img.range.tl.nativeRow]);
+    expect(images.filter(([col]) => col === 1)).toEqual([[1, 1], [1, 4]]); // barcodes of the first tag in each row
+    expect(images.filter(([col]) => col === 0)).toEqual([[0, 1], [0, 4]]); // promo notes
+  });
+
   it("puts one upright barcode beside each shelf and fridge price, in its own column", () => {
     for (const format of ["shelf", "fridge"]) {
       const images = sheetFor(format, items(3)).getImages();
@@ -227,9 +235,9 @@ describe("print geometry", () => {
   it("puts the fridge price just under the name, well above the band the holder hides", () => {
     const g = tagGeometry("fridge");
     const layout = priceLayout(99.99, "fridge", fake);
-    expect(layout.capTopMm).toBeGreaterThan(1.5);
+    expect(layout.capTopMm).toBeGreaterThan(2.4); // the raised decimals stand about 1 mm higher
     expect(layout.capTopMm).toBeLessThan(3); // 7.6 mm when top-aligned
-    expect(g.heightMm - g.nameHeightMm - layout.baselineMm).toBeGreaterThan(14); // the digits' bottom off the strip's edge (8.6 mm before)
+    expect(g.heightMm - g.nameHeightMm - layout.baselineMm).toBeGreaterThan(13.5); // the digits' bottom off the strip's edge (8.6 mm before)
     // a long price shrinks to fit, from its bottom up
     for (const price of [1249.99, 12499.99]) expect(g.priceHeightMm - priceLayout(price, "fridge", fake).baselineMm).toBeGreaterThan(3);
   });

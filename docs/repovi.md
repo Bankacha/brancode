@@ -2,7 +2,7 @@
 
 Jedno mesto za sitnice koje su pregledi koda našli, a nisu popravljene pre puštanja, i za stvari koje čekaju odluku ili proveru u radnji. Kad se nešto sredi, briše se odavde (istorija ostaje u git-u). Svako novo puštanje dopisuje svoje repove ovde, ne samo u izveštaj.
 
-Stanje: 29.10.2026, posle 0.13.0. Ostale su sitnice iz pregleda 0.12.2 i 0.13.0 i ono što čeka tebe ili proveru u radnji.
+Stanje: 31.10.2026, posle 0.13.1 (frižider cena odmah ispod naziva). Ostale su sitnice iz pregleda 0.12.2 i 0.13.0 i ono što čeka tebe ili proveru u radnji.
 
 ## Sitnice iz pregleda 0.12.2 (za sledeće sređivanje)
 
@@ -24,7 +24,7 @@ Stanje: 29.10.2026, posle 0.13.0. Ostale su sitnice iz pregleda 0.12.2 i 0.13.0 
 - **Probna štampa** za raf („99,99“, „1.249,99“, „12.499,99“) i frižider („99,99“, „12.499,99“), svaki sa akcijom. „12.499,99“ daje najsitniji datum:
   - datum ispod decimala ne dodiruje cifre i čita se;
   - uspravni barkod se vidi u držaču i telefon ga skenira;
-  - **frižider od 0.13.1:** cena stoji odmah ispod linije (oko 2 mm), kao u pregledu, i u držaču se vidi cela. Ako Excel ipak spusti cenu na dno njenog reda ili joj odseče vrh, javi, pa se vraća na staro. Barkod je iste dužine kao pre.
+  - **frižider od 0.13.1:** cena stoji odmah ispod linije (oko 2,5 mm), kao u pregledu, i u držaču se vidi cela. Pogledaj posebno vrh podignutih decimala „,99“: do linije im ostaje oko 1,5 mm i ne sme biti odsečen. Ako je odsečen, razmak se povećava (`FRIDGE_PRICE_GAP_MM`). Barkod je iste dužine kao pre.
 - **Oznaka „Liflet“ i kolona „Akcija“ na trebovanju:** oktobarski liflet je uvezen pre 0.11.0, pa ga treba ponovo uvesti da bi se oznake pojavile (ističe 31.10., pa ima smisla samo ako se trebuje do tada).
 - **Trebovanje dok se dva lifleta preklapaju** (od 0.13.0): prvi put kad se novi liflet uveze dok stari traje, pogledaj trebovanje u aplikaciji i u PDF-u (oznake, „USKORO“, kolona „Akcija“).
 - **Čitač barkoda:** ugrađeni ili zxing. Posle odluke se iz Podešavanja uklanja probni izbor „Čitač barkoda (test)“.

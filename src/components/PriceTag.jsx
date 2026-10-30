@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import "@fontsource/oswald/400.css";
 import "@fontsource/barlow-semi-condensed/700.css";
 import {
+  OSWALD,
   PRICE_TAG_STYLES,
   barcodeImageBox,
   makeBarcodeDataUrl,
@@ -30,7 +31,8 @@ const PX_PER_MM = 96 / 25.4;
 // baseline (Oswald: 0.377 em); at line-height 1 the browser leaves 0.048 em
 // (hhea 1.193 / −0.289). A centred price comes out the same either way, but a
 // bottom-aligned one (fridge) prints this much higher.
-const EXCEL_BOTTOM_ALIGN_OFFSET_EM = 0.329;
+const BROWSER_DESCENT_AT_LINE_HEIGHT_1_EM = 0.048;
+const EXCEL_BOTTOM_ALIGN_OFFSET_EM = OSWALD.descent - BROWSER_DESCENT_AT_LINE_HEIGHT_1_EM;
 
 const justify = { left: "flex-start", center: "center", right: "flex-end" };
 const align = { top: "flex-start", middle: "center", bottom: "flex-end" };
