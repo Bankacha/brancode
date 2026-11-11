@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { barcodeCandidates, lookupArticle, lookupProduct, saveProduct } from "./products.js";
+import { barcodeCandidates, lookupArticle, lookupProduct, renameProduct, saveProduct } from "./products.js";
 
 // Records every Supabase call the code makes, in order.
 const fakeClient = ({ rows = {}, updateResult = { data: [], error: null }, upsertResult = { error: null } } = {}) => {
@@ -130,5 +130,18 @@ describe("barcodes of any length", () => {
     const { client, calls } = fakeClient({ updateResult: { data: [{ barcode: "80052760" }], error: null } });
     await saveProduct({ barcode: "80052760", name: "KINDER BUENO", price: 129.99 }, "8005276", client);
     expect(calls).toEqual([["update", { barcode: "80052760", name: "KINDER BUENO", price: 129.99 }, "8005276"]]);
+  });
+});
+
+describe("renameProduct", () => {
+  it("changes only the name of that row", async () => {
+    const { client, calls } = fakeClient({ updateResult: { data: [{ barcode: "860000500012" }], error: null } });
+    await renameProduct("860000500012", "Majonez za salatu", client);
+    expect(calls).toEqual([["update", { name: "Majonez za salatu" }, "860000500012"]]);
+  });
+
+  it("fails when the row is gone", async () => {
+    const { client } = fakeClient();
+    await expect(renameProduct("860000500012", "Majonez", client)).rejects.toThrow();
   });
 });

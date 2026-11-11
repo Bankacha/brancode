@@ -22,8 +22,9 @@ export const trebovanjeKind = {
   section: "trebovanje",
   store: requisitionStore,
   // a scanned article may be renamed on a trebovanje (what to order, in the
-  // shop's own words); its price stays as in `products`
-  rules: { priceRequired: false, quantityRequired: false, zeroQuantity: false, lockProductName: false },
+  // shop's own words), and the new name kept in `products` if ticked; its
+  // price stays as in `products`
+  rules: { priceRequired: false, quantityRequired: false, zeroQuantity: false, lockProductName: false, saveNameToProducts: true },
   texts: {
     onList: "na trebovanju",
     duplicateTitle: "Artikal je već na trebovanju",

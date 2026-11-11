@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Lock } from "lucide-react";
+import { Lock, Square, SquareCheck } from "lucide-react";
 import BottomSheet from "../components/BottomSheet.jsx";
 import Button from "../components/Button.jsx";
 import Field from "../components/Field.jsx";
@@ -59,6 +59,8 @@ export default function ListItemSheet({ flow, texts, open, onClose, source, onSu
     submit(actions[kind][0][1]);
   };
   const field = (key) => ({ value: state[key], onChange: (e) => flow.setField(key, e.target.value) });
+  // a database article renamed on a trebovanje: keep the new name in the database too?
+  const nameChanged = state.canSaveName && state.name.trim() !== "" && state.name.trim() !== state.productName;
   const fromProducts = state.inProducts;
   const barcode = state.kind === "new" ? state.barcode : state.item?.barcode;
 
@@ -81,6 +83,18 @@ export default function ListItemSheet({ flow, texts, open, onClose, source, onSu
           </div>
           <Field label="Naziv" {...field("name")} readOnly={state.lockName} autoFocus={!barcode} suffix={state.lockName ? <Lock size={16} /> : null} autoComplete="off" />
           <FieldError text={state.errors.name} />
+          {nameChanged && (
+            <button
+              type="button"
+              role="checkbox"
+              aria-checked={state.saveName}
+              onClick={() => flow.setField("saveName", !state.saveName)}
+              className="-mt-1 flex items-center gap-2.5 px-1 text-left text-[15px] font-medium text-ink-2"
+            >
+              {state.saveName ? <SquareCheck size={22} className="shrink-0 text-accent" /> : <Square size={22} className="shrink-0 text-ink-4" />}
+              Sačuvaj ovaj naziv i u bazi artikala
+            </button>
+          )}
           <Field label={texts.priceLabel} {...field("price")} readOnly={state.lockPrice} inputMode="decimal" suffix={state.lockPrice ? <Lock size={16} /> : "din"} autoComplete="off" />
           <FieldError text={state.errors.price} />
           <Field label={texts.quantityLabel} {...field("quantity")} inputMode="decimal" autoFocus={Boolean(barcode)} autoComplete="off" />

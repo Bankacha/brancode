@@ -5,7 +5,7 @@ import { useListItemFlow } from "./useListItemFlow.js";
 import { popisKind, trebovanjeKind } from "./listKinds.js";
 import { inventoryStore } from "./inventories.js";
 import { requisitionStore } from "./requisitions.js";
-import { lookupArticle } from "./products.js";
+import { lookupArticle, renameProduct } from "./products.js";
 
 vi.mock("./inventories.js", () => ({
   inventoryStore: { findItem: vi.fn(), addItem: vi.fn(), addQuantity: vi.fn(), updateItem: vi.fn() },
@@ -13,7 +13,7 @@ vi.mock("./inventories.js", () => ({
 vi.mock("./requisitions.js", () => ({
   requisitionStore: { findItem: vi.fn(), addItem: vi.fn(), addQuantity: vi.fn(), updateItem: vi.fn() },
 }));
-vi.mock("./products.js", () => ({ lookupArticle: vi.fn() }));
+vi.mock("./products.js", () => ({ lookupArticle: vi.fn(), renameProduct: vi.fn() }));
 
 const onList = { id: "it1", barcode: "8600005000122", name: "MAJONEZ 175", price: 85, quantity: 2, inProducts: true };
 const flowFor = (kind = popisKind) => renderHook(() => useListItemFlow("p1", kind)).result;
@@ -277,6 +277,62 @@ describe("useListItemFlow on a trebovanje", () => {
     await act(() => flow.current.edit({ id: "r6", barcode: null, name: "Hleb", price: null, quantity: null }));
     expect(lookupArticle).not.toHaveBeenCalled();
     expect(flow.current.state).toMatchObject({ kind: "edit", lockName: false });
+  });
+
+  describe("saving a changed name in the database", () => {
+    const majonez = { barcode: "8600005000122", name: "MAJONEZ 175", price: 85 };
+    const scanned = async () => {
+      requisitionStore.findItem.mockResolvedValue(null);
+      lookupArticle.mockResolvedValue(majonez);
+      requisitionStore.addItem.mockResolvedValue({ item: { id: "r7", name: "Majonez za salatu", quantity: null } });
+      const flow = flowFor();
+      await act(() => flow.current.start("8600005000122"));
+      return flow;
+    };
+
+    it("remembers which database row the article is, unticked", async () => {
+      const flow = await scanned();
+      expect(flow.current.state).toMatchObject({ productBarcode: "8600005000122", productName: "MAJONEZ 175", saveName: false });
+    });
+
+    it("writes the new name to the article's database row when ticked", async () => {
+      renameProduct.mockResolvedValue();
+      const flow = await scanned();
+      act(() => flow.current.setField("name", "Majonez za salatu"));
+      act(() => flow.current.setField("saveName", true));
+      expect(await save(flow)).toMatchObject({ ok: true, action: "added", nameInProducts: "saved" });
+      expect(renameProduct).toHaveBeenCalledWith("8600005000122", "Majonez za salatu");
+    });
+
+    it("leaves the database alone when not ticked, or when the name is the database's", async () => {
+      const flow = await scanned();
+      act(() => flow.current.setField("name", "Majonez za salatu"));
+      expect(await save(flow)).toMatchObject({ ok: true, nameInProducts: undefined });
+      const again = await scanned();
+      act(() => again.current.setField("saveName", true));
+      await save(again);
+      expect(renameProduct).not.toHaveBeenCalled();
+    });
+
+    it("keeps the item saved when the name can't be written to the database", async () => {
+      renameProduct.mockRejectedValue(new Error("Failed to fetch"));
+      const flow = await scanned();
+      act(() => flow.current.setField("name", "Majonez za salatu"));
+      act(() => flow.current.setField("saveName", true));
+      expect(await save(flow)).toMatchObject({ ok: true, action: "added", nameInProducts: "failed" });
+    });
+
+    it("can save the name from an edit too, onto the row the lookup found", async () => {
+      lookupArticle.mockResolvedValue({ ...majonez, barcode: "860000500012" });
+      requisitionStore.updateItem.mockResolvedValue({ id: "r4", name: "Majonez za salatu", quantity: 2 });
+      renameProduct.mockResolvedValue();
+      const flow = flowFor();
+      await act(() => flow.current.edit({ id: "r4", barcode: "8600005000122", name: "MAJONEZ 175", price: 85, quantity: 2 }));
+      act(() => flow.current.setField("name", "Majonez za salatu"));
+      act(() => flow.current.setField("saveName", true));
+      expect(await save(flow)).toMatchObject({ ok: true, action: "updated", nameInProducts: "saved" });
+      expect(renameProduct).toHaveBeenCalledWith("860000500012", "Majonez za salatu");
+    });
   });
 
   it("reports a failed lookup on edit instead of opening it unlocked", async () => {
