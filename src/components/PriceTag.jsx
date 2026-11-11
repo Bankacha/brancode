@@ -2,10 +2,10 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import "@fontsource/oswald/400.css";
 import "@fontsource/barlow-semi-condensed/700.css";
 import {
-  OSWALD,
   PRICE_TAG_STYLES,
   barcodeImageBox,
   makeBarcodeDataUrl,
+  makePriceDataUrl,
   makePromoLineDataUrl,
   makeSideBarcodeDataUrl,
   priceParts,
@@ -26,13 +26,6 @@ import { formatPrice } from "../lib/format.js";
 const NAME_FONT = "'Bahnschrift SemiBold', 'Bahnschrift', 'Barlow Semi Condensed', sans-serif";
 const PRICE_FONT = "'Oswald', sans-serif";
 const PX_PER_MM = 96 / 25.4;
-
-// Excel on Windows lays a line out with the font's winDescent under the
-// baseline (Oswald: 0.377 em); at line-height 1 the browser leaves 0.048 em
-// (hhea 1.193 / −0.289). A centred price comes out the same either way, but a
-// bottom-aligned one (fridge) prints this much higher.
-const BROWSER_DESCENT_AT_LINE_HEIGHT_1_EM = 0.048;
-const EXCEL_BOTTOM_ALIGN_OFFSET_EM = OSWALD.descent - BROWSER_DESCENT_AT_LINE_HEIGHT_1_EM;
 
 const justify = { left: "flex-start", center: "center", right: "flex-end" };
 const align = { top: "flex-start", middle: "center", bottom: "flex-end" };
@@ -127,9 +120,27 @@ function PromoLine({ dateTo, price, format, promoLineImage = cachedPromoLine }) 
   );
 }
 
-export function PriceCell({ price, format, promoUntil, promoLineImage }) {
+// A fridge price is the export's own image (makePriceDataUrl), drawn again
+// once Oswald is in.
+const drawnPrices = new Map();
+const cachedPriceImage = (price, format) => {
+  const key = `${format}|${price}|${oswaldLoaded()}`;
+  if (!drawnPrices.has(key)) drawnPrices.set(key, makePriceDataUrl(price, format));
+  return drawnPrices.get(key);
+};
+
+export function PriceCell({ price, format, promoUntil, promoLineImage, priceImage = cachedPriceImage }) {
   const style = PRICE_TAG_STYLES[format];
   const { priceHeightMm, priceWidthMm, holderHeightMm } = tagGeometry(format);
+  const fontLoaded = useOswaldLoaded();
+  const drawn = useMemo(() => {
+    if (!style.priceAsImage) return null;
+    try {
+      return priceImage(price, format);
+    } catch (e) {
+      return null; // no canvas; the price is shown as text
+    }
+  }, [style.priceAsImage, priceImage, price, format, fontLoaded]);
   const side = style.barcode === "side";
   const text = formatPrice(price);
   const basePt = style.priceFontSize(text);
@@ -153,7 +164,7 @@ export function PriceCell({ price, format, promoUntil, promoLineImage }) {
     return () => {
       cancelled = true;
     };
-  }, [basePt, text, priceWidthMm]);
+  }, [basePt, text, priceWidthMm, Boolean(drawn)]); // measured again when a drawn price turns into text
 
   const { whole, decimals } = priceParts(price);
   return (
@@ -161,11 +172,12 @@ export function PriceCell({ price, format, promoUntil, promoLineImage }) {
       className={`relative border border-black p-0 align-top ${side ? "border-r-0" : ""} ${holderHeightMm ? "border-b-0" : ""}`}
       style={{ height: `${priceHeightMm.toFixed(2)}mm` }}
     >
-      {promoUntil && <PromoLine dateTo={promoUntil} price={price} format={format} promoLineImage={promoLineImage} />}
+      {drawn ? (
+        <img src={drawn} alt={text} className="absolute top-0 left-0" style={{ width: `${priceWidthMm}mm`, height: `${priceHeightMm}mm` }} />
+      ) : (
       <div
         style={{
           ...box(style.priceAlignment, priceHeightMm),
-          ...(style.priceAlignment.vertical === "bottom" && { paddingBottom: `${+(EXCEL_BOTTOM_ALIGN_OFFSET_EM * fontPt).toFixed(3)}pt`, boxSizing: "border-box" }),
           fontFamily: PRICE_FONT,
           fontWeight: 400,
           lineHeight: 1,
@@ -182,6 +194,8 @@ export function PriceCell({ price, format, promoUntil, promoLineImage }) {
           )}
         </span>
       </div>
+      )}
+      {promoUntil && <PromoLine dateTo={promoUntil} price={price} format={format} promoLineImage={promoLineImage} />}
     </td>
   );
 }
@@ -277,7 +291,7 @@ export const TagColumns = ({ format, count }) => {
   );
 };
 
-export default function PriceTag({ item, format, barcodeImage, sideBarcodeImage, promoLineImage }) {
+export default function PriceTag({ item, format, barcodeImage, sideBarcodeImage, promoLineImage, priceImage }) {
   return (
     // table-layout: fixed only clamps columns when the table has a width.
     <table className="table-fixed border-collapse bg-white text-black" style={{ width: `${tagGeometry(format).widthMm}mm` }}>
@@ -287,7 +301,7 @@ export default function PriceTag({ item, format, barcodeImage, sideBarcodeImage,
           <NameCell name={item.name} format={format} />
         </tr>
         <tr>
-          <PriceCell price={item.price} format={format} promoUntil={item.promo?.dateTo} promoLineImage={promoLineImage} />
+          <PriceCell price={item.price} format={format} promoUntil={item.promo?.dateTo} promoLineImage={promoLineImage} priceImage={priceImage} />
           {PRICE_TAG_STYLES[format].barcode === "side" && <SideBarcodeCell code={item.barcode} price={item.price} format={format} sideBarcodeImage={sideBarcodeImage} />}
         </tr>
         {PRICE_TAG_STYLES[format].barcode === "row" && (

@@ -45,7 +45,7 @@ const SIDE_BARCODE_INSET_MM = { top: 0.8, bottom: 0.8, side: 0.6 };
 // size comes out at about half. The preview draws the decimals at half.
 const DECIMALS_SUPERSCRIPT_SCALE = 0.75;
 // Excel lays a line out with the font's winAscent/winDescent; digits are cap height.
-export const OSWALD = { ascent: 1.325, descent: 0.377, cap: 0.81 }; // em
+const OSWALD = { ascent: 1.325, descent: 0.377, cap: 0.81 }; // em
 const FRIDGE_PRICE_ROW_PT = FRIDGE_PRICE_GAP_MM * MM_TO_PT + FRIDGE_PRICE_FONT_SIZE * (OSWALD.cap + OSWALD.descent);
 
 export const PRICE_TAG_STYLES = {
@@ -79,6 +79,9 @@ export const PRICE_TAG_STYLES = {
     nameAlignment: { horizontal: "center", vertical: "bottom", wrapText: true },
     priceAlignment: { horizontal: "center", vertical: "bottom", shrinkToFit: true },
     priceFontSize: () => FRIDGE_PRICE_FONT_SIZE,
+    // Drawn as an image where priceLayout puts it: Excel printed this text,
+    // taller than its row, 6 mm higher than modelled, cut off by the name line.
+    priceAsImage: true,
     barcode: "side",
     // down to the holder band, with no line between them: as long as before
     sideBarcodeInsetMm: { ...SIDE_BARCODE_INSET_MM, bottom: 0 },
@@ -261,6 +264,32 @@ export const makePromoLineDataUrl = (lines, box) => {
   return canvas.toDataURL("image/png");
 };
 
+// Browser only: a price drawn over its whole cell, digits and raised decimals
+// exactly where priceLayout puts them (the decimals at half size, their tops
+// level with the digits'), on a transparent background.
+// Without Oswald loaded it would draw in another font: it throws instead, and
+// the cell gets the price as text.
+const PRICE_PX_PER_MM = 16;
+export const makePriceDataUrl = (price, format) => {
+  if (document.fonts?.check && !document.fonts.check('400 40px "Oswald"')) throw new Error("Oswald is not loaded");
+  const { priceWidthMm, priceHeightMm } = tagGeometry(format);
+  const layout = priceLayout(price, format);
+  const { whole, decimals } = priceParts(price);
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(priceWidthMm * PRICE_PX_PER_MM);
+  canvas.height = Math.round(priceHeightMm * PRICE_PX_PER_MM);
+  const ctx = canvas.getContext("2d");
+  const px = (mm) => mm * PRICE_PX_PER_MM;
+  const em = layout.fontPt * PT_TO_MM;
+  ctx.fillStyle = "#000";
+  ctx.textBaseline = "alphabetic";
+  ctx.font = `400 ${px(em)}px Oswald`;
+  ctx.fillText(whole, px(layout.textLeftMm), px(layout.baselineMm));
+  ctx.font = `400 ${px(em * DECIMALS_DRAWN_SCALE)}px Oswald`;
+  ctx.fillText(decimals, px(layout.textLeftMm + layout.wholeMm), px(layout.capTopMm + OSWALD.cap * DECIMALS_DRAWN_SCALE * em));
+  return canvas.toDataURL("image/png");
+};
+
 // --- Print geometry, shared by the Excel export and the on-screen preview ---
 
 // Excel's column-width → pixel rule at 96 dpi; 7 px is the max digit width of
@@ -422,7 +451,7 @@ const mmToPx = (mm) => (mm * 96) / 25.4;
 export const buildWorkbook = (
   queue,
   format,
-  { barcodeImage = makeBarcodeDataUrl, sideBarcodeImage = makeSideBarcodeDataUrl, promoLineImage = makePromoLineDataUrl } = {}
+  { barcodeImage = makeBarcodeDataUrl, sideBarcodeImage = makeSideBarcodeDataUrl, promoLineImage = makePromoLineDataUrl, priceImage = makePriceDataUrl } = {}
 ) => {
   const style = PRICE_TAG_STYLES[format];
   const rowsPerItem = style.barcode === "row" || style.holderRowHeight ? 3 : 2;
@@ -435,6 +464,7 @@ export const buildWorkbook = (
   sheet.columns = Array.from({ length: style.columns }).flatMap(() => style.columnWidths.map((width) => ({ width })));
   sheet.pageSetup = { paperSize: 9, orientation: "portrait", margins: PAGE_MARGINS_IN }; // 9 = A4
 
+  const drawnPrices = new Map(); // price → its image in the workbook, added once (null: can't be drawn)
   let groupIndex = 0;
   layoutTagPages(queue, format).forEach((page, pageIndex) => {
     page.forEach((row, rowIndex) => {
@@ -447,7 +477,7 @@ export const buildWorkbook = (
       }
       row.forEach((item, tagIndex) => {
         const col = tagIndex * style.columnWidths.length + 1;
-        addTag(workbook, sheet, format, item, groupIndex, col, rowsPerItem, { barcodeImage, sideBarcodeImage, promoLineImage });
+        addTag(workbook, sheet, format, item, groupIndex, col, rowsPerItem, { barcodeImage, sideBarcodeImage, promoLineImage, priceImage, drawnPrices });
       });
       groupIndex++;
     });
@@ -456,7 +486,7 @@ export const buildWorkbook = (
   return workbook;
 };
 
-const addTag = (workbook, sheet, format, item, groupIndex, col, rowsPerItem, { barcodeImage, sideBarcodeImage, promoLineImage }) => {
+const addTag = (workbook, sheet, format, item, groupIndex, col, rowsPerItem, { barcodeImage, sideBarcodeImage, promoLineImage, priceImage, drawnPrices }) => {
   const style = PRICE_TAG_STYLES[format];
   const side = style.barcode === "side";
   const nameRowNumber = groupIndex * rowsPerItem + 1;
@@ -478,16 +508,21 @@ const addTag = (workbook, sheet, format, item, groupIndex, col, rowsPerItem, { b
   const priceText = formatPrice(item.price);
   const priceSize = style.priceFontSize(priceText);
   const priceCell = priceRow.getCell(col);
-  priceCell.font = { name: "Oswald", bold: false, size: priceSize };
-  priceCell.alignment = style.priceAlignment;
+  // as text when it can't be drawn, so a tag never prints without its price
+  const drawn = style.priceAsImage && addPriceImage(workbook, sheet, format, item, nameRowNumber, col, priceImage, drawnPrices);
+  if (!drawn) {
+    priceCell.font = { name: "Oswald", bold: false, size: priceSize };
+    priceCell.alignment = style.priceAlignment;
+  }
   if (side) {
     const { whole, decimals } = priceParts(item.price);
-    priceCell.value = {
-      richText: [
-        { text: whole, font: { name: "Oswald", size: priceSize } },
-        { text: decimals, font: { name: "Oswald", size: Math.round(priceSize * DECIMALS_SUPERSCRIPT_SCALE), vertAlign: "superscript" } },
-      ],
-    };
+    if (!drawn)
+      priceCell.value = {
+        richText: [
+          { text: whole, font: { name: "Oswald", size: priceSize } },
+          { text: decimals, font: { name: "Oswald", size: Math.round(priceSize * DECIMALS_SUPERSCRIPT_SCALE), vertAlign: "superscript" } },
+        ],
+      };
     // one outline around price and barcode (and the holder band), no line between them
     const bottom = style.holderRowHeight ? {} : { bottom: thin };
     priceCell.border = { top: thin, left: thin, ...bottom };
@@ -546,6 +581,29 @@ const addSideBarcode = (workbook, sheet, format, item, nameRowNumber, col, sideB
     },
     ext: { width: mmToPx(box.widthMm), height: mmToPx(box.heightMm) },
   });
+};
+
+// The price drawn over its whole cell (makePriceDataUrl); false when it can't
+// be. Each price is put into the file once (~20 KB) and shown by every tag
+// that has it, so long lists still fit in a mail.
+const addPriceImage = (workbook, sheet, format, item, nameRowNumber, col, priceImage, drawnPrices) => {
+  if (!drawnPrices.has(item.price)) {
+    let image = null;
+    try {
+      image = priceImage(item.price, format);
+    } catch {
+      // no canvas to draw on, or no Oswald to draw with
+    }
+    drawnPrices.set(item.price, image ? workbook.addImage({ base64: image, extension: "png" }) : null);
+  }
+  const imageId = drawnPrices.get(item.price);
+  if (imageId === null) return false;
+  const { priceWidthMm, priceHeightMm } = tagGeometry(format);
+  sheet.addImage(imageId, {
+    tl: { nativeCol: col - 1, nativeColOff: 0, nativeRow: nameRowNumber, nativeRowOff: 0 }, // 0-indexed: the price cell
+    ext: { width: mmToPx(priceWidthMm), height: mmToPx(priceHeightMm) },
+  });
+  return true;
 };
 
 const addPromoLine = (workbook, sheet, format, item, nameRowNumber, col, promoLineImage) => {

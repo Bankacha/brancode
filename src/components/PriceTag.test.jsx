@@ -48,7 +48,7 @@ describe("PriceTag", () => {
   });
 
   it("ends the upright barcode at the bottom of the price", () => {
-    const { container } = render(<PriceTag item={{ name: "A", price: 99, barcode: "8600005000108" }} format="fridge" sideBarcodeImage={fakeBarcode} />);
+    const { container } = render(<PriceTag item={{ name: "A", price: 99, barcode: "8600005000108" }} format="fridge" sideBarcodeImage={fakeBarcode} priceImage={fakeBarcode} />);
     const box = sideBarcodeBox("fridge", 99);
     expect(container.querySelector('img[alt=""]').style.height).toBe(`${box.heightMm}mm`);
   });
@@ -67,15 +67,28 @@ describe("PriceTag", () => {
     expect(decimals.style.verticalAlign).toBe("top");
   });
 
-  it("puts a bottom-aligned (fridge) price as high as Excel does, a centered one where it was", () => {
-    render(<PriceTag item={{ name: "A", price: 99, barcode: "1" }} format="fridge" sideBarcodeImage={fakeBarcode} />);
-    expect(screen.getByText("99").parentElement.parentElement.style.paddingBottom).toBe("13.818pt");
-    render(<PriceTag item={{ name: "B", price: 98, barcode: "1" }} format="shelf" sideBarcodeImage={fakeBarcode} />);
-    expect(screen.getByText("98").parentElement.parentElement.style.paddingBottom).toBe("");
+  it("draws a fridge price as the export's image over its cell, a shelf price as text", () => {
+    const priceImage = (price, format) => `data:image/png;base64,${format}${price}`;
+    render(<PriceTag item={{ name: "A", price: 695, barcode: "1" }} format="fridge" sideBarcodeImage={fakeBarcode} priceImage={priceImage} />);
+    const img = screen.getByAltText("695,00");
+    expect(img.getAttribute("src")).toBe("data:image/png;base64,fridge695");
+    expect(img.style.width).toBe(`${tagGeometry("fridge").priceWidthMm}mm`);
+    expect(img.style.height).toBe(`${tagGeometry("fridge").priceHeightMm}mm`);
+    expect(screen.queryByText("695")).toBeNull();
+    render(<PriceTag item={{ name: "B", price: 98, barcode: "1" }} format="shelf" sideBarcodeImage={fakeBarcode} priceImage={priceImage} />);
+    expect(screen.getByText("98")).toBeTruthy();
+  });
+
+  it("falls back to the price as text when it can't be drawn", () => {
+    const priceImage = () => {
+      throw new Error("no canvas");
+    };
+    render(<PriceTag item={{ name: "A", price: 695, barcode: "1" }} format="fridge" sideBarcodeImage={fakeBarcode} priceImage={priceImage} />);
+    expect(screen.getByText("695")).toBeTruthy();
   });
 
   it("draws the blank band under a fridge price, inside the outline with no line above it", () => {
-    const { container } = render(<PriceTag item={{ name: "A", price: 99, barcode: "1" }} format="fridge" sideBarcodeImage={fakeBarcode} />);
+    const { container } = render(<PriceTag item={{ name: "A", price: 99, barcode: "1" }} format="fridge" sideBarcodeImage={fakeBarcode} priceImage={fakeBarcode} />);
     const rows = container.querySelectorAll("tr");
     expect(rows).toHaveLength(3);
     const [band] = rows[2].querySelectorAll("td");
@@ -87,7 +100,7 @@ describe("PriceTag", () => {
 
   it("draws the band on every fridge tag of an A4 page, and none under a shelf price", () => {
     const tag = (id) => ({ id, name: id, price: 1, barcode: "1" });
-    const { container, rerender } = render(<PrintPage rows={[[tag("a"), tag("b")], [tag("c")]]} format="fridge" sideBarcodeImage={fakeBarcode} />);
+    const { container, rerender } = render(<PrintPage rows={[[tag("a"), tag("b")], [tag("c")]]} format="fridge" sideBarcodeImage={fakeBarcode} priceImage={fakeBarcode} />);
     expect(container.querySelectorAll("tr")).toHaveLength(6);
     expect(container.querySelectorAll("tr")[2].querySelectorAll("td")).toHaveLength(2);
     rerender(<PrintPage rows={[[tag("a"), tag("b")], [tag("c")]]} format="shelf" sideBarcodeImage={fakeBarcode} />);
@@ -100,7 +113,7 @@ describe("PriceTag", () => {
   });
 
   it("spans the name over the price and barcode columns", () => {
-    render(<PriceTag item={{ name: "MAJONEZ", price: 1, barcode: "1" }} format="fridge" sideBarcodeImage={fakeBarcode} />);
+    render(<PriceTag item={{ name: "MAJONEZ", price: 1, barcode: "1" }} format="fridge" sideBarcodeImage={fakeBarcode} priceImage={fakeBarcode} />);
     expect(screen.getByText("MAJONEZ").closest("td").colSpan).toBe(2);
   });
 
@@ -169,12 +182,12 @@ describe("PriceTag shrink to fit", () => {
   it("stays shrunk after the print font finishes loading", async () => {
     textWidth();
     fontsReady();
-    render(<PriceTag item={{ name: "VINJAK", price: 12499.99, barcode: "1" }} format="fridge" sideBarcodeImage={fakeBarcode} />);
+    render(<PriceTag item={{ name: "VINJAK", price: 12499.99, barcode: "1" }} format="shelf" sideBarcodeImage={fakeBarcode} />);
     await act(async () => {
       await document.fonts.ready;
     });
     const size = parseFloat(screen.getByText("12.499").parentElement.style.fontSize);
-    expect(size).toBeLessThan(42);
+    expect(size).toBeLessThan(34);
     expect(size).toBeGreaterThan(25);
   });
 
@@ -193,7 +206,7 @@ describe("PriceTag shrink to fit", () => {
 
 describe("PriceTag width", () => {
   it("fixes the table to the column width so a long price can't widen the tag", () => {
-    const { container } = render(<PriceTag item={{ name: "A", price: 12499.99, barcode: "1" }} format="fridge" sideBarcodeImage={fakeBarcode} />);
+    const { container } = render(<PriceTag item={{ name: "A", price: 12499.99, barcode: "1" }} format="fridge" sideBarcodeImage={fakeBarcode} priceImage={fakeBarcode} />);
     expect(container.querySelector("table").style.width).toBe(`${tagGeometry("fridge").widthMm}mm`);
   });
 

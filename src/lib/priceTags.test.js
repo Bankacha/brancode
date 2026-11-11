@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import ExcelJS from "exceljs";
 import {
   barcodeImageBox,
@@ -75,9 +75,10 @@ describe("buildWorkbook cells", () => {
     expect(sheet.getRow(2).height).toBe(77.25);
   });
 
-  it.each(["shelf", "fridge"])("prints %s decimals smaller and raised, as rich text", (format) => {
+  it.each(["shelf", "fridge"])("prints %s decimals smaller and raised, as rich text (fridge: when the price can't be drawn)", (format) => {
     const sheet = sheetFor(format, [{ id: "a", barcode: "1", name: "MAJONEZ 175", price: 1249.99 }]);
     const [whole, decimals] = sheet.getCell("A2").value.richText;
+    expect(sheet.getCell("A2").alignment.vertical).toBe(format === "shelf" ? "middle" : "bottom");
     expect(whole).toEqual({ text: "1.249", font: { name: "Oswald", size: 42 } });
     expect(decimals.text).toBe(",99");
     expect(decimals.font.vertAlign).toBe("superscript");
@@ -101,12 +102,42 @@ describe("buildWorkbook cells", () => {
     expect(Object.keys(sheet.getCell("B1").border).sort()).toEqual(["bottom", "left", "right", "top"]);
   });
 
+  it("draws the fridge price as an image over its cell, leaving Excel no text to lay out", () => {
+    const drawn = [];
+    const priceImage = (price, format) => (drawn.push([price, format]), PNG_1PX);
+    const sheet = buildWorkbook([{ ...items(1)[0], price: 695 }], "fridge", { sideBarcodeImage: () => PNG_1PX, priceImage }).getWorksheet("Cenovnici");
+    expect(drawn).toEqual([[695, "fridge"]]);
+    expect(sheet.getCell("A2").value).toBeNull();
+    const g = tagGeometry("fridge");
+    const price = sheet.getImages().find((img) => img.range.tl.nativeCol === 0);
+    expect(price.range.tl).toMatchObject({ nativeRow: 1, nativeColOff: 0, nativeRowOff: 0 });
+    expect(price.range.ext.width).toBeCloseTo((g.priceWidthMm * 96) / 25.4, 5);
+    expect(price.range.ext.height).toBeCloseTo((g.priceHeightMm * 96) / 25.4, 5);
+  });
+
+  it("adds each fridge price's image to the file once, however many tags show it", () => {
+    const priceImage = vi.fn(() => PNG_1PX);
+    const queue = [{ ...items(1)[0], price: 695, copies: 3 }, { ...items(2)[1], price: 235 }, { ...items(3)[2], price: 695 }];
+    const workbook = buildWorkbook(queue, "fridge", { sideBarcodeImage: () => PNG_1PX, priceImage });
+    const sheet = workbook.getWorksheet("Cenovnici");
+    expect(priceImage).toHaveBeenCalledTimes(2);
+    expect(sheet.getImages().filter((img) => img.range.tl.nativeCol % 2 === 0)).toHaveLength(5); // one per tag
+    expect(workbook.model.media).toHaveLength(5 + 2); // the barcodes, and two prices
+  });
+
+  it("keeps shelf prices as text", () => {
+    const priceImage = () => {
+      throw new Error("not for shelf");
+    };
+    const sheet = buildWorkbook(items(1), "shelf", { sideBarcodeImage: () => PNG_1PX, priceImage }).getWorksheet("Cenovnici");
+    expect(sheet.getCell("A2").value.richText[0].text).toBe("99");
+  });
+
   it("puts a blank band under the fridge price, for the holder's bottom edge, inside the outline", () => {
     const sheet = sheetFor("fridge", items(1));
     const g = tagGeometry("fridge");
     expect(ptToMm(sheet.getRow(2).height)).toBeCloseTo(g.priceHeightMm, 5);
     expect(ptToMm(sheet.getRow(3).height)).toBeCloseTo(g.holderHeightMm, 5);
-    expect(sheet.getCell("A2").alignment.vertical).toBe("bottom");
     expect(Object.keys(sheet.getCell("A2").border).sort()).toEqual(["left", "top"]);
     expect(Object.keys(sheet.getCell("B2").border).sort()).toEqual(["right", "top"]);
     expect(Object.keys(sheet.getCell("A3").border).sort()).toEqual(["bottom", "left"]);

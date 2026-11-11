@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { lookupArticle } from "./products.js";
+import { lookupArticle, renameProduct } from "./products.js";
 import { fullCodeOf } from "./ean.js";
 import { parsePrice, toPriceInput } from "./format.js";
 import { parseQuantity } from "./listFormat.js";
@@ -10,10 +10,20 @@ const numberInput = (n) => (n === null || n === undefined ? "" : String(n).repla
 // What happens after a code is scanned or typed on a list (`kind` from
 // listKinds.js), as one state: loading → new (fill in) | duplicate (already
 // there: add or edit) → add | edit. Items found in `products` get their name
-// and price from there, locked; nothing is ever written to `products`.
+// and price from there, locked. Nothing is written to `products`, except on a
+// trebovanje a changed name the shop ticks to keep (`saveName`): only the
+// name, on the row the lookup found (`productBarcode`).
 export const useListItemFlow = (listId, kind) => {
   const { store, rules, texts } = kind;
   const [state, setState] = useState(IDLE);
+  // The `products` row an article was found in, and whether a changed name may
+  // be (and is to be) saved there.
+  const productRow = (product) => ({
+    productBarcode: product?.barcode ?? null,
+    productName: product?.name ?? null,
+    canSaveName: Boolean(rules.saveNameToProducts && product),
+    saveName: false,
+  });
   const stateRef = useRef(state);
   stateRef.current = state;
   const set = (next) => {
@@ -50,6 +60,7 @@ export const useListItemFlow = (listId, kind) => {
         lockName: rules.lockProductName && Boolean(product?.name),
         lockPrice: hasPrice,
         inProducts: Boolean(product),
+        ...productRow(product),
         errors: {},
       });
       return { ok: true };
@@ -63,10 +74,10 @@ export const useListItemFlow = (listId, kind) => {
   // Trebovanje only: an item that is just a name ("hleb za sendviče").
   const startWithoutBarcode = () => {
     request.current++;
-    set({ kind: "new", barcode: null, name: "", price: "", quantity: "", lockName: false, lockPrice: false, inProducts: false, errors: {} });
+    set({ kind: "new", barcode: null, name: "", price: "", quantity: "", lockName: false, lockPrice: false, inProducts: false, ...productRow(null), errors: {} });
   };
 
-  const editState = (item, inProducts) => ({
+  const editState = (item, inProducts, product = null) => ({
     kind: "edit",
     item,
     name: item.name,
@@ -75,6 +86,7 @@ export const useListItemFlow = (listId, kind) => {
     lockName: rules.lockProductName && inProducts,
     lockPrice: inProducts && item.price !== null,
     inProducts,
+    ...productRow(product),
     errors: {},
   });
 
@@ -91,7 +103,7 @@ export const useListItemFlow = (listId, kind) => {
     set({ kind: "loading", code: item.barcode });
     return lookupArticle(item.barcode).then(
       (product) => {
-        if (id === request.current) set(editState(item, Boolean(product)));
+        if (id === request.current) set(editState(item, Boolean(product), product));
         return { ok: true };
       },
       () => {
@@ -156,14 +168,26 @@ export const useListItemFlow = (listId, kind) => {
           return { ok: false, reason: "duplicate" };
         }
         set(IDLE);
-        return { ok: true, action: "added", item: result.item };
+        return { ok: true, action: "added", item: result.item, nameInProducts: await saveNameIfAsked(s, name) };
       }
       const item = await store.updateItem(s.item.id, { name, price, quantity });
       if (!item) return gone();
       set(IDLE);
-      return { ok: true, action: "updated", item };
+      return { ok: true, action: "updated", item, nameInProducts: await saveNameIfAsked(s, name) };
     } catch (e) {
       return { ok: false, reason: "network" };
+    }
+  };
+
+  // After the item is saved: "saved" | "failed" (the item stays saved), or
+  // undefined when nothing was asked or the name is the database's already.
+  const saveNameIfAsked = async (s, name) => {
+    if (!s.canSaveName || !s.saveName || name === s.productName?.trim()) return undefined;
+    try {
+      await renameProduct(s.productBarcode, name);
+      return "saved";
+    } catch (e) {
+      return "failed";
     }
   };
 

@@ -36,6 +36,14 @@ export const lookupArticle = async (code, client = supabase) => {
   return null;
 };
 
+// Only the name of one row (a trebovanje's renamed article); price and the
+// remembered tag format stay. Throws when the row is gone or can't be changed.
+export const renameProduct = async (barcode, name, client = supabase) => {
+  const { data, error } = await client.from("products").update({ name }).eq("barcode", barcode).select("barcode");
+  if (error) throw error;
+  if (data.length === 0) throw new Error("products row not found");
+};
+
 export const saveProduct = async (product, matchedBarcode, client = supabase) => {
   // A short code (typed, or an old list row) found under its full code is
   // saved onto that row: a row is never moved to a shorter code.
