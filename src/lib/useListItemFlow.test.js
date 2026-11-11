@@ -295,6 +295,29 @@ describe("useListItemFlow on a trebovanje", () => {
       expect(flow.current.state).toMatchObject({ productBarcode: "8600005000122", productName: "MAJONEZ 175", saveName: false });
     });
 
+    it("doesn't count the database name's stray spaces as a change", async () => {
+      renameProduct.mockResolvedValue();
+      lookupArticle.mockResolvedValue({ ...majonez, name: " MAJONEZ 175 " });
+      requisitionStore.findItem.mockResolvedValue(null);
+      requisitionStore.addItem.mockResolvedValue({ item: { id: "r8", name: "MAJONEZ 175", quantity: null } });
+      const flow = flowFor();
+      await act(() => flow.current.start("8600005000122"));
+      act(() => flow.current.setField("saveName", true));
+      await save(flow);
+      expect(renameProduct).not.toHaveBeenCalled();
+    });
+
+    it("is never offered on a popis or for an item without a barcode", async () => {
+      inventoryStore.findItem.mockResolvedValue(null);
+      lookupArticle.mockResolvedValue(majonez);
+      const popis = renderHook(() => useListItemFlow("p1", popisKind)).result;
+      await act(() => popis.current.start("8600005000122"));
+      expect(popis.current.state.canSaveName).toBe(false);
+      const flow = flowFor();
+      act(() => flow.current.startWithoutBarcode());
+      expect(flow.current.state.canSaveName).toBe(false);
+    });
+
     it("writes the new name to the article's database row when ticked", async () => {
       renameProduct.mockResolvedValue();
       const flow = await scanned();

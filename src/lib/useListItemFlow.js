@@ -182,7 +182,7 @@ export const useListItemFlow = (listId, kind) => {
   // After the item is saved: "saved" | "failed" (the item stays saved), or
   // undefined when nothing was asked or the name is the database's already.
   const saveNameIfAsked = async (s, name) => {
-    if (!s.canSaveName || !s.saveName || name === s.productName) return undefined;
+    if (!s.canSaveName || !s.saveName || name === s.productName?.trim()) return undefined;
     try {
       await renameProduct(s.productBarcode, name);
       return "saved";

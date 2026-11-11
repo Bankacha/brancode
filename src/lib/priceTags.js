@@ -267,8 +267,11 @@ export const makePromoLineDataUrl = (lines, box) => {
 // Browser only: a price drawn over its whole cell, digits and raised decimals
 // exactly where priceLayout puts them (the decimals at half size, their tops
 // level with the digits'), on a transparent background.
+// Without Oswald loaded it would draw in another font: it throws instead, and
+// the cell gets the price as text.
 const PRICE_PX_PER_MM = 16;
 export const makePriceDataUrl = (price, format) => {
+  if (document.fonts?.check && !document.fonts.check('400 40px "Oswald"')) throw new Error("Oswald is not loaded");
   const { priceWidthMm, priceHeightMm } = tagGeometry(format);
   const layout = priceLayout(price, format);
   const { whole, decimals } = priceParts(price);
@@ -461,6 +464,7 @@ export const buildWorkbook = (
   sheet.columns = Array.from({ length: style.columns }).flatMap(() => style.columnWidths.map((width) => ({ width })));
   sheet.pageSetup = { paperSize: 9, orientation: "portrait", margins: PAGE_MARGINS_IN }; // 9 = A4
 
+  const drawnPrices = new Map(); // price → its image in the workbook, added once (null: can't be drawn)
   let groupIndex = 0;
   layoutTagPages(queue, format).forEach((page, pageIndex) => {
     page.forEach((row, rowIndex) => {
@@ -473,7 +477,7 @@ export const buildWorkbook = (
       }
       row.forEach((item, tagIndex) => {
         const col = tagIndex * style.columnWidths.length + 1;
-        addTag(workbook, sheet, format, item, groupIndex, col, rowsPerItem, { barcodeImage, sideBarcodeImage, promoLineImage, priceImage });
+        addTag(workbook, sheet, format, item, groupIndex, col, rowsPerItem, { barcodeImage, sideBarcodeImage, promoLineImage, priceImage, drawnPrices });
       });
       groupIndex++;
     });
@@ -482,7 +486,7 @@ export const buildWorkbook = (
   return workbook;
 };
 
-const addTag = (workbook, sheet, format, item, groupIndex, col, rowsPerItem, { barcodeImage, sideBarcodeImage, promoLineImage, priceImage }) => {
+const addTag = (workbook, sheet, format, item, groupIndex, col, rowsPerItem, { barcodeImage, sideBarcodeImage, promoLineImage, priceImage, drawnPrices }) => {
   const style = PRICE_TAG_STYLES[format];
   const side = style.barcode === "side";
   const nameRowNumber = groupIndex * rowsPerItem + 1;
@@ -505,7 +509,7 @@ const addTag = (workbook, sheet, format, item, groupIndex, col, rowsPerItem, { b
   const priceSize = style.priceFontSize(priceText);
   const priceCell = priceRow.getCell(col);
   // as text when it can't be drawn, so a tag never prints without its price
-  const drawn = style.priceAsImage && addPriceImage(workbook, sheet, format, item, nameRowNumber, col, priceImage);
+  const drawn = style.priceAsImage && addPriceImage(workbook, sheet, format, item, nameRowNumber, col, priceImage, drawnPrices);
   if (!drawn) {
     priceCell.font = { name: "Oswald", bold: false, size: priceSize };
     priceCell.alignment = style.priceAlignment;
@@ -579,17 +583,22 @@ const addSideBarcode = (workbook, sheet, format, item, nameRowNumber, col, sideB
   });
 };
 
-// The price drawn over its whole cell (makePriceDataUrl); false when it can't be.
-const addPriceImage = (workbook, sheet, format, item, nameRowNumber, col, priceImage) => {
-  let image = null;
-  try {
-    image = priceImage(item.price, format);
-  } catch {
-    // no canvas to draw on
+// The price drawn over its whole cell (makePriceDataUrl); false when it can't
+// be. Each price is put into the file once (~20 KB) and shown by every tag
+// that has it, so long lists still fit in a mail.
+const addPriceImage = (workbook, sheet, format, item, nameRowNumber, col, priceImage, drawnPrices) => {
+  if (!drawnPrices.has(item.price)) {
+    let image = null;
+    try {
+      image = priceImage(item.price, format);
+    } catch {
+      // no canvas to draw on, or no Oswald to draw with
+    }
+    drawnPrices.set(item.price, image ? workbook.addImage({ base64: image, extension: "png" }) : null);
   }
-  if (!image) return false;
+  const imageId = drawnPrices.get(item.price);
+  if (imageId === null) return false;
   const { priceWidthMm, priceHeightMm } = tagGeometry(format);
-  const imageId = workbook.addImage({ base64: image, extension: "png" });
   sheet.addImage(imageId, {
     tl: { nativeCol: col - 1, nativeColOff: 0, nativeRow: nameRowNumber, nativeRowOff: 0 }, // 0-indexed: the price cell
     ext: { width: mmToPx(priceWidthMm), height: mmToPx(priceHeightMm) },

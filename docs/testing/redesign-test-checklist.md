@@ -135,6 +135,13 @@ Ovo nije provereno na pravom telefonu i papiru, pa ostaje za zajednički test. �
 - [ ] Uspravni barkod na rafu se završava u liniji dna cene (na frižideru od 0.13.1 ide do praznog pojasa); telefon ga skenira.
 - [ ] Trebovanje PDF: svaki red ima veći kvadratić.
 
+## 2h. Frižider cena kao slika, naziv u bazu (0.14.0)
+
+- [ ] Friz cenovnik u pregledu štampe i na papiru (Excel na računaru u radnji): cena odmah ispod linije, cela, ista kao u pregledu; „12.499,99“ manja, ali cela; datum akcije ispod „,99“.
+- [ ] Raf cenovnik izgleda isto kao pre.
+- [ ] Trebovanje: promena naziva artikla iz baze pokaže „Sačuvaj ovaj naziv i u bazi artikala“ (neštiklirano); bez štikliranja baza ostaje ista, sa štikliranjem poruka kaže „naziv sačuvan i u bazi“ i skeniranje cene pokaže novi naziv.
+- [ ] Na popisu i za stavku bez barkoda ili koja nije u bazi tog izbora nema.
+
 ## 2g. Frižider: cena do linije (0.13.1)
 
 - [ ] Friz cenovnik u pregledu štampe: cena stoji odmah ispod linije koja deli naziv i cenu, ispod nje je prazan pojas; cenovnik je iste visine i na strani ih je i dalje 15.

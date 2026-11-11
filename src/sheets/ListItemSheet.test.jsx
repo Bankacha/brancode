@@ -40,6 +40,11 @@ describe("ListItemSheet: a changed name into the database", () => {
     expect(flow.setField).toHaveBeenCalledWith("saveName", true);
   });
 
+  it("doesn't offer it for the database name with stray spaces", () => {
+    sheet({ productName: " MAJONEZ 175 " });
+    expect(box()).toBeNull();
+  });
+
   it("shows it ticked", () => {
     sheet({ name: "Majonez za salatu", saveName: true });
     expect(box().getAttribute("aria-checked")).toBe("true");

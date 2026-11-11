@@ -60,7 +60,7 @@ export default function ListItemSheet({ flow, texts, open, onClose, source, onSu
   };
   const field = (key) => ({ value: state[key], onChange: (e) => flow.setField(key, e.target.value) });
   // a database article renamed on a trebovanje: keep the new name in the database too?
-  const nameChanged = state.canSaveName && state.name.trim() !== "" && state.name.trim() !== state.productName;
+  const nameChanged = state.canSaveName && state.name.trim() !== "" && state.name.trim() !== state.productName?.trim();
   const fromProducts = state.inProducts;
   const barcode = state.kind === "new" ? state.barcode : state.item?.barcode;
 

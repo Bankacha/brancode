@@ -164,7 +164,7 @@ export function PriceCell({ price, format, promoUntil, promoLineImage, priceImag
     return () => {
       cancelled = true;
     };
-  }, [basePt, text, priceWidthMm]);
+  }, [basePt, text, priceWidthMm, Boolean(drawn)]); // measured again when a drawn price turns into text
 
   const { whole, decimals } = priceParts(price);
   return (

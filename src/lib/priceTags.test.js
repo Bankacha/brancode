@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import ExcelJS from "exceljs";
 import {
   barcodeImageBox,
@@ -78,6 +78,7 @@ describe("buildWorkbook cells", () => {
   it.each(["shelf", "fridge"])("prints %s decimals smaller and raised, as rich text (fridge: when the price can't be drawn)", (format) => {
     const sheet = sheetFor(format, [{ id: "a", barcode: "1", name: "MAJONEZ 175", price: 1249.99 }]);
     const [whole, decimals] = sheet.getCell("A2").value.richText;
+    expect(sheet.getCell("A2").alignment.vertical).toBe(format === "shelf" ? "middle" : "bottom");
     expect(whole).toEqual({ text: "1.249", font: { name: "Oswald", size: 42 } });
     expect(decimals.text).toBe(",99");
     expect(decimals.font.vertAlign).toBe("superscript");
@@ -112,6 +113,16 @@ describe("buildWorkbook cells", () => {
     expect(price.range.tl).toMatchObject({ nativeRow: 1, nativeColOff: 0, nativeRowOff: 0 });
     expect(price.range.ext.width).toBeCloseTo((g.priceWidthMm * 96) / 25.4, 5);
     expect(price.range.ext.height).toBeCloseTo((g.priceHeightMm * 96) / 25.4, 5);
+  });
+
+  it("adds each fridge price's image to the file once, however many tags show it", () => {
+    const priceImage = vi.fn(() => PNG_1PX);
+    const queue = [{ ...items(1)[0], price: 695, copies: 3 }, { ...items(2)[1], price: 235 }, { ...items(3)[2], price: 695 }];
+    const workbook = buildWorkbook(queue, "fridge", { sideBarcodeImage: () => PNG_1PX, priceImage });
+    const sheet = workbook.getWorksheet("Cenovnici");
+    expect(priceImage).toHaveBeenCalledTimes(2);
+    expect(sheet.getImages().filter((img) => img.range.tl.nativeCol % 2 === 0)).toHaveLength(5); // one per tag
+    expect(workbook.model.media).toHaveLength(5 + 2); // the barcodes, and two prices
   });
 
   it("keeps shelf prices as text", () => {
