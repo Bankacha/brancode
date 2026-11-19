@@ -20,7 +20,7 @@ export default async function handler(req, res) {
   const auth = () => createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
   const verifyUser = async (token) => {
     const { data, error } = await auth().auth.getUser(token);
-    return error || !data?.user ? null : { id: data.user.id, email: data.user.email };
+    return error || !data?.user ? null : { id: data.user.id, email: data.user.email, emailConfirmed: Boolean(data.user.email_confirmed_at) };
   };
   const context = (user) => {
     const service = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });

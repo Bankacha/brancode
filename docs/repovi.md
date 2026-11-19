@@ -2,7 +2,7 @@
 
 Jedno mesto za sitnice koje su pregledi koda našli, a nisu popravljene pre puštanja, i za stvari koje čekaju odluku ili proveru u radnji. Kad se nešto sredi, briše se odavde (istorija ostaje u git-u). Svako novo puštanje dopisuje svoje repove ovde, ne samo u izveštaj.
 
-Stanje: 19.11.2026, posle 0.15.0 (e-Faktura: ulazne fakture sa SEF-a, za sada na probnom SEF-u). Ostale su sitnice iz pregleda 0.12.2–0.14.0 i ono što čeka tebe ili proveru u radnji. Prvo idu koraci za e-Fakturu, redom.
+Stanje: 19.11.2026, posle 0.15.1 (prijava otvara početnu stranu; e-Faktura iz 0.15.0, za sada na probnom SEF-u). Ostale su sitnice iz pregleda 0.12.2–0.14.0 i ono što čeka tebe ili proveru u radnji. Prvo idu koraci za e-Fakturu, redom.
 
 ## Sitnice iz pregleda 0.12.2 (za sledeće sređivanje)
 
@@ -22,10 +22,6 @@ Stanje: 19.11.2026, posle 0.15.0 (e-Faktura: ulazne fakture sa SEF-a, za sada na
 1. Naziv sa trebovanja ide u red baze koji je pretraga našla. Za jedan od oko 170 parova gde u bazi postoje i 12-cifreni i 13-cifreni kod istog artikla, otkucan 12-cifreni kod nađe stari red, pa skeniranje pakovanja (13 cifara) i dalje pokaže stari naziv. Ista nedoslednost postoji i za cene; parovi se ne spajaju automatski (vidi pravila za barkodove).
 2. Svaka različita frižider cena je u Excel-u slika od oko 20 KB (ista cena se upisuje jednom). Mejl prima do oko 4 MB, pa jedan mejl staje oko 150 različitih frižider cena (u Mix-u zajedno sa raf barkodovima). Preko toga aplikacija kaže da je fajl prevelik i nudi preuzimanje. Ako to postane čest slučaj: manja rezolucija slike ili slika samo oko cifara.
 
-## Za sređivanje odmah posle 0.15.0
-
-1. **Posle prijave aplikacija otvara poslednju stranu, ne početnu** (prijavio korisnik 19.11.). Kad sesija istekne, na primer posle 3 dana, prijava vraća na stranu koja je poslednja bila otvorena (npr. Trebovanje), i to zbunjuje. Posle prijave aplikacija treba da otvori početnu stranu (Cene). Ide kao 0.15.1, na posebnoj grani, posle spajanja e-Fakture.
-
 ## Treba tvoja odluka, podešavanje ili provera u radnji
 
 **e-Faktura (0.15.0), redom.** Dok se ne urade prva dva koraka, odeljak e-Faktura na produkciji kaže „e-Faktura nije podešena na serveru.“
@@ -33,7 +29,7 @@ Stanje: 19.11.2026, posle 0.15.0 (e-Faktura: ulazne fakture sa SEF-a, za sada na
 1. **Tabele u bazi:** Supabase → SQL Editor → New query → nalepi ceo `supabase/migrations/20261119_efaktura.sql` → Run.
 2. **Vercel → Settings → Environment Variables** (Production i Preview), pa Redeploy:
    - `EFAKTURA_SECRET`: vrednost iz komande `openssl rand -base64 32` u Terminalu. Ne deli je i ne menjaj je posle: sa novom vrednošću sačuvani ključ više ne može da se otvori, pa se unosi ponovo.
-   - `EFAKTURA_USERS`: mejlovi naloga radnje koji smeju u e-Fakturu, odvojeni zarezom (npr. tvoj i bratov). Na pravom SEF-u bez ovoga e-Faktura ne radi ni za koga.
+   - `EFAKTURA_USERS`: mejlovi naloga radnje koji smeju u e-Fakturu, odvojeni zarezom (npr. tvoj i bratov). Na pravom SEF-u bez ovoga e-Faktura ne radi ni za koga. Mejl tih naloga mora biti potvrđen. Nalozi napravljeni u Supabase-u sa „Auto Confirm User“ već jesu; proveri u Authentication → Users.
 3. **Supabase → Authentication → Sign In / Providers:** proveri da je „Allow new users to sign up“ isključeno. Aplikacija nema registraciju, ali Supabase je po difoltu dozvoljava preko javnog ključa. Ovo važi za celu aplikaciju, ne samo za e-Fakturu.
 4. **Proba na telefonu (probni režim):** e-Faktura → Poveži, bilo koji tekst kao ključ (ne pravi ključ), naziv i PIB, pa prihvatanje nekoliko faktura, odbijanje jedne, slanje (mejl „[PROBA] Prihvaćene fakture – …“ stiže na mejl radnje), „Vrati probne fakture“.
 5. **Pravi SEF, samo čitanje:** postavi `SEF_ENV=production` **samo za Production** (Redeploy; preview deploy-evi i tako uvek ostaju na probnom SEF-u), pa brat u aplikaciji unese pravi ključ, naziv i PIB. Uporedi listu sa SEF-om: iste fakture, iznos (sa PDV-om ili bez), datumi prijema i valute, rok od 15 dana. Ako lista ne liči na SEF ili javi grešku, javi mi pre sledećeg koraka.

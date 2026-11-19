@@ -47,7 +47,9 @@ export const contextFromEnv = (env, { store, sendMail, user, now = () => new Dat
   // shop's accounts listed in EFAKTURA_USERS may; without the list, nobody.
   const allowed = emailList(env.EFAKTURA_USERS);
   if (mode !== "mock" && allowed.length === 0) return { error: "not-configured" };
-  if (allowed.length > 0 && !allowed.includes((user.email ?? "").toLowerCase())) return { error: "not-allowed" };
+  // only a confirmed address counts: a stranger must not get in by signing up
+  // with a listed address that has no account yet
+  if (allowed.length > 0 && (user.emailConfirmed !== true || !allowed.includes((user.email ?? "").toLowerCase()))) return { error: "not-allowed" };
   const sefFor =
     mode === "mock"
       ? (apiKey) =>

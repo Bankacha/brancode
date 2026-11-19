@@ -135,6 +135,11 @@ Ovo nije provereno na pravom telefonu i papiru, pa ostaje za zajednički test. �
 - [ ] Uspravni barkod na rafu se završava u liniji dna cene (na frižideru od 0.13.1 ide do praznog pojasa); telefon ga skenira.
 - [ ] Trebovanje PDF: svaki red ima veći kvadratić.
 
+## 2j. Prijava (0.15.1)
+
+- [ ] Otvori Trebovanje, odjavi se (Meni → Odjavi se) dok si na njemu, pa se prijavi: otvara se početna strana (Cene), ne Trebovanje.
+- [ ] Aplikacija otvorena dok je prijava još važeća ostaje na strani gde je bila.
+
 ## 2i. e-Faktura (0.15.0)
 
 Probni režim (pre `SEF_ENV`), na telefonu:
