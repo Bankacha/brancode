@@ -297,7 +297,12 @@ export default function Efaktura() {
       </div>
     );
   } else {
-    const counts = { pending: pending.length, accepted: accepted.length };
+    // The count goes under the tabs, for the chosen one: in the tabs it made them lopsided.
+    const summary = {
+      pending: `${fakture(pending.length)} · ukupno ${formatAmount(invoicesTotal(pending), "RSD")}`,
+      accepted: `${fakture(accepted.length)} · ${accepted.filter((i) => i.send?.state === "unsent").length} za slanje`,
+      all: `${fakture(invoices.length)} u poslednjih 60 dana`,
+    }[tab];
     body = (
       <>
         {status.mode === "mock" && (
@@ -318,15 +323,10 @@ export default function Efaktura() {
               className={`h-10 flex-1 rounded-full text-[14px] font-semibold ${tab === key ? "bg-ink text-bg" : "text-ink-2"}`}
             >
               {label}
-              {key in counts && (
-                <>
-                  {" "}
-                  <span className="font-mono text-[12px] opacity-70">{counts[key]}</span>
-                </>
-              )}
             </button>
           ))}
         </div>
+        <p className="mt-2 text-center text-[13px] text-ink-3">{summary}</p>
 
         {tab === "pending" &&
           pendingGroups.map((group) => {

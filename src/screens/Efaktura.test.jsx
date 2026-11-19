@@ -111,9 +111,16 @@ describe("Efaktura", () => {
     serve();
     setup();
     await loaded();
-    expect(tab("Na čekanju").textContent).toContain("4");
-    expect(tab("Prihvaćene").textContent).toContain("4");
-    expect(tab("Sve")).toBeTruthy();
+    // plain labels, like the price format tabs; the count sits under the tabs
+    expect(tab("Na čekanju").textContent).toBe("Na čekanju");
+    expect(tab("Prihvaćene").textContent).toBe("Prihvaćene");
+    expect(tab("Sve").textContent).toBe("Sve");
+    expect(screen.getByText("4 fakture · ukupno 4.800,00 din")).toBeTruthy();
+    fireEvent.click(tab("Prihvaćene"));
+    expect(screen.getByText("4 fakture · 2 za slanje")).toBeTruthy();
+    fireEvent.click(tab("Sve"));
+    expect(screen.getByText("10 faktura u poslednjih 60 dana")).toBeTruthy();
+    fireEvent.click(tab("Na čekanju"));
     expect(within(region("Danas")).getAllByRole("checkbox")).toHaveLength(3);
     expect(within(region("Juče")).getAllByRole("checkbox")).toHaveLength(1);
     expect(within(region("Danas")).getAllByText("još 15 dana").length).toBe(3);

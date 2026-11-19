@@ -90,7 +90,7 @@ Posle čuvanja:
 
 ### Lista faktura (`/e-faktura`)
 
-Zaglavlje „e-Faktura“ i tri taba koji rade kao filteri: **Na čekanju**, **Prihvaćene** i **Sve**. Prva dva pokazuju broj faktura (odluka 11).
+Zaglavlje „e-Faktura“ i tri taba koji rade kao filteri: **Na čekanju**, **Prihvaćene** i **Sve** (odluka 11), samo sa nazivima, kao izbor formata kod Cena. Broj je u redu ispod tabova, za izabrani tab: „19 faktura · ukupno … din“, „15 faktura · 4 za slanje“, „40 faktura u poslednjih 60 dana“ (dopuna od 19.11.: brojevi u tabovima su ih činili nesimetričnim).
 
 **„Na čekanju“** prikazuje fakture sa statusom Nova, Viđena i Ponovo poslata.
 - Fakture su grupisane po danu prijema: Danas, Juče, pa datumi.
