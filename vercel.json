@@ -16,6 +16,9 @@
   "functions": {
     "api/promo-check.js": {
       "maxDuration": 60
+    },
+    "api/efaktura.js": {
+      "maxDuration": 60
     }
   }
 }
