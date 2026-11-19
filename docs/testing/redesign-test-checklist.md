@@ -135,6 +135,20 @@ Ovo nije provereno na pravom telefonu i papiru, pa ostaje za zajednički test. �
 - [ ] Uspravni barkod na rafu se završava u liniji dna cene (na frižideru od 0.13.1 ide do praznog pojasa); telefon ga skenira.
 - [ ] Trebovanje PDF: svaki red ima veći kvadratić.
 
+## 2i. e-Faktura (0.15.0)
+
+Probni režim (pre `SEF_ENV`), na telefonu:
+
+- [ ] Meni ima „e-Faktura“; bez ključa piše „e-Faktura nije povezana.“ i „Poveži e-Fakturu“ vodi na podešavanja (do njih se stiže i iz Podešavanja → „Podesi e-Fakturu“).
+- [ ] Ključ `neispravan` daje „SEF ne prihvata ovaj ključ…“, a bilo koji drugi tekst, naziv i 9 cifara PIB-a daju „Ključ sačuvan · završava se na …“ (polje ključa nestane); „Fakture šalji na“ je zasivljeno, sa mejlom radnje.
+- [ ] „Na čekanju“: grupe Danas, Juče…, rok „još N dana“ (crveno pred kraj), „Izaberi sve“ za dan, traka „Prihvati (N) · ukupno …“, potvrda, poruka „Prihvaćene N fakture“; prihvaćene pređu u „Prihvaćene → Nije poslato“.
+- [ ] Detalj fakture: podaci, „Otvori PDF“ preuzme probni PDF, „Odbij“ traži razlog (bez razloga dugme ne radi), posle odbijanja faktura je u „Sve“ kao „Odbijena“; kod prihvaćene kroz aplikaciju piše „Prihvatio: …“.
+- [ ] „Prihvaćene“: „Nije poslato“ je štiklirano, „Pošalji (N)“ → potvrda sa adresom → mejl „[PROBA] Prihvaćene fakture – …“ stigne na mejl radnje sa po jednim PDF-om po fakturi; fakture pređu u „Poslato“ sa datumom i adresom; jedna iz „Poslato“ može da se pošalje ponovo.
+- [ ] „Vrati probne fakture“ vrati sve kako je bilo.
+- [ ] Bezbednost: u pregledaču (prijavljen) `supabase.from("efaktura_settings").select()` vraća prazno ili grešku, nikad ključ.
+
+Pravi SEF: koraci 5 i 6 iz `docs/repovi.md` (prvo samo čitanje, pa prihvatanje).
+
 ## 2h. Frižider cena kao slika, naziv u bazu (0.14.0)
 
 - [ ] Friz cenovnik u pregledu štampe i na papiru (Excel na računaru u radnji): cena odmah ispod linije, cela, ista kao u pregledu; „12.499,99“ manja, ali cela; datum akcije ispod „,99“.

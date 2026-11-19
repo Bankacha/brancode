@@ -3,6 +3,7 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import basicSsl from "@vitejs/plugin-basic-ssl";
 import { VitePWA } from "vite-plugin-pwa";
+import { efakturaDevApi } from "./scripts/efakturaDevApi.mjs";
 
 // `vite --mode http` (npm run dev:http) skips the self-signed cert, for
 // browsers that refuse it; the phone still needs the default HTTPS mode
@@ -14,6 +15,8 @@ export default defineConfig(({ mode }) => {
       tailwindcss(),
       react(),
       https && basicSsl(),
+      // /api/efaktura on the test SEF while developing (api/ runs only on Vercel)
+      efakturaDevApi(),
       VitePWA({
         registerType: "autoUpdate",
         manifest: {
