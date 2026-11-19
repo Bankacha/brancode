@@ -16,6 +16,8 @@ import { belgradeToday } from "./promoCheck.js";
 //                    mode on a server, so a real key typed in test mode is
 //                    never sealed with the public MOCK_SECRET below
 //   EMAIL_TO         the shop's address, where invoices are sent for now
+//   EFAKTURA_USERS   comma-separated e-mails of the shop's accounts allowed to
+//                    use e-Faktura; required for a real SEF, optional in test mode
 
 // The secret `npm run dev` seals test keys with. It is in the repository, so
 // it is refused for SEF modes.
@@ -25,10 +27,22 @@ export const modeFromEnv = (env) => (env.SEF_ENV === "production" || env.SEF_ENV
 
 const usableSecret = (secret) => typeof secret === "string" && Buffer.from(secret, "base64").length === 32;
 
+const emailList = (text) =>
+  (text ?? "")
+    .split(",")
+    .map((email) => email.trim().toLowerCase())
+    .filter(Boolean);
+
 export const contextFromEnv = (env, { store, sendMail, user, now = () => new Date() }) => {
   const mode = modeFromEnv(env);
   const secret = env.EFAKTURA_SECRET;
   if (!usableSecret(secret) || (mode !== "mock" && secret === MOCK_SECRET)) return { error: "not-configured" };
+  // Being signed in is not enough on a real SEF: Supabase may let anyone sign
+  // up with the public key, and accepting an invoice is binding. Only the
+  // shop's accounts listed in EFAKTURA_USERS may; without the list, nobody.
+  const allowed = emailList(env.EFAKTURA_USERS);
+  if (mode !== "mock" && allowed.length === 0) return { error: "not-configured" };
+  if (allowed.length > 0 && !allowed.includes((user.email ?? "").toLowerCase())) return { error: "not-allowed" };
   const sefFor =
     mode === "mock"
       ? (apiKey) =>
@@ -62,7 +76,7 @@ export const handleEfaktura = async ({ method, authorization, body }, { verifyUs
     const user = await verifyUser(token).catch(() => null);
     if (!user) return fail(401, "invalid-token");
     const ctx = context(user);
-    if (ctx.error) return fail(500, ctx.error);
+    if (ctx.error) return fail(ctx.error === "not-allowed" ? 403 : 500, ctx.error);
     const payload = body && typeof body === "object" ? body : {};
     return await runEfakturaAction(payload.action, payload, ctx);
   } catch (err) {

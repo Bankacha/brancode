@@ -51,6 +51,7 @@ const ENV = {
   SUPABASE_SERVICE_ROLE_KEY: "service",
   RESEND_API_KEY: "re",
   EMAIL_TO: "radnja@primer.test",
+  EFAKTURA_USERS: "brat@primer.test",
 };
 
 beforeEach(() => {
@@ -91,6 +92,14 @@ describe("api/efaktura", () => {
   it("is not configured without the service-role key", async () => {
     vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "");
     expect((await call({ body: { action: "status" } })).body).toEqual({ ok: false, error: "not-configured" });
+  });
+
+  it("refuses a signed-in account that is not the shop's on a real SEF", async () => {
+    vi.stubEnv("SEF_ENV", "production");
+    vi.stubEnv("EFAKTURA_USERS", "neko@drugi.test");
+    const res = await call({ body: { action: "status" } });
+    expect(res.statusCode).toBe(403);
+    expect(res.body).toEqual({ ok: false, error: "not-allowed" });
   });
 
   it("refuses an unknown action", async () => {

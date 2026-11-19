@@ -23,15 +23,29 @@ describe("modeFromEnv", () => {
 describe("contextFromEnv", () => {
   it("allows accepting in the test mode, and on SEF only with SEF_ACCEPT=on", () => {
     expect(contextFromEnv({ EFAKTURA_SECRET: SECRET }, deps()).acceptEnabled).toBe(true);
-    expect(contextFromEnv({ SEF_ENV: "production", EFAKTURA_SECRET: SECRET }, deps()).acceptEnabled).toBe(false);
-    expect(contextFromEnv({ SEF_ENV: "production", EFAKTURA_SECRET: SECRET, SEF_ACCEPT: "on" }, deps()).acceptEnabled).toBe(true);
-    expect(contextFromEnv({ SEF_ENV: "demo", EFAKTURA_SECRET: SECRET, SEF_ACCEPT: "yes" }, deps()).acceptEnabled).toBe(false);
+    expect(contextFromEnv({ SEF_ENV: "production", EFAKTURA_SECRET: SECRET, EFAKTURA_USERS: "brat@primer.test" }, deps()).acceptEnabled).toBe(false);
+    expect(contextFromEnv({ SEF_ENV: "production", EFAKTURA_SECRET: SECRET, EFAKTURA_USERS: "brat@primer.test", SEF_ACCEPT: "on" }, deps()).acceptEnabled).toBe(true);
+    expect(contextFromEnv({ SEF_ENV: "demo", EFAKTURA_SECRET: SECRET, EFAKTURA_USERS: "brat@primer.test", SEF_ACCEPT: "yes" }, deps()).acceptEnabled).toBe(false);
   });
 
   it("needs EFAKTURA_SECRET in every mode, so a real key is never sealed with the public test secret", () => {
     for (const SEF_ENV of ["production", "demo", undefined]) {
       expect(contextFromEnv({ SEF_ENV }, deps())).toEqual({ error: "not-configured" });
     }
+  });
+
+  it("lets only the shop's accounts use a real SEF", () => {
+    const env = { SEF_ENV: "production", EFAKTURA_SECRET: SECRET };
+    // without the list nobody may, so a stranger who signs up gets nothing
+    expect(contextFromEnv(env, deps())).toEqual({ error: "not-configured" });
+    expect(contextFromEnv({ ...env, EFAKTURA_USERS: " , " }, deps())).toEqual({ error: "not-configured" });
+    expect(contextFromEnv({ ...env, EFAKTURA_USERS: "neko@drugi.test" }, deps())).toEqual({ error: "not-allowed" });
+    expect(contextFromEnv({ ...env, EFAKTURA_USERS: "radnja@primer.test, Brat@Primer.test" }, deps()).mode).toBe("production");
+  });
+
+  it("lets any signed-in user try the test mode unless a list is set", () => {
+    expect(contextFromEnv({ EFAKTURA_SECRET: SECRET }, deps()).mode).toBe("mock");
+    expect(contextFromEnv({ EFAKTURA_SECRET: SECRET, EFAKTURA_USERS: "neko@drugi.test" }, deps())).toEqual({ error: "not-allowed" });
   });
 
   it("refuses the public test secret outside the test mode", () => {
@@ -47,7 +61,7 @@ describe("contextFromEnv", () => {
     expect((await mock.sefFor("proba").overview({ dateFrom: new Date("2026-11-01"), dateTo: new Date("2026-11-19T12:00:00Z") })).length).toBeGreaterThan(0);
     expect(fetch).not.toHaveBeenCalled();
     vi.unstubAllGlobals();
-    const real = contextFromEnv({ SEF_ENV: "demo", EFAKTURA_SECRET: SECRET }, deps());
+    const real = contextFromEnv({ SEF_ENV: "demo", EFAKTURA_SECRET: SECRET, EFAKTURA_USERS: "brat@primer.test" }, deps());
     expect(real.sefFor("x")).toHaveProperty("acceptReject");
   });
 });
@@ -72,6 +86,10 @@ describe("handleEfaktura", () => {
 
   it("reports a server without its settings", async () => {
     expect(await run({}, undefined, () => ({ error: "not-configured" }))).toEqual({ status: 500, json: { ok: false, error: "not-configured" } });
+  });
+
+  it("refuses an account that is not on the shop's list", async () => {
+    expect(await run({}, undefined, () => ({ error: "not-allowed" }))).toEqual({ status: 403, json: { ok: false, error: "not-allowed" } });
   });
 
   it("runs the action for the signed-in user", async () => {
