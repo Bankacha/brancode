@@ -117,6 +117,9 @@ describe("Efaktura", () => {
     expect(within(region("Danas")).getAllByRole("checkbox")).toHaveLength(3);
     expect(within(region("Juče")).getAllByRole("checkbox")).toHaveLength(1);
     expect(within(region("Danas")).getAllByText("još 15 dana").length).toBe(3);
+    // the due date under the amount, without its year, so nothing is cut off on a phone
+    expect(within(region("Danas")).getAllByText("Valuta 19.12.")).toHaveLength(3);
+    expect(within(region("Danas")).getByText("1/2026")).toBeTruthy();
   });
 
   it("selects a whole day and shows the total", async () => {
