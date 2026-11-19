@@ -40,6 +40,7 @@ describe("AppMenu", () => {
     setup();
     openMenu();
     expect(screen.getByRole("link", { name: "Cene" }).getAttribute("aria-current")).toBe("page");
+    expect(screen.getByRole("link", { name: "e-Faktura" }).getAttribute("href")).toBe("/e-faktura");
     expect(screen.getByText("b@b.com")).toBeTruthy();
   });
 

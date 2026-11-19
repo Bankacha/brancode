@@ -15,6 +15,7 @@ import RequisitionLists from "./screens/RequisitionLists.jsx";
 import Requisition from "./screens/Requisition.jsx";
 import RequisitionScan from "./screens/RequisitionScan.jsx";
 import RequisitionManualEntry from "./screens/RequisitionManualEntry.jsx";
+import Efaktura from "./screens/Efaktura.jsx";
 import EfakturaSettings from "./screens/EfakturaSettings.jsx";
 
 export default function App({ session }) {
@@ -38,6 +39,7 @@ export default function App({ session }) {
             <Route path="/trebovanje/:id" element={<Requisition />} />
             <Route path="/trebovanje/:id/skeniranje" element={<RequisitionScan />} />
             <Route path="/trebovanje/:id/rucni-unos" element={<RequisitionManualEntry />} />
+            <Route path="/e-faktura" element={<Efaktura />} />
             <Route path="/e-faktura/podesavanja" element={<EfakturaSettings />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

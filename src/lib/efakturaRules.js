@@ -105,6 +105,19 @@ export const invoicesTotal = (invoices) => Math.round(invoices.reduce((sum, invo
 export const fakture = (n) => `${n} ${plural(n, "faktura", "fakture", "faktura")}`;
 export const fakturu = (n) => `${n} ${plural(n, "fakturu", "fakture", "faktura")}`;
 
+const belgradeTime = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Belgrade", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+
+// "17.11." for an ISO date-time, by the Belgrade day.
+const dayMonth = (iso) => {
+  const [, m, d] = belgradeDateOf(iso).split("-");
+  return `${d}.${m}.`;
+};
+
+export const sentNote = (send) => `Poslato ${dayMonth(send.lastSentAt)} na ${send.lastSentTo}`;
+
+export const decisionNote = (decision) =>
+  `${decision.action === "rejected" ? "Odbio" : "Prihvatio"}: ${decision.userEmail}, ${dayMonth(decision.at)} u ${belgradeTime.format(new Date(decision.at))}`;
+
 // "Dobavljač – broj.pdf", safe as a file name on Windows and phones; the
 // same name for the mail attachment and the downloaded PDF.
 export const pdfFilename = (invoice) => {

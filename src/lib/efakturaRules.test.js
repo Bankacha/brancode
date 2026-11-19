@@ -6,6 +6,8 @@ import {
   WINDOW_DAYS,
   belgradeDateOf,
   deadlineText,
+  decisionNote,
+  sentNote,
   fakture,
   fakturu,
   formatAmount,
@@ -200,6 +202,17 @@ describe("amounts and counts", () => {
   it("fakture and fakturu agree with the count", () => {
     expect([1, 2, 5, 21, 22].map(fakture)).toEqual(["1 faktura", "2 fakture", "5 faktura", "21 faktura", "22 fakture"]);
     expect([1, 2, 5, 21, 22].map(fakturu)).toEqual(["1 fakturu", "2 fakture", "5 faktura", "21 fakturu", "22 fakture"]);
+  });
+});
+
+describe("notes from the history", () => {
+  it("says when and where an invoice was sent, by the Belgrade day", () => {
+    expect(sentNote({ state: "sent", lastSentAt: "2026-11-16T23:30:00Z", lastSentTo: "radnja@primer.test" })).toBe("Poslato 17.11. na radnja@primer.test");
+  });
+
+  it("says who decided and when, in Belgrade time", () => {
+    expect(decisionNote({ action: "accepted", userEmail: "brat@primer.test", at: "2026-11-17T07:42:00Z", comment: null })).toBe("Prihvatio: brat@primer.test, 17.11. u 08:42");
+    expect(decisionNote({ action: "rejected", userEmail: "brat@primer.test", at: "2026-07-01T07:05:00Z", comment: "Cena" })).toBe("Odbio: brat@primer.test, 01.07. u 09:05");
   });
 });
 

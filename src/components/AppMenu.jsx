@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "react-router";
-import { ClipboardList, LogOut, Menu, Settings, ShoppingCart, Tag } from "lucide-react";
+import { ClipboardList, LogOut, Menu, ReceiptText, Settings, ShoppingCart, Tag } from "lucide-react";
 import { supabase } from "../supabaseClient";
 import { useSession } from "../auth/session.jsx";
 import { useToast } from "./Toast.jsx";
@@ -13,6 +13,7 @@ export const SECTIONS = [
   { path: "/", label: "Cene", icon: Tag },
   { path: "/popis", label: "Popis", icon: ClipboardList },
   { path: "/trebovanje", label: "Trebovanje", icon: ShoppingCart },
+  { path: "/e-faktura", label: "e-Faktura", icon: ReceiptText },
 ];
 
 // A section is current on its own page and on the pages under it
