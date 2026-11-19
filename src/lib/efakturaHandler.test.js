@@ -18,6 +18,12 @@ describe("modeFromEnv", () => {
     expect(modeFromEnv({ SEF_ENV: "Production" })).toBe("mock");
     expect(modeFromEnv({})).toBe("mock");
   });
+
+  it("keeps preview deploys on the test SEF whatever SEF_ENV says", () => {
+    expect(modeFromEnv({ SEF_ENV: "production", VERCEL_ENV: "preview" })).toBe("mock");
+    expect(modeFromEnv({ SEF_ENV: "demo", VERCEL_ENV: "development" })).toBe("mock");
+    expect(modeFromEnv({ SEF_ENV: "production", VERCEL_ENV: "production" })).toBe("production");
+  });
 });
 
 describe("contextFromEnv", () => {

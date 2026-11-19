@@ -22,6 +22,12 @@ Stanje: 19.11.2026, posle 0.15.0 (e-Faktura: ulazne fakture sa SEF-a, za sada na
 1. Naziv sa trebovanja ide u red baze koji je pretraga našla. Za jedan od oko 170 parova gde u bazi postoje i 12-cifreni i 13-cifreni kod istog artikla, otkucan 12-cifreni kod nađe stari red, pa skeniranje pakovanja (13 cifara) i dalje pokaže stari naziv. Ista nedoslednost postoji i za cene; parovi se ne spajaju automatski (vidi pravila za barkodove).
 2. Svaka različita frižider cena je u Excel-u slika od oko 20 KB (ista cena se upisuje jednom). Mejl prima do oko 4 MB, pa jedan mejl staje oko 150 različitih frižider cena (u Mix-u zajedno sa raf barkodovima). Preko toga aplikacija kaže da je fajl prevelik i nudi preuzimanje. Ako to postane čest slučaj: manja rezolucija slike ili slika samo oko cifara.
 
+## Sitnice iz pregleda 0.15.0 (za sledeće sređivanje)
+
+1. Ako SEF odbije ključ već pri prvom učitavanju e-Fakture, ekran pokaže poruku i „Pokušaj ponovo“, ali u zaglavlju nema dugmeta za podešavanja. Do njih se tada stiže preko Meni → Podešavanja → „Podesi e-Fakturu“. Popravka: dugme za podešavanja uvek u zaglavlju.
+2. Grupa „e-Faktura“ u Podešavanjima ne pokazuje da li je e-Faktura povezana (spec kaže „stanje i dugme“). Sada ima samo opis i dugme.
+3. U probnom režimu, ako upis u istoriju ne uspe posle prihvatanja, probna faktura se opet pokaže kao „na čekanju“ (probni SEF čita odluke iz istorije). Pravi SEF to nema.
+
 ## Treba tvoja odluka, podešavanje ili provera u radnji
 
 **e-Faktura (0.15.0), redom.** Dok se ne urade prva dva koraka, odeljak e-Faktura na produkciji kaže „e-Faktura nije podešena na serveru.“
@@ -32,8 +38,8 @@ Stanje: 19.11.2026, posle 0.15.0 (e-Faktura: ulazne fakture sa SEF-a, za sada na
    - `EFAKTURA_USERS`: mejlovi naloga radnje koji smeju u e-Fakturu, odvojeni zarezom (npr. tvoj i bratov). Na pravom SEF-u bez ovoga e-Faktura ne radi ni za koga.
 3. **Supabase → Authentication → Sign In / Providers:** proveri da je „Allow new users to sign up“ isključeno. Aplikacija nema registraciju, ali Supabase je po difoltu dozvoljava preko javnog ključa. Ovo važi za celu aplikaciju, ne samo za e-Fakturu.
 4. **Proba na telefonu (probni režim):** e-Faktura → Poveži, bilo koji tekst kao ključ (ne pravi ključ), naziv i PIB, pa prihvatanje nekoliko faktura, odbijanje jedne, slanje (mejl „[PROBA] Prihvaćene fakture – …“ stiže na mejl radnje), „Vrati probne fakture“.
-5. **Pravi SEF, samo čitanje:** postavi `SEF_ENV=production` (Redeploy), pa brat u aplikaciji unese pravi ključ, naziv i PIB. Uporedi listu sa SEF-om: iste fakture, iznos (sa PDV-om ili bez), datumi prijema i valute, rok od 15 dana. Ako lista ne liči na SEF ili javi grešku, javi mi pre sledećeg koraka.
-6. **Prihvatanje:** tek kad se lista slaže, `SEF_ACCEPT=on` (Redeploy). Prvo pravo prihvatanje neka bude faktura koju bi brat i inače prihvatio, pa proveri na SEF-u da je prihvaćena.
+5. **Pravi SEF, samo čitanje:** postavi `SEF_ENV=production` **samo za Production** (Redeploy; preview deploy-evi i tako uvek ostaju na probnom SEF-u), pa brat u aplikaciji unese pravi ključ, naziv i PIB. Uporedi listu sa SEF-om: iste fakture, iznos (sa PDV-om ili bez), datumi prijema i valute, rok od 15 dana. Ako lista ne liči na SEF ili javi grešku, javi mi pre sledećeg koraka.
+6. **Prihvatanje:** tek kad se lista slaže, `SEF_ACCEPT=on` **samo za Production** (Redeploy). Prvo pravo prihvatanje neka bude faktura koju bi brat i inače prihvatio, pa proveri na SEF-u da je prihvaćena.
 
 
 - **Lifletske cene se nisu vratile posle isteka akcije** (prijavljeno 10.11.): još nije istraženo. Treba prijava u aplikaciju u pregledaču u Claude-u, da se pročita `promo_leaflets` (`prices_restored_at`, `restore_result` po artiklu), i odgovor: da li su stizali mejlovi „Akcija ističe sutra/danas“ i „Redovne cene vraćene“, koji liflet i koji artikal. Mogući uzroci: liflet uvezen pre 0.11.0 ili ponovo uvezen posle njega dok su u bazi već bile akcijske cene (tada „redovna“ cena jeste akcijska), ili jutarnja provera ne radi (sledeća tačka).

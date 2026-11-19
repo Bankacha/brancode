@@ -150,6 +150,20 @@ describe("status and settings", () => {
     expect(settings).toMatchObject({ connectedAt: NOW.toISOString(), baselineIds: [2], keyLast4: "9999" });
   });
 
+  it("tries a replacement key on the invoice list before saving it", async () => {
+    const { run, store, ctx } = setup({ mode: "production", sef: fakeSef([]) });
+    await connect(run);
+    const before = await store.getSettings("production");
+    ctx.sefFor = () =>
+      fakeSef([], {
+        overview: async () => {
+          throw new SefError("key-rejected", 401);
+        },
+      }).api;
+    expect(await connect(run, "POGRESAN-0000")).toEqual({ status: 502, json: { ok: false, error: "key-rejected" } });
+    expect((await store.getSettings("production")).keyCiphertext).toBe(before.keyCiphertext);
+  });
+
   it("changes the name and PIB without a new key once connected", async () => {
     const { run, store } = setup();
     await connect(run);
@@ -291,10 +305,34 @@ describe("accept", () => {
     expect((await run("accept", { invoiceIds: [9] })).json.results).toEqual([{ id: 9, outcome: "not-found" }]);
   });
 
-  it("checks the status when SEF's answer is not a clear yes", async () => {
-    const { run, recorded } = await connected([inv(1)], { sef: { acceptReject: async () => ({ success: false, message: "?" }), invoiceStatus: async () => "Approved" } });
+  it("checks the status when SEF's answer is unclear, and counts it as done", async () => {
+    const lost = async () => {
+      throw new SefError("sef-unavailable");
+    };
+    const { run, recorded } = await connected([inv(1)], { sef: { acceptReject: lost, invoiceStatus: async () => "Approved" } });
     expect((await run("accept", { invoiceIds: [1] })).json.results).toEqual([{ id: 1, outcome: "done" }]);
     expect(recorded).toHaveLength(1);
+  });
+
+  it("does not take credit when SEF says no because someone else decided meanwhile", async () => {
+    // accepted on SEF's website between the server's overview and this call
+    const { run, recorded } = await connected([inv(1), inv(2)], {
+      sef: { acceptReject: async () => ({ success: false, message: "Već obrađena" }), invoiceStatus: async (id) => (id === 1 ? "Approved" : "Rejected") },
+    });
+    expect((await run("accept", { invoiceIds: [1, 2] })).json.results).toEqual([
+      { id: 1, outcome: "already", status: "Approved" },
+      { id: 2, outcome: "already", status: "Rejected" },
+    ]);
+    expect(recorded).toEqual([]);
+  });
+
+  it("treats a refusal over HTTP like a clear no", async () => {
+    const refused = async () => {
+      throw new SefError("sef-error", 400, "Invoice already processed");
+    };
+    const { run, recorded } = await connected([inv(1)], { sef: { acceptReject: refused, invoiceStatus: async () => "Approved" } });
+    expect((await run("accept", { invoiceIds: [1] })).json.results).toEqual([{ id: 1, outcome: "already", status: "Approved" }]);
+    expect(recorded).toEqual([]);
   });
 
   it("fails an invoice that SEF refused and is still waiting", async () => {

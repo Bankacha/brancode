@@ -23,7 +23,12 @@ import { belgradeToday } from "./promoCheck.js";
 // it is refused for SEF modes.
 export const MOCK_SECRET = "hbB4zcvRESPWKplf2H4NBgxjhC77XAnAyY3pY23jhcE=";
 
-export const modeFromEnv = (env) => (env.SEF_ENV === "production" || env.SEF_ENV === "demo" ? env.SEF_ENV : "mock");
+// Preview deploys (any branch, same database) always get the test SEF, even
+// if SEF_ENV was set for every environment on Vercel.
+export const modeFromEnv = (env) => {
+  if (env.VERCEL_ENV && env.VERCEL_ENV !== "production") return "mock";
+  return env.SEF_ENV === "production" || env.SEF_ENV === "demo" ? env.SEF_ENV : "mock";
+};
 
 const usableSecret = (secret) => typeof secret === "string" && Buffer.from(secret, "base64").length === 32;
 

@@ -28,7 +28,11 @@ const SEND_GROUPS = [
   { state: "sent", title: "Poslato" },
   { state: "before", title: "Pre povezivanja" },
 ];
-const PART = 50; // the server takes at most 50 invoices per request
+// Invoices per request: the server takes up to 50, but each one costs SEF
+// calls (3 a second) and sending also fetches a PDF, so parts stay small
+// enough to finish well inside the function's time limit.
+const ACCEPT_PART = 20;
+const SEND_PART = 10;
 const EMPTY = {
   pending: "Nema faktura na čekanju.",
   accepted: "Nema prihvaćenih faktura u poslednjih 60 dana.",
@@ -36,6 +40,8 @@ const EMPTY = {
 };
 
 const newestFirst = (a, b) => String(b.receivedAt ?? "").localeCompare(String(a.receivedAt ?? ""));
+
+const invoiceLabel = (invoice) => `${invoice.supplier} – ${invoice.number}`;
 
 // Why one invoice of a batch didn't go through.
 const outcomeText = (result) => {
@@ -138,13 +144,13 @@ export default function Efaktura() {
       return next;
     });
 
-  // One request per 50 invoices, one after another; a refused request stops
-  // the rest and keeps what was already done.
-  const inParts = async (action, ids) => {
+  // One request per part, one after another; a refused request stops the
+  // rest and keeps what was already done.
+  const inParts = async (action, ids, size) => {
     const results = [];
-    for (let i = 0; i < ids.length; i += PART) {
+    for (let i = 0; i < ids.length; i += size) {
       try {
-        results.push(...(await efakturaCall(action, { invoiceIds: ids.slice(i, i + PART) })).results);
+        results.push(...(await efakturaCall(action, { invoiceIds: ids.slice(i, i + size) })).results);
       } catch (error) {
         results.push(...(error.body?.results ?? []));
         return { results, error };
@@ -162,19 +168,29 @@ export default function Efaktura() {
     const ids = asked.map((i) => i.id);
     setBusy(true);
     toast.show({ kind: "loading", text: "Prihvatam…" });
-    const { results, error } = await inParts("accept", ids);
-    const okIds = new Set(results.filter((r) => r.outcome === "done" || r.outcome === "already").map((r) => r.id));
-    setPendingChoice((choice) => new Set([...choice].filter((id) => !okIds.has(id))));
+    const { results, error } = await inParts("accept", ids, ACCEPT_PART);
+    // "already" is accepted only when SEF says Approved; rejected or
+    // cancelled elsewhere is no longer waiting, but never "accepted"
+    const okIds = new Set(results.filter((r) => r.outcome === "done" || (r.outcome === "already" && r.status === "Approved")).map((r) => r.id));
+    const elsewhere = results.filter((r) => r.outcome === "already" && r.status !== "Approved");
+    const settled = new Set([...okIds, ...elsewhere.map((r) => r.id)]);
+    setPendingChoice((choice) => new Set([...choice].filter((id) => !settled.has(id))));
     setAcceptedChoice(null);
     const n = ids.length;
+    const failures = results.filter((r) => !settled.has(r.id));
     if (error) {
       toast.show({ kind: "error", text: `${okIds.size > 0 ? `Prihvaćeno ${okIds.size} od ${n}. ` : ""}${efakturaErrorText(error.code)}` });
     } else if (okIds.size === n) {
       toast.show({ kind: "success", text: `${plural(n, "Prihvaćena", "Prihvaćene", "Prihvaćeno")} ${fakture(n)}` });
+    } else if (failures.length > 0) {
+      const failed = n - okIds.size - elsewhere.length;
+      toast.show({ kind: "error", text: `Prihvaćeno ${okIds.size} od ${n}, ${failed} ${plural(failed, "nije", "nisu", "nije")}: ${outcomeText(failures[0])}` });
     } else {
-      const failed = n - okIds.size;
-      const first = results.find((r) => !okIds.has(r.id));
-      toast.show({ kind: "error", text: `Prihvaćeno ${okIds.size} od ${n}, ${failed} ${plural(failed, "nije", "nisu", "nije")}: ${outcomeText(first)}` });
+      const only = elsewhere.length === 1 && asked.find((i) => i.id === elsewhere[0].id);
+      const why = only
+        ? `${invoiceLabel(only)} je već ${statusLabel(elsewhere[0].status).toLowerCase()}.`
+        : `${elsewhere.length} ${plural(elsewhere.length, "faktura više nije", "fakture više nisu", "faktura više nije")} na čekanju.`;
+      toast.show({ kind: "info", text: `Prihvaćeno ${okIds.size} od ${n}. ${why}` });
     }
     acceptDialog.close();
     setBusy(false);
@@ -190,14 +206,18 @@ export default function Efaktura() {
     const ids = asked.map((i) => i.id);
     setBusy(true);
     toast.show({ kind: "loading", text: "Šaljem…" });
-    const { results, error } = await inParts("send", ids);
+    const { results, error } = await inParts("send", ids, SEND_PART);
     const sent = results.filter((r) => r.outcome === "sent").length;
     const to = status.sendTo;
+    const bad = results.filter((r) => r.outcome !== "sent");
+    const first = bad[0] && asked.find((i) => i.id === bad[0].id);
     if (sent === ids.length) {
       toast.show({ kind: "success", text: `${plural(sent, "Poslata", "Poslate", "Poslato")} ${fakture(sent)} na ${to}` });
+    } else if (sent > 0 && first) {
+      const what = bad[0].outcome === "not-sendable" ? "više nije prihvaćena na SEF-u" : "nije poslata, pokušaj ponovo";
+      toast.show({ kind: "error", text: `Poslato ${sent} od ${ids.length}. ${invoiceLabel(first)} ${what}${bad.length > 1 ? ` (i još ${bad.length - 1})` : ""}.` });
     } else if (sent > 0) {
-      const failed = ids.length - sent;
-      toast.show({ kind: "error", text: `Poslato ${sent} od ${ids.length}, ${failed} ${plural(failed, "nije", "nisu", "nije")}. Pokušaj ponovo za ostale.` });
+      toast.show({ kind: "error", text: `Poslato ${sent} od ${ids.length}. ${efakturaErrorText(error?.code ?? "send-failed")}` });
     } else {
       toast.show({ kind: "error", text: efakturaErrorText(error?.code ?? "send-failed") });
     }

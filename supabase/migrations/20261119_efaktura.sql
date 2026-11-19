@@ -72,6 +72,20 @@ create trigger efaktura_events_append_only
   before update or delete on public.efaktura_events
   for each row execute function public.efaktura_events_append_only();
 
+-- TRUNCATE skips row triggers, so it gets its own.
+create function public.efaktura_events_no_truncate() returns trigger
+  language plpgsql
+  set search_path = public
+as $$
+begin
+  raise exception 'efaktura_events is append-only';
+end;
+$$;
+
+create trigger efaktura_events_no_truncate
+  before truncate on public.efaktura_events
+  for each statement execute function public.efaktura_events_no_truncate();
+
 -- --------------------------------------------------------------- access
 
 alter table public.efaktura_settings enable row level security;
@@ -81,3 +95,4 @@ revoke all on table public.efaktura_settings from anon, authenticated;
 revoke all on table public.efaktura_events   from anon, authenticated;
 revoke all on sequence public.efaktura_events_id_seq from anon, authenticated;
 revoke all on function public.efaktura_events_append_only() from anon, authenticated, public;
+revoke all on function public.efaktura_events_no_truncate() from anon, authenticated, public;

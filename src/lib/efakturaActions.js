@@ -1,6 +1,6 @@
 import { decryptApiKey, encryptApiKey, keyLast4 } from "./efakturaCrypto.js";
 import { MAX_MAIL_BYTES, attachmentNames, invoiceMail, splitBySize } from "./efakturaMail.js";
-import { WINDOW_DAYS, isPending, sendState } from "./efakturaRules.js";
+import { PENDING_STATUSES, WINDOW_DAYS, isPending, sendState } from "./efakturaRules.js";
 import { SefError } from "./sefClient.js";
 import { addDays } from "./listFormat.js";
 import { belgradeToday } from "./promoCheck.js";
@@ -16,6 +16,7 @@ const MAX_IDS = 50;
 const MAX_COMMENT = 500;
 const MAX_SHOP_NAME = 100;
 const MAX_PDF_BYTES = 4.4 * 1024 * 1024; // Vercel answers at most 4.5 MB
+const PENDING = new Set(PENDING_STATUSES);
 
 const ok = (json = {}) => ({ status: 200, json: { ok: true, ...json } });
 const fail = (status, error, extra = {}) => ({ status, json: { ok: false, error, ...extra } });
@@ -81,11 +82,13 @@ const saveSettings = async ({ shopName, pib, apiKey }, ctx) => {
   if (key) {
     const sef = ctx.sefFor(key);
     await sef.checkKey();
+    // The invoice list surely needs a valid key (the version call may not):
+    // a mistyped replacement must not overwrite the working key.
+    const invoices = await sef.overview(windowOf(ctx).range);
     const sealed = encryptApiKey(key, ctx.secret);
     Object.assign(fields, { keyCiphertext: sealed.ciphertext, keyIv: sealed.iv, keyTag: sealed.tag, keyLast4: keyLast4(key) });
     if (!current?.connectedAt) {
       // what is already accepted now was printed and carried: never offered for sending
-      const invoices = await sef.overview(windowOf(ctx).range);
       fields.connectedAt = ctx.now().toISOString();
       fields.baselineIds = invoices.filter((invoice) => invoice.status === "Approved").map((invoice) => invoice.id);
     }
@@ -151,13 +154,17 @@ const decide = async (ids, accepted, comment, ctx) => {
       continue;
     }
     let done = false;
+    let refused = false; // SEF answered no: whatever the status is now, it isn't our doing
     let message = null;
     try {
       const answer = await sef.acceptReject({ invoiceId: id, accepted, comment });
       done = answer.success;
+      refused = !answer.success;
       message = answer.message;
     } catch (err) {
       if (err?.code === "key-rejected") return fail(502, "key-rejected", { results });
+      refused = err?.code === "sef-error"; // a 4xx is an answer; a timeout or 5xx is not
+      message = err?.detail || null;
     }
     if (!done) {
       let now;
@@ -168,8 +175,10 @@ const decide = async (ids, accepted, comment, ctx) => {
         results.push({ id, outcome: "unconfirmed" });
         continue;
       }
-      if (now !== target) {
-        results.push({ id, outcome: "failed", status: now, ...(message && { message }) });
+      if (now !== target || refused) {
+        // decided elsewhere meanwhile (no history row in this user's name), or still waiting
+        if (!PENDING.has(now)) results.push({ id, outcome: "already", status: now });
+        else results.push({ id, outcome: "failed", status: now, ...(message && { message }) });
         continue;
       }
     }

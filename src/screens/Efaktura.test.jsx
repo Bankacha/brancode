@@ -195,7 +195,27 @@ describe("Efaktura", () => {
     await screen.findByRole("button", { name: "Prihvati (1) · ukupno 1.200,00 din" });
   });
 
-  it("accepts a long selection in parts of 50", async () => {
+  it("does not call an invoice rejected elsewhere accepted", async () => {
+    serve({
+      accept: vi.fn(async () => ({
+        ok: true,
+        results: [
+          { id: 3, outcome: "done" },
+          { id: 2, outcome: "already", status: "Rejected" },
+          { id: 1, outcome: "done" },
+        ],
+      })),
+    });
+    setup();
+    await loaded();
+    fireEvent.click(within(region("Danas")).getByRole("button", { name: "Izaberi sve" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Prihvati \(3\)/ }));
+    fireEvent.click(within(dialog("Prihvatiti 3 fakture?")).getByRole("button", { name: "Prihvati" }));
+    await screen.findByText("Prihvaćeno 2 od 3. Dobavljač 2 – 2/2026 je već odbijena.");
+    expect(checkbox(2).getAttribute("aria-checked")).toBe("false");
+  });
+
+  it("accepts a long selection in parts of 20", async () => {
     const many = Array.from({ length: 120 }, (_, i) => inv(i + 1, { receivedAt: at(0, 7) }));
     const api = serve({ list: many });
     setup();
@@ -204,7 +224,7 @@ describe("Efaktura", () => {
     fireEvent.click(screen.getByRole("button", { name: /^Prihvati \(120\)/ }));
     fireEvent.click(within(dialog("Prihvatiti 120 faktura?")).getByRole("button", { name: "Prihvati" }));
     await screen.findByText("Prihvaćeno 120 faktura");
-    expect(api.accept.mock.calls.map(([payload]) => payload.invoiceIds.length)).toEqual([50, 50, 20]);
+    expect(api.accept.mock.calls.map(([payload]) => payload.invoiceIds.length)).toEqual([20, 20, 20, 20, 20, 20]);
   });
 
   it("locks accepting until it is switched on", async () => {
@@ -229,6 +249,47 @@ describe("Efaktura", () => {
     fireEvent.click(within(dialog("Poslati 2 fakture na radnja@primer.test?")).getByRole("button", { name: "Pošalji" }));
     await screen.findByText("Poslate 2 fakture na radnja@primer.test");
     expect([...api.send.mock.calls[0][0].invoiceIds].sort()).toEqual([5, 6]);
+  });
+
+  it("names the invoice that was not sent", async () => {
+    serve({
+      send: vi.fn(async () => ({
+        ok: true,
+        recipient: "radnja@primer.test",
+        results: [
+          { id: 5, outcome: "sent" },
+          { id: 6, outcome: "failed" },
+        ],
+      })),
+    });
+    setup();
+    await loaded();
+    fireEvent.click(tab("Prihvaćene"));
+    fireEvent.click(screen.getByRole("button", { name: "Pošalji (2)" }));
+    fireEvent.click(within(dialog("Poslati 2 fakture na radnja@primer.test?")).getByRole("button", { name: "Pošalji" }));
+    await screen.findByText("Poslato 1 od 2. Dobavljač 6 – 6/2026 nije poslata, pokušaj ponovo.");
+  });
+
+  it("says when an invoice can no longer be sent", async () => {
+    serve({ send: vi.fn(async () => ({ ok: true, recipient: "radnja@primer.test", results: [{ id: 5, outcome: "sent" }, { id: 6, outcome: "not-sendable" }] })) });
+    setup();
+    await loaded();
+    fireEvent.click(tab("Prihvaćene"));
+    fireEvent.click(screen.getByRole("button", { name: "Pošalji (2)" }));
+    fireEvent.click(within(dialog("Poslati 2 fakture na radnja@primer.test?")).getByRole("button", { name: "Pošalji" }));
+    await screen.findByText("Poslato 1 od 2. Dobavljač 6 – 6/2026 više nije prihvaćena na SEF-u.");
+  });
+
+  it("sends a long selection in parts of 10", async () => {
+    const many = Array.from({ length: 12 }, (_, i) => inv(i + 1, { status: "Approved", receivedAt: at(1, 7), send: unsent }));
+    const api = serve({ list: many });
+    setup();
+    await screen.findByRole("button", { name: /^Prihvaćene/ });
+    fireEvent.click(tab("Prihvaćene"));
+    fireEvent.click(screen.getByRole("button", { name: "Pošalji (12)" }));
+    fireEvent.click(within(dialog("Poslati 12 faktura na radnja@primer.test?")).getByRole("button", { name: "Pošalji" }));
+    await screen.findByText("Poslato 12 faktura na radnja@primer.test");
+    expect(api.send.mock.calls.map(([payload]) => payload.invoiceIds.length)).toEqual([10, 2]);
   });
 
   it("shows every invoice under Sve, with its status and no checkboxes", async () => {
