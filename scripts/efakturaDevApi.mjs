@@ -48,7 +48,7 @@ export const efakturaDevApi = () => ({
     };
     const verifyUser = async (token) => {
       const { data, error } = await supabase.auth.getUser(token);
-      return error || !data?.user ? null : { id: data.user.id, email: data.user.email };
+      return error || !data?.user ? null : { id: data.user.id, email: data.user.email, emailConfirmed: Boolean(data.user.email_confirmed_at) };
     };
     const handle = (request) => handleEfaktura(request, { verifyUser, context: (user) => contextFromEnv(env, { store, sendMail, user }) });
     server.middlewares.use("/api/efaktura", createDevMiddleware({ handle }));

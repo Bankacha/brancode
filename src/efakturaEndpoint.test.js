@@ -4,7 +4,7 @@ import handler from "../api/efaktura.js";
 const KEY = "TAJNI-1234";
 const SECRET = Buffer.alloc(32, 3).toString("base64");
 
-const { memory, sent } = vi.hoisted(() => ({ memory: { store: null }, sent: [] }));
+const { memory, sent, confirmed } = vi.hoisted(() => ({ memory: { store: null }, sent: [], confirmed: { at: "2026-10-01T08:00:00Z" } }));
 
 vi.mock("resend", () => ({
   Resend: class {
@@ -13,7 +13,7 @@ vi.mock("resend", () => ({
 }));
 vi.mock("@supabase/supabase-js", () => ({
   createClient: () => ({
-    auth: { getUser: async (token) => (token === "tok" ? { data: { user: { id: "u1", email: "brat@primer.test" } }, error: null } : { data: { user: null }, error: new Error("bad jwt") }) },
+    auth: { getUser: async (token) => (token === "tok" ? { data: { user: { id: "u1", email: "brat@primer.test", email_confirmed_at: confirmed.at } }, error: null } : { data: { user: null }, error: new Error("bad jwt") }) },
   }),
 }));
 vi.mock("./lib/efakturaStore.js", () => ({ createEfakturaStore: () => memory.store }));
@@ -56,6 +56,7 @@ const ENV = {
 
 beforeEach(() => {
   memory.store = createMemoryEfakturaStore();
+  confirmed.at = "2026-10-01T08:00:00Z";
   sent.length = 0;
   for (const [name, value] of Object.entries({ ...ENV, EFAKTURA_SECRET: SECRET })) vi.stubEnv(name, value);
   vi.stubEnv("SEF_ENV", "");
@@ -97,6 +98,14 @@ describe("api/efaktura", () => {
   it("refuses a signed-in account that is not the shop's on a real SEF", async () => {
     vi.stubEnv("SEF_ENV", "production");
     vi.stubEnv("EFAKTURA_USERS", "neko@drugi.test");
+    const res = await call({ body: { action: "status" } });
+    expect(res.statusCode).toBe(403);
+    expect(res.body).toEqual({ ok: false, error: "not-allowed" });
+  });
+
+  it("refuses a listed address whose e-mail is not confirmed", async () => {
+    vi.stubEnv("SEF_ENV", "production");
+    confirmed.at = null;
     const res = await call({ body: { action: "status" } });
     expect(res.statusCode).toBe(403);
     expect(res.body).toEqual({ ok: false, error: "not-allowed" });

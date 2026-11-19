@@ -18,7 +18,7 @@ Spec: `docs/superpowers/specs/2026-11-17-brancode-e-faktura-design.md`; plan `do
 - **Modes:**
   - `SEF_ENV` = `production` | `demo`; anything else is the test SEF (`lib/sefMock.js`: made-up invoices computed from today's date, never calls SEF, the key `neispravan` is refused). Settings and history rows carry their mode, so a test on a preview deploy (same database) can't touch the real key, and a preview deploy (`VERCEL_ENV` other than `production`) always gets the test SEF, whatever `SEF_ENV` says.
   - `SEF_ACCEPT=on` is needed to accept or reject on a real SEF (otherwise `accept-disabled` and the buttons are locked). Going live is two steps: first only the list, PDFs and sending, then accepting, after comparing the list with SEF.
-  - `EFAKTURA_USERS` (comma-separated e-mails) is required for a real SEF; only those accounts may use e-Faktura (`not-allowed`, 403). A Supabase sign-up with the public key must never be able to accept invoices.
+  - `EFAKTURA_USERS` (comma-separated e-mails) is required for a real SEF; only those accounts may use e-Faktura, and only with a confirmed e-mail (`email_confirmed_at`), otherwise `not-allowed`, 403. A Supabase sign-up with the public key must never be able to accept invoices.
 - **The key is never given away:**
   - sealed with AES-256-GCM under `EFAKTURA_SECRET` (base64 of 32 bytes, Vercel only), with a full 16-byte tag;
   - opened in memory just to call SEF;

@@ -3,7 +3,7 @@ import { MOCK_SECRET, contextFromEnv, handleEfaktura, modeFromEnv } from "./efak
 import { createMemoryEfakturaStore } from "./efakturaMemoryStore.js";
 
 const SECRET = Buffer.alloc(32, 7).toString("base64");
-const user = { id: "u1", email: "brat@primer.test" };
+const user = { id: "u1", email: "brat@primer.test", emailConfirmed: true };
 const deps = (env) => ({ store: createMemoryEfakturaStore(), sendMail: async () => {}, user, now: () => new Date("2026-11-19T09:00:00Z") });
 
 beforeEach(() => {
@@ -47,6 +47,12 @@ describe("contextFromEnv", () => {
     expect(contextFromEnv({ ...env, EFAKTURA_USERS: " , " }, deps())).toEqual({ error: "not-configured" });
     expect(contextFromEnv({ ...env, EFAKTURA_USERS: "neko@drugi.test" }, deps())).toEqual({ error: "not-allowed" });
     expect(contextFromEnv({ ...env, EFAKTURA_USERS: "radnja@primer.test, Brat@Primer.test" }, deps()).mode).toBe("production");
+  });
+
+  it("counts an account on the list only once its e-mail is confirmed", () => {
+    // a stranger who signs up with a listed address that has no account yet
+    const unconfirmed = { ...deps(), user: { id: "u2", email: "brat@primer.test", emailConfirmed: false } };
+    expect(contextFromEnv({ SEF_ENV: "production", EFAKTURA_SECRET: SECRET, EFAKTURA_USERS: "brat@primer.test" }, unconfirmed)).toEqual({ error: "not-allowed" });
   });
 
   it("lets any signed-in user try the test mode unless a list is set", () => {
