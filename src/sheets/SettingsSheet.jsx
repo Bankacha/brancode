@@ -1,5 +1,8 @@
 import { useId } from "react";
+import { useNavigate } from "react-router";
+import { ChevronRight } from "lucide-react";
 import BottomSheet from "../components/BottomSheet.jsx";
+import Button from "../components/Button.jsx";
 import { useScannerReader } from "../lib/useScannerReader.js";
 import { PDF_ORDERS, usePdfOrder } from "../lib/pdfOrder.js";
 import { version } from "../../package.json";
@@ -47,17 +50,26 @@ function Section({ title, hint, children }) {
   );
 }
 
-// Per-phone settings, grouped by what they affect, and the app's version
-// (from package.json, bumped with every deploy).
+// Per-phone settings, grouped by what they affect, a way to the shop-wide
+// e-Faktura settings, and the app's version (from package.json, bumped with
+// every deploy).
 export default function SettingsSheet({ open, onClose }) {
   const [reader, setReader] = useScannerReader();
   const [pdfOrder, setPdfOrder] = usePdfOrder();
+  const navigate = useNavigate();
   return (
     <BottomSheet open={open} onClose={onClose}>
       <h2 className="font-display text-[24px] font-extrabold text-ink">Podešavanja</h2>
       <Section title="Izvoz u PDF" hint="Redosled stavki u PDF-u, kad se preuzme ili pošalje mejlom.">
         <Segmented label="Popis" options={PDF_ORDERS} value={pdfOrder.popis} onChange={(order) => setPdfOrder("popis", order)} />
         <Segmented label="Trebovanje" options={PDF_ORDERS} value={pdfOrder.trebovanje} onChange={(order) => setPdfOrder("trebovanje", order)} />
+      </Section>
+      <div className="h-px bg-border-soft" />
+      <Section title="e-Faktura" hint="API ključ sa SEF-a, naziv radnje i PIB.">
+        {/* replaces the sheet's history entry, so back from there returns behind the sheet */}
+        <Button variant="outline" size="md" iconRight={ChevronRight} onClick={() => navigate("/e-faktura/podesavanja", { replace: true })} className="w-full">
+          Podesi e-Fakturu
+        </Button>
       </Section>
       <div className="h-px bg-border-soft" />
       <Section title="Skeniranje">

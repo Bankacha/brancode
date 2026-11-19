@@ -25,6 +25,7 @@ const setup = (path = "/") =>
             <Route path="/drugo" element={<><p>DRUGO</p><Back /><AppMenu /></>} />
             <Route path="/popis" element={<><p>SPISAK POPISA</p><AppMenu /></>} />
             <Route path="/popis/:id" element={<><p>JEDAN POPIS</p><AppMenu /></>} />
+            <Route path="/e-faktura/podesavanja" element={<><p>EFAKTURA PODESAVANJA</p><Back /></>} />
           </Routes>
         </ToastProvider>
       </MemoryRouter>
@@ -61,6 +62,18 @@ describe("AppMenu", () => {
     const scanning = screen.getByRole("region", { name: "Skeniranje" });
     expect(within(scanning).getByRole("group", { name: "Čitač barkoda (test)" })).toBeTruthy();
     expect(screen.getByText(`Verzija ${version}`)).toBeTruthy();
+  });
+
+  it("leads from settings to the e-Faktura settings, with back returning behind the sheet", async () => {
+    setup();
+    openMenu();
+    fireEvent.click(screen.getByRole("button", { name: /Podešavanja/ }));
+    const efaktura = screen.getByRole("region", { name: "e-Faktura" });
+    fireEvent.click(within(efaktura).getByRole("button", { name: "Podesi e-Fakturu" }));
+    await screen.findByText("EFAKTURA PODESAVANJA");
+    fireEvent.click(screen.getByRole("button", { name: "Nazad" }));
+    await screen.findByText("CENOVNICI");
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 
   it("chooses the PDF order for each list kind in settings", () => {
