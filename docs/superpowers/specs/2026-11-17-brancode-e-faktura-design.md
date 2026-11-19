@@ -55,7 +55,7 @@ Novi odeljak „e-Faktura“ treba da:
 - Izlazne fakture, PDV evidencija, fiskalni računi, e-otpremnice, CIR i javne nabavke.
 - Obaveštenja koja SEF sam šalje (pretplata, webhook), push obaveštenja i jutarnji mejl o novim fakturama.
 - Uloge i ograničenje ko sme da prihvata.
-- Upozorenje da ističe valuta za plaćanje, i oznaka „plaćeno“. SEF ne zna da li je ulazna faktura plaćena, pa bi radnja to morala da označava u aplikaciji. Ovaj posao samo čuva datum valute (odluka 13).
+- Nadogradnja „Označi kao plaćeno“, za kasnije. Korisnik po želji vodi evidenciju plaćanja u našoj tabeli prihvaćenih. Jutarnji mejl ga upozori na fakture kojima ističe valuta, a za fakture označene kao plaćene više ne stiže upozorenje. Ovaj posao samo čuva datum valute (odluka 13), da nadogradnja ima na čemu da se gradi (dogovor od 19.11.).
 - Prikaz istorije u aplikaciji, osim u detalju fakture. Istorija se čuva u tabeli za proveru kad zatreba.
 - Slanje na adresu koju korisnik upiše (čeka domen) i sopstveni domen za mejl.
 - Više radnji: registracija radnje i odvajanje podataka po radnji.
