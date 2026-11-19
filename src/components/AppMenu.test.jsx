@@ -7,8 +7,10 @@ import { ToastProvider } from "./Toast.jsx";
 import AppMenu from "./AppMenu.jsx";
 import { version } from "../../package.json";
 import { supabase } from "../supabaseClient";
+import { efakturaCall } from "../lib/efaktura.js";
 
 vi.mock("../supabaseClient", () => ({ supabase: { auth: { signOut: vi.fn(async () => ({ error: null })) } } }));
+vi.mock("../lib/efaktura.js", async (original) => ({ ...(await original()), efakturaCall: vi.fn(async () => ({ ok: true, connected: false })) }));
 
 function Back() {
   const navigate = useNavigate();
@@ -63,6 +65,32 @@ describe("AppMenu", () => {
     const scanning = screen.getByRole("region", { name: "Skeniranje" });
     expect(within(scanning).getByRole("group", { name: "Čitač barkoda (test)" })).toBeTruthy();
     expect(screen.getByText(`Verzija ${version}`)).toBeTruthy();
+  });
+
+  it("shows in settings whether e-Faktura is connected", async () => {
+    efakturaCall.mockResolvedValueOnce({ ok: true, connected: true, keyLast4: "1234", mode: "production" });
+    setup();
+    openMenu();
+    fireEvent.click(screen.getByRole("button", { name: /Podešavanja/ }));
+    const efaktura = screen.getByRole("region", { name: "e-Faktura" });
+    await within(efaktura).findByText("Povezana · ključ …1234");
+    expect(efakturaCall).toHaveBeenCalledWith("status");
+  });
+
+  it("says in settings when e-Faktura is not connected, or only in test mode", async () => {
+    efakturaCall.mockResolvedValueOnce({ ok: true, connected: false, keyLast4: null, mode: "production" });
+    setup();
+    openMenu();
+    fireEvent.click(screen.getByRole("button", { name: /Podešavanja/ }));
+    await within(screen.getByRole("region", { name: "e-Faktura" })).findByText("Nije povezana");
+  });
+
+  it("marks the test mode next to the connection in settings", async () => {
+    efakturaCall.mockResolvedValueOnce({ ok: true, connected: true, keyLast4: "0000", mode: "mock" });
+    setup();
+    openMenu();
+    fireEvent.click(screen.getByRole("button", { name: /Podešavanja/ }));
+    await within(screen.getByRole("region", { name: "e-Faktura" })).findByText("Povezana · ključ …0000 · probni režim");
   });
 
   it("leads from settings to the e-Faktura settings, with back returning behind the sheet", async () => {

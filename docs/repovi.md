@@ -22,11 +22,9 @@ Stanje: 19.11.2026, posle 0.15.0 (e-Faktura: ulazne fakture sa SEF-a, za sada na
 1. Naziv sa trebovanja ide u red baze koji je pretraga našla. Za jedan od oko 170 parova gde u bazi postoje i 12-cifreni i 13-cifreni kod istog artikla, otkucan 12-cifreni kod nađe stari red, pa skeniranje pakovanja (13 cifara) i dalje pokaže stari naziv. Ista nedoslednost postoji i za cene; parovi se ne spajaju automatski (vidi pravila za barkodove).
 2. Svaka različita frižider cena je u Excel-u slika od oko 20 KB (ista cena se upisuje jednom). Mejl prima do oko 4 MB, pa jedan mejl staje oko 150 različitih frižider cena (u Mix-u zajedno sa raf barkodovima). Preko toga aplikacija kaže da je fajl prevelik i nudi preuzimanje. Ako to postane čest slučaj: manja rezolucija slike ili slika samo oko cifara.
 
-## Sitnice iz pregleda 0.15.0 (za sledeće sređivanje)
+## Za sređivanje odmah posle 0.15.0
 
-1. Ako SEF odbije ključ već pri prvom učitavanju e-Fakture, ekran pokaže poruku i „Pokušaj ponovo“, ali u zaglavlju nema dugmeta za podešavanja. Do njih se tada stiže preko Meni → Podešavanja → „Podesi e-Fakturu“. Popravka: dugme za podešavanja uvek u zaglavlju.
-2. Grupa „e-Faktura“ u Podešavanjima ne pokazuje da li je e-Faktura povezana (spec kaže „stanje i dugme“). Sada ima samo opis i dugme.
-3. U probnom režimu, ako upis u istoriju ne uspe posle prihvatanja, probna faktura se opet pokaže kao „na čekanju“ (probni SEF čita odluke iz istorije). Pravi SEF to nema.
+1. **Posle prijave aplikacija otvara poslednju stranu, ne početnu** (prijavio korisnik 19.11.). Kad sesija istekne, na primer posle 3 dana, prijava vraća na stranu koja je poslednja bila otvorena (npr. Trebovanje), i to zbunjuje. Posle prijave aplikacija treba da otvori početnu stranu (Cene). Ide kao 0.15.1, na posebnoj grani, posle spajanja e-Fakture.
 
 ## Treba tvoja odluka, podešavanje ili provera u radnji
 
@@ -57,6 +55,7 @@ Stanje: 19.11.2026, posle 0.15.0 (e-Faktura: ulazne fakture sa SEF-a, za sada na
 
 ## Ostaje ovako (namerno)
 
+- e-Faktura, samo u probnom režimu: ako upis u istoriju ne uspe posle prihvatanja, probna faktura se opet pokaže kao „na čekanju“, jer probni SEF čita odluke iz istorije. Sa pravim SEF-om status uvek dolazi sa SEF-a, pa ovoga tamo nema.
 - Artikal koji pre akcije nije imao cenu posle akcije opet ostaje bez cene.
 - Mejlovi podsetnici navode samo artikle iz baze, jer samo njih liflet pamti.
 - Štampa cele liste kao Raf ili Friz ne menja format zapamćen u Mix-u. Tako je dogovoreno, za sada.

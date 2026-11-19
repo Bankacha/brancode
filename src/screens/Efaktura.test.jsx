@@ -340,6 +340,18 @@ describe("Efaktura", () => {
     await waitFor(() => expect(api.list).toHaveBeenCalledTimes(2));
   });
 
+  it("leads to the settings when the first load fails", async () => {
+    serve({
+      list: () => {
+        throw Object.assign(new Error("x"), { code: "key-rejected" });
+      },
+    });
+    setup();
+    await screen.findByText("SEF ne prihvata ovaj ključ. Proveri da li je status ključa Aktivan.");
+    fireEvent.click(screen.getByRole("button", { name: "Podešavanja e-Fakture" }));
+    await screen.findByText("PODESAVANJA");
+  });
+
   it("keeps the list and says so when a reload fails", async () => {
     let calls = 0;
     serve({

@@ -275,9 +275,10 @@ export default function Efaktura() {
 
   const connected = Boolean(status?.connected);
   const title = <h1 className="font-display text-[28px] font-extrabold tracking-[-0.02em] text-ink">e-Faktura</h1>;
-  const actions = connected && (
+  // Settings are always one tap away, also when SEF refused the key on the first load.
+  const actions = (
     <>
-      <IconButton label="Osveži" icon={RefreshCw} onClick={load.reload} />
+      {connected && <IconButton label="Osveži" icon={RefreshCw} onClick={load.reload} />}
       <IconButton label="Podešavanja e-Fakture" icon={Settings2} onClick={() => navigate("/e-faktura/podesavanja")} />
     </>
   );
