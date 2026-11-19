@@ -31,18 +31,21 @@ Novi odeljak „e-Faktura“ treba da:
 8. **Mejl umesto nošenja papira.** Kad je ključ proveren, pojavljuje se polje „Fakture šalji na“ sa mejlom radnje. **Za sada je polje zasivljeno** i sve ide na postojeći mejl radnje (`EMAIL_TO`). Kad aplikacija dobije sopstveni domen, polje se otključava za mejl knjigovođe. Resend sa probne adrese isporučuje samo vlasniku naloga.
 9. **Tekst mejla** je kulturan i opšti: u prilogu su prihvaćene fakture prodavnice [naziv] (PIB …).
 10. **Spremno za više radnji:** ključ, naziv i PIB čuvaju se tako da kasnije svaka radnja ima svoje. Sam rad sa više radnji nije deo ovog posla.
+11. **Lista ima tri taba koji rade kao filteri:** Na čekanju, Prihvaćene i Sve (dopuna od 19.11.).
+12. **Trajna istorija.** Svaka faktura koju je neko prihvatio, odbio ili poslao kroz aplikaciju zapisuje se u tabelu, da se i posle mnogo vremena može proveriti ko je šta uradio i kada. Zapis se ne menja i ne briše (dopuna od 19.11.).
+13. **Datum valute (rok plaćanja) se čuva** u istoriji uz svaku fakturu. Kasnije bi mogao da posluži za dnevno upozorenje na prihvaćene, a neplaćene fakture kojima valuta ističe za 48 sati. To upozorenje nije deo ovog posla (dopuna od 19.11.).
 
 ## Moje odluke (korisnik ih proverava pri čitanju)
 
 - **A. Svaka faktura je poseban PDF u prilogu**, nazvan po dobavljaču i broju, a ne jedan spojen PDF. Krajnji primalac je knjigovođa, koji svaku fakturu knjiži posebno. Do domena radnja taj jedan mejl prosledi knjigovođi.
 - **B. Naziv radnje i PIB unose se uz ključ.** SEF nema poziv koji kaže čiji je ključ. To je privremeno. Kasnije se tačan naziv radnje traži pri registraciji radnje, pa e-Faktura uzima taj naziv, a uz ključ se unosi samo PIB (dopuna od 19.11.).
-- **C. Fakture se ne prepisuju u našu bazu.** Lista se svaki put čita sa SEF-a. Pamtimo samo ko je šta prihvatio, odbio i poslao, uz osnovne podatke fakture iz tog trenutka.
+- **C. Lista se svaki put čita sa SEF-a**, a ne iz kopije u našoj bazi. Ne pravimo sinhronizaciju svih faktura. U bazu ide samo istorija (odluka 12): svaka faktura koju je aplikacija prihvatila, odbila ili poslala, sa svojim podacima iz tog trenutka, uključujući datum valute.
 - **D. „Nije poslato“ obuhvata i fakture prihvaćene direktno na SEF-u ili automatski posle roka**, da knjigovođi ništa ne promakne. Izuzetak su fakture koje su već bile prihvaćene u trenutku povezivanja: one su već odštampane i odnete. Taj spisak se uzima jednom, pri povezivanju (odluka I).
 - **E. Prozor je 60 dana:** aplikacija pokazuje fakture koje su stigle u poslednjih 60 dana.
 - **F. Probni režim je podrazumevan** dok se na Vercel-u izričito ne uključi pravi SEF (`SEF_ENV=production`). Tako nijedan deploy ne može slučajno da prihvati pravu fakturu.
 - **G. Odbijanje je pojedinačno** i uvek uz razlog. Masovno odbijanje nema smisla.
 - **H. Podešavanja se čuvaju posebno za svaki režim** (probni, demo, pravi). Proba na preview deploy-u, koji koristi istu bazu, zato ne može da prepiše ili obriše pravi ključ, naziv, PIB ni dan povezivanja. Isto važi za zapamćene radnje (odluka F).
-- **I. Pri povezivanju se jednom uzme spisak faktura koje su u tom trenutku prihvaćene** u prozoru od 60 dana, i zapamti uz podešavanja tog režima. Ti se fakture pojavljuju kao „Pre povezivanja“. Svaka druga prihvaćena faktura bez zapisa o slanju je „Nije poslato“, bez obzira kad je i gde prihvaćena. SEF u listi ne daje datum prihvatanja, pa ovo pravilo ne traži dodatne pozive. Spisak i dan povezivanja ostaju isti kad se ključ zameni.
+- **I. Pri povezivanju se jednom uzme spisak faktura koje su u tom trenutku prihvaćene** u prozoru od 60 dana, i zapamti uz podešavanja tog režima. Te se fakture pojavljuju kao „Pre povezivanja“. Svaka druga prihvaćena faktura bez zapisa o slanju je „Nije poslato“, bez obzira kad je i gde prihvaćena. SEF u listi ne daje datum prihvatanja, pa ovo pravilo ne traži dodatne pozive. Spisak i dan povezivanja ostaju isti kad se ključ zameni.
 - **J. Prihvatanje i odbijanje na pravom SEF-u ima poseban prekidač** `SEF_ACCEPT=on` na Vercel-u. Pravi SEF se uključuje u dva koraka: prvo `SEF_ENV=production` (lista, PDF, slanje), pa tek posle provere na pravim podacima `SEF_ACCEPT=on`. Dok prekidač nije uključen, dugmad Prihvati i Odbij su zaključana, uz napomenu „Prihvatanje još nije uključeno“, a server odbija te akcije. Prekidač važi i za `demo`; probni režim ga ne treba.
 - **K. „Ponovo poslata“ nema brojanje dana.** Datum podsetnika se ne vidi u listi SEF-a, pa piše istaknuto „Podsetnik stigao · odgovori odmah“.
 
@@ -52,6 +55,8 @@ Novi odeljak „e-Faktura“ treba da:
 - Izlazne fakture, PDV evidencija, fiskalni računi, e-otpremnice, CIR i javne nabavke.
 - Obaveštenja koja SEF sam šalje (pretplata, webhook), push obaveštenja i jutarnji mejl o novim fakturama.
 - Uloge i ograničenje ko sme da prihvata.
+- Upozorenje da ističe valuta za plaćanje, i oznaka „plaćeno“. SEF ne zna da li je ulazna faktura plaćena, pa bi radnja to morala da označava u aplikaciji. Ovaj posao samo čuva datum valute (odluka 13).
+- Prikaz istorije u aplikaciji, osim u detalju fakture. Istorija se čuva u tabeli za proveru kad zatreba.
 - Slanje na adresu koju korisnik upiše (čeka domen) i sopstveni domen za mejl.
 - Više radnji: registracija radnje i odvajanje podataka po radnji.
 - Štampa iz aplikacije i spajanje PDF-ova u jedan.
@@ -85,9 +90,9 @@ Posle čuvanja:
 
 ### Lista faktura (`/e-faktura`)
 
-Zaglavlje „e-Faktura“ i dva taba, svaki sa brojem faktura.
+Zaglavlje „e-Faktura“ i tri taba koji rade kao filteri: **Na čekanju**, **Prihvaćene** i **Sve**. Prva dva pokazuju broj faktura (odluka 11).
 
-**„Za odgovor“** prikazuje fakture sa statusom Nova, Viđena i Ponovo poslata.
+**„Na čekanju“** prikazuje fakture sa statusom Nova, Viđena i Ponovo poslata.
 - Fakture su grupisane po danu prijema: Danas, Juče, pa datumi.
 - Svaki red ima: štiklir, dobavljača (podebljano), broj fakture, iznos sa PDV-om (`12.345,67 din`), rok plaćanja i rok za odgovor („još 12 dana“).
 - Rok za odgovor je 15 dana od prijema. Pravilo je iz stručnih izvora i proverava se na pravim fakturama. Kad ostane 3 dana ili manje, rok je istaknut. Ako rok prođe, piše „Rok prošao“. „Ponovo poslata“ ima oznaku iz odluke K.
@@ -101,6 +106,10 @@ Zaglavlje „e-Faktura“ i dva taba, svaki sa brojem faktura.
 - Fakture koje je dobavljač posle stornirao ili otkazao ne nude se za slanje.
 - Na dnu je dugme „Pošalji (N)“.
 
+**„Sve“** prikazuje sve fakture iz poslednjih 60 dana, u svim statusima: na čekanju, prihvaćene, odbijene, stornirane i otkazane.
+- Grupe su po danu prijema, i svaki red ima oznaku statusa.
+- Nema štiklira. Prihvata se, odbija i otvara PDF iz detalja fakture.
+
 **Osvežavanje** je pri otvaranju i na zahtev. Graditelj bira da li povlačenjem nadole ili dugmetom u zaglavlju. Ako SEF ne odgovori, ostaje poslednja učitana lista, uz poruku.
 
 ### Detalj fakture (sheet)
@@ -110,6 +119,7 @@ Zaglavlje „e-Faktura“ i dva taba, svaki sa brojem faktura.
 - **„Otvori PDF“** otvara PDF koji SEF daje za fakturu, preuzet preko našeg servera.
 - Faktura na čekanju ima dugmad **Prihvati** i **Odbij**.
 - Prihvaćena faktura pokazuje kad je i kome poslata.
+- Ako je faktura prihvaćena ili odbijena kroz aplikaciju, piše i ko je to uradio i kada („Prihvatio: …, 17.11. u 08:42“). Ako nije, piše „Prihvaćena na SEF-u“.
 
 ### Prihvatanje
 
@@ -119,10 +129,10 @@ Zaglavlje „e-Faktura“ i dva taba, svaki sa brojem faktura.
    - Faktura se računa kao prihvaćena tek kad SEF to potvrdi: `success: true` u odgovoru. Ako odgovor nije jasan (greška, istek vremena, neočekivan oblik), server pročita status te fakture (`GET purchase-invoice`) i tek po njemu javlja ishod.
    - Ako ni tada nije jasno, faktura se javlja kao „Nije potvrđeno, osveži listu“, nikad kao prihvaćena.
 4. Rezultat se javlja za svaku fakturu posebno:
-   - Uspešne nestaju iz „Za odgovor“ i pojavljuju se u „Prihvaćene → Nije poslato“.
+   - Uspešne nestaju iz „Na čekanju“ i pojavljuju se u „Prihvaćene → Nije poslato“.
    - Neuspele ostaju štiklirane, uz razlog. Ako je faktura na SEF-u već prihvaćena ili odbijena, to nije greška: lista se samo osveži.
    - Poruka je „Prihvaćeno 10 faktura“, ili „Prihvaćeno 8 od 10, 2 nisu: …“.
-5. Svako prihvatanje se pamti: koja faktura, ko, kada, i dobavljač, broj i iznos iz tog trenutka.
+5. Svako prihvatanje se upisuje u istoriju (odluka 12): koja faktura, ko i kada, uz podatke fakture iz tog trenutka.
 
 ### Odbijanje
 
@@ -198,13 +208,15 @@ Nova migracija `supabase/migrations/<datum>_efaktura.sql` pravi dve tabele.
 - dan povezivanja i spisak SEF id-jeva faktura prihvaćenih u tom trenutku (odluka I);
 - ko je i kad poslednji menjao.
 
-**`efaktura_events`** ima jedan red za svaku radnju nad fakturom. Polja:
+**`efaktura_events`** je istorija (odluka 12). Ima jedan red za svaku radnju nad fakturom. Polja:
 - SEF id fakture;
 - radnja: `accepted`, `rejected` ili `sent`;
-- komentar i primalac;
-- korisnik i vreme;
+- komentar (razlog odbijanja) i primalac (za slanje);
+- korisnik (id i mejl) i vreme;
 - režim;
-- dobavljač, broj fakture i iznos iz tog trenutka.
+- podaci fakture iz tog trenutka: dobavljač i njegov PIB, broj fakture, datum prijema, datum valute (`dueDate`), iznos bez PDV-a, PDV i ukupno, valuta i status na SEF-u.
+
+Redovi se samo dodaju. Okidač u bazi odbija `update` i `delete`, osim brisanja probnih redova („Vrati probne fakture“). Tako ni greška u aplikaciji ne može da izmeni istoriju.
 
 **Pristup:**
 - Na obe tabele je uključen RLS, bez ijedne politike za klijente.
@@ -242,6 +254,8 @@ Nova migracija `supabase/migrations/<datum>_efaktura.sql` pravi dve tabele.
 - Rok za odgovor: 15 dana, isticanje na 3 dana, „Rok prošao“, oznaka za „Ponovo poslatu“.
 - Mejl: naslov, tekst sa nazivom i PIB-om, imena priloga (i ista imena), podela preko ograničenja, „[PROBA]“.
 - Zapis o slanju nastaje samo posle uspeha Resend-a.
+- Istorija: zapis o prihvatanju ima datum valute i ostale podatke fakture. Okidač odbija izmenu i brisanje pravog reda, a brisanje probnog reda pušta (SQL u migraciji; proverava se na Supabase-u pri izlasku).
+- Tabovi: „Na čekanju“, „Prihvaćene“ i „Sve“ filtriraju istu listu. „Sve“ pokazuje i odbijene i stornirane, bez štiklira.
 - Handler: metod, token, akcije, provera ID-ova i razloga, `not-configured`, ključ nikad u odgovoru.
 - Komponente: štikliranje i „Izaberi sve“, traka sa zbirom, potvrda, delimičan uspeh.
 
