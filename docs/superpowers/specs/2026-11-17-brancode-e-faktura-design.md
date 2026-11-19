@@ -35,7 +35,7 @@ Novi odeljak „e-Faktura“ treba da:
 ## Moje odluke (korisnik ih proverava pri čitanju)
 
 - **A. Svaka faktura je poseban PDF u prilogu**, nazvan po dobavljaču i broju, a ne jedan spojen PDF. Krajnji primalac je knjigovođa, koji svaku fakturu knjiži posebno. Do domena radnja taj jedan mejl prosledi knjigovođi.
-- **B. Naziv radnje i PIB unose se uz ključ.** SEF nema poziv koji kaže čiji je ključ.
+- **B. Naziv radnje i PIB unose se uz ključ.** SEF nema poziv koji kaže čiji je ključ. To je privremeno. Kasnije se tačan naziv radnje traži pri registraciji radnje, pa e-Faktura uzima taj naziv, a uz ključ se unosi samo PIB (dopuna od 19.11.).
 - **C. Fakture se ne prepisuju u našu bazu.** Lista se svaki put čita sa SEF-a. Pamtimo samo ko je šta prihvatio, odbio i poslao, uz osnovne podatke fakture iz tog trenutka.
 - **D. „Nije poslato“ obuhvata i fakture prihvaćene direktno na SEF-u ili automatski posle roka**, da knjigovođi ništa ne promakne. Izuzetak su fakture koje su već bile prihvaćene u trenutku povezivanja: one su već odštampane i odnete. Taj spisak se uzima jednom, pri povezivanju (odluka I).
 - **E. Prozor je 60 dana:** aplikacija pokazuje fakture koje su stigle u poslednjih 60 dana.
@@ -71,8 +71,8 @@ Novi odeljak „e-Faktura“ treba da:
 Ekran `/e-faktura/podesavanja`. Do njega se dolazi iz Podešavanja (nova grupa „e-Faktura“ sa stanjem i dugmetom „Podesi“) i sa praznog ekrana e-Fakture („Poveži e-Fakturu“).
 
 Polja:
-- **Naziv radnje** (obavezno).
-- **PIB** (tačno 9 cifara).
+- **Naziv radnje** (obavezno). Ovde je samo dok ne postoji registracija radnje, odluka B.
+- **PIB** (tačno 9 cifara). Ostaje ovde i posle registracije.
 - **API ključ sa SEF-a**: polje za lozinku, prima nalepljen tekst. Ispod je kratko uputstvo: SEF → Podešavanja → API menadžment → Generiši ključ, pa status „Aktivan“.
 
 Dugme **„Proveri i sačuvaj“**: server isproba ključ na SEF-u i sačuva ga šifrovanog samo ako ga SEF prihvati. Ako ga SEF odbije, poruka je „SEF ne prihvata ovaj ključ. Proveri da li je status ključa Aktivan.“ Ako SEF ne odgovori, poruka je „SEF trenutno ne odgovara. Pokušaj ponovo.“ U oba slučaja ništa se ne čuva.
