@@ -42,6 +42,16 @@ describe("specPages", () => {
     expect(specPages([visual(1), otherId])).toEqual([]);
   });
 
+  it("drops only the unbroken run of structured-format pages, stopping at the first that isn't one", () => {
+    // a supplier's delivery note stamped by SEF with the same footer
+    const stamped = `OTPREMNICA br. 55 Kovilovo, vozač Petar ${footer}`;
+    expect(specPages([visual(1), specStart, specMore, stamped])).toEqual([1, 2]);
+    expect(specPages([visual(1), specStart, "Prilog 1 bez pečata", specMore])).toEqual([1]);
+    // an invoice page whose SEF header comes last in its text
+    const invoicePage = `Šifra 3350820 Terea ( EAN: 8600115399314 ) 10 kom ${visual(3)}`;
+    expect(specPages([visual(1), specStart, invoicePage])).toEqual([1]);
+  });
+
   it("drops nothing it can't recognise", () => {
     expect(specPages([`Faktura ${ID}`, specStart])).toEqual([]); // no SEF header on the first page
     expect(specPages([visual(1), null, specStart])).toEqual([2]);
@@ -80,6 +90,16 @@ describe("mergePdfs", () => {
     expect(await widths(bytes)).toEqual([101, 301]);
   });
 
+  it("leaves out an encrypted PDF instead of printing it blank", async () => {
+    const doc = await PDFDocument.create();
+    doc.addPage([500, 200]);
+    doc.context.trailerInfo.Encrypt = doc.context.obj({ Filter: "Standard", V: 2, R: 3, O: "x", U: "x", P: -4 });
+    const encrypted = await doc.save();
+    const { bytes, failed } = await mergePdfs([await pdfOf(101), encrypted]);
+    expect(failed).toEqual([1]);
+    expect(await widths(bytes)).toEqual([101]);
+  });
+
   it("gives no file when nothing could be merged", async () => {
     expect(await mergePdfs([new Uint8Array([1, 2, 3])])).toEqual({ bytes: null, failed: [0] });
   });
@@ -90,11 +110,12 @@ describe("describePages (temporary check on real invoices)", () => {
     const file = await textPdf(visual(1), visual(2), specStart, specMore);
     const described = await describePages(file);
     expect(described).toEqual({
+      encrypted: false,
       pages: [
-        { sef: true, title: false, id: true },
-        { sef: true, title: false, id: true },
-        { sef: false, title: true, id: true },
-        { sef: false, title: false, id: true },
+        { sef: true, title: false, id: true, labels: 0, footer: false },
+        { sef: true, title: false, id: true, labels: 0, footer: false },
+        { sef: false, title: true, id: true, labels: 0, footer: true },
+        { sef: false, title: false, id: true, labels: 3, footer: true },
       ],
       dropped: [2, 3],
     });
@@ -102,6 +123,6 @@ describe("describePages (temporary check on real invoices)", () => {
   });
 
   it("says when the text can't be read", async () => {
-    expect(await describePages(new Uint8Array([1, 2, 3]))).toEqual({ pages: null, dropped: [] });
+    expect(await describePages(new Uint8Array([1, 2, 3]))).toEqual({ encrypted: false, pages: null, dropped: [] });
   });
 });

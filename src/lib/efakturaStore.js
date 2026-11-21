@@ -87,6 +87,11 @@ export const createEfakturaStore = (client, { now = () => new Date() } = {}) => 
     check(await client.from("efaktura_events").insert(eventRow(event)));
   },
 
+  // One insert for a mail's invoices: all recorded or none.
+  addEvents: async (events) => {
+    check(await client.from("efaktura_events").insert(events.map(eventRow)));
+  },
+
   // Every page: a missed "sent" row would offer an invoice for sending again.
   eventsSince: async (mode, sinceIso) => {
     const events = [];

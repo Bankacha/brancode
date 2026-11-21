@@ -17,6 +17,7 @@ const MAX_IDS = 50;
 const MAX_COMMENT = 500;
 const MAX_SHOP_NAME = 100;
 const MAX_PDF_BYTES = 4.4 * 1024 * 1024; // Vercel answers at most 4.5 MB
+const PDF_BUDGET_MS = 150_000; // of the function's 300 s, for SEF's PDFs
 const PENDING = new Set(PENDING_STATUSES);
 
 const ok = (json = {}) => ({ status: 200, json: { ok: true, ...json } });
@@ -56,6 +57,16 @@ export const latestDecisions = (events) => {
   const decisions = new Map();
   for (const event of events) if (event.action !== "sent") decisions.set(event.invoiceId, event.action);
   return decisions;
+};
+
+// A mail's invoices, written in one insert, so a function cut off midway
+// can't leave some of them looking unsent (and printed twice).
+const recordAll = async (ctx, events) => {
+  try {
+    await ctx.store.addEvents(events.map((event) => ({ mode: ctx.mode, userId: ctx.user.id, userEmail: ctx.user.email, ...event })));
+  } catch (err) {
+    console.error("efaktura", "history", err?.code ?? err?.name ?? "error");
+  }
 };
 
 const record = async (ctx, event) => {
@@ -238,8 +249,12 @@ const send = async ({ invoiceIds }, ctx) => {
     if (invoice?.status === "Approved") sendable.push(invoice);
     else outcome.set(id, "not-sendable");
   }
-  // all PDFs at once: SEF makes the missing ones while we wait for the lot
-  const pdfs = await sef.pdfMany(sendable.map((invoice) => invoice.id));
+  // all PDFs at once: SEF makes the missing ones while we wait for the lot,
+  // but only so long, to leave time for the merge, the mail and the history
+  const pdfs = await sef.pdfMany(
+    sendable.map((invoice) => invoice.id),
+    { until: ctx.now().getTime() + PDF_BUDGET_MS }
+  );
   const ready = [];
   for (const invoice of sendable) {
     const pdf = pdfs.get(invoice.id);
@@ -263,8 +278,12 @@ const send = async ({ invoiceIds }, ctx) => {
     const invoices = part.map((i) => ready[i].invoice);
     const numbering = { index: index + 1, count: mails.length };
     const mail = invoiceMail({ shopName: settings.shopName, pib: settings.pib, invoices, todayIso, mock: ctx.mode === "mock", part: numbering });
-    // one file to print; a PDF pdf-lib can't read goes on its own, not lost
-    const merged = await mergePdfs(part.map((i) => ready[i].bytes));
+    // one file to print; a PDF pdf-lib can't read goes on its own, not lost,
+    // and if merging breaks altogether, every PDF goes on its own
+    const merged = await mergePdfs(part.map((i) => ready[i].bytes)).catch((err) => {
+      console.error("efaktura", "send-merge", err?.name ?? "error");
+      return { bytes: null, failed: part.map((_, k) => k) };
+    });
     const attachments = [
       ...(merged.bytes ? [{ filename: mergedFilename(todayIso, numbering), content: merged.bytes }] : []),
       ...merged.failed.map((k) => ({ filename: names[part[k]], content: ready[part[k]].bytes })),
@@ -276,10 +295,11 @@ const send = async ({ invoiceIds }, ctx) => {
       for (const invoice of invoices) outcome.set(invoice.id, "failed");
       continue;
     }
-    for (const invoice of invoices) {
-      await record(ctx, { invoiceId: invoice.id, action: "sent", recipient: to, snapshot: invoice });
-      outcome.set(invoice.id, "sent");
-    }
+    await recordAll(
+      ctx,
+      invoices.map((invoice) => ({ invoiceId: invoice.id, action: "sent", recipient: to, snapshot: invoice }))
+    );
+    for (const invoice of invoices) outcome.set(invoice.id, "sent");
   }
 
   const results = invoiceIds.map((id) => ({ id, outcome: outcome.get(id) }));

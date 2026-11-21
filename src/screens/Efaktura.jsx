@@ -220,7 +220,8 @@ export default function Efaktura() {
   };
 
   const send = async () => {
-    const ids = asked.map((i) => i.id);
+    // oldest first, so with more than one part the first mail holds the oldest
+    const ids = [...asked].sort((a, b) => (a.receivedAt ?? "").localeCompare(b.receivedAt ?? "") || a.id - b.id).map((i) => i.id);
     setBusy(true);
     toast.show({ kind: "loading", text: "Šaljem…" });
     const { results, error } = await inParts("send", ids, SEND_PART);

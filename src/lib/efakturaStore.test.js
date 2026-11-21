@@ -97,6 +97,20 @@ describe("efaktura store (Supabase)", () => {
     expect(saved).toEqual(settings);
   });
 
+  it("adds several events in one insert", async () => {
+    const client = fakeClient({ data: null, error: null });
+    await store(client).addEvents([
+      { mode: "production", invoiceId: 1, action: "sent", recipient: "r@b", userId: "u1", userEmail: "brat@primer.test", snapshot: invoice },
+      { mode: "production", invoiceId: 2, action: "sent", recipient: "r@b", userId: "u1", userEmail: "brat@primer.test", snapshot: invoice },
+    ]);
+    expect(client.calls).toHaveLength(1);
+    const insert = client.calls[0].steps.find((step) => step[0] === "insert");
+    expect(insert[1].map((row) => [row.invoice_id, row.action, row.recipient])).toEqual([
+      [1, "sent", "r@b"],
+      [2, "sent", "r@b"],
+    ]);
+  });
+
   it("adds an event with the invoice as it was", async () => {
     const client = fakeClient({ data: null, error: null });
     await store(client).addEvent({ mode: "production", invoiceId: 77, action: "accepted", userId: "u1", userEmail: "brat@primer.test", snapshot: invoice });

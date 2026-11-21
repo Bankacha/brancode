@@ -212,6 +212,20 @@ describe("createSefClient", () => {
     await expect(client(refused.fetch).pdfMany([1])).rejects.toMatchObject({ code: "key-rejected" });
   });
 
+  it("stops waiting for PDFs at the deadline, so the mail still has time to go", async () => {
+    const started = { message: "Extended PDF file creation has been initiated." };
+    const c = clock();
+    const { fetch, calls } = fakeFetch({ body: started }, { body: started });
+    const got = await client(fetch, c).pdfMany([1, 2], { until: c.now() + 1500 });
+    expect(calls).toHaveLength(2);
+    expect([...got.values()].map((e) => e.code)).toEqual(["pdf-not-ready", "pdf-not-ready"]);
+    expect(c.sleeps.filter((ms) => ms >= 2000)).toEqual([]);
+    const late = fakeFetch();
+    const none = await client(late.fetch, c).pdfMany([3], { until: c.now() - 1 });
+    expect(late.calls).toHaveLength(0);
+    expect(none.get(3).code).toBe("pdf-not-ready");
+  });
+
   it("gives up with pdf-not-ready when SEF still has no PDF", async () => {
     const started = { message: `Extended PDF file creation has been initiated for invoice Id 7. ${KEY}` };
     const { fetch, calls } = fakeFetch({ body: started }, { body: started }, { body: started }, { body: started });

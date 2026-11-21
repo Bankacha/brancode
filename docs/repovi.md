@@ -22,6 +22,11 @@ Stanje: 21.11.2026, posle 0.16.0 (e-Faktura: prihvaćene fakture stižu u jednom
 1. Naziv sa trebovanja ide u red baze koji je pretraga našla. Za jedan od oko 170 parova gde u bazi postoje i 12-cifreni i 13-cifreni kod istog artikla, otkucan 12-cifreni kod nađe stari red, pa skeniranje pakovanja (13 cifara) i dalje pokaže stari naziv. Ista nedoslednost postoji i za cene; parovi se ne spajaju automatski (vidi pravila za barkodove).
 2. Svaka različita frižider cena je u Excel-u slika od oko 20 KB (ista cena se upisuje jednom). Mejl prima do oko 4 MB, pa jedan mejl staje oko 150 različitih frižider cena (u Mix-u zajedno sa raf barkodovima). Preko toga aplikacija kaže da je fajl prevelik i nudi preuzimanje. Ako to postane čest slučaj: manja rezolucija slike ili slika samo oko cifara.
 
+## Sitnice iz pregleda 0.16.0 (za sledeće sređivanje)
+
+- Kad se šalje više od 50 faktura, stižu dva mejla sa istim nazivom priloga („Prihvaćene fakture – datum.pdf“), jer se delovi numerišu samo unutar jednog zahteva. Starije su u prvom mejlu.
+- Ako se veza telefona prekine dok server još šalje (zaključan telefon usred slanja 50 faktura), aplikacija javi „Nema veze“, a mejl ipak ode. Ponovno slanje odmah posle toga može da pošalje iste fakture još jednom. Posle osvežavanja liste stanje je tačno.
+
 ## Treba tvoja odluka, podešavanje ili provera u radnji
 
 **e-Faktura, redom.** Urađeno (21.11.): tabele u bazi, `EFAKTURA_SECRET`, `EFAKTURA_USERS`, isključena registracija, proba u probnom režimu, pravi SEF (`SEF_ENV`) i poređenje liste sa SEF-om. Ostaje:

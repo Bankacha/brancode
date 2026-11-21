@@ -39,12 +39,14 @@ describe("efaktura memory store", () => {
     c.set("2026-11-18T08:00:00Z");
     await store.addEvent({ mode: "mock", invoiceId: 2, action: "rejected", comment: "Cena", userId: "u", userEmail: "a@b", snapshot: invoice });
     await store.addEvent({ mode: "production", invoiceId: 3, action: "sent", recipient: "r@b", userId: "u", userEmail: "a@b", snapshot: invoice });
+    await store.addEvents([{ mode: "production", invoiceId: 4, action: "sent", recipient: "r@b", userId: "u", userEmail: "a@b", snapshot: invoice }]);
     c.set("2026-11-19T08:00:00Z");
     await store.addEvent({ mode: "mock", invoiceId: 4, action: "sent", recipient: "r@b", userId: "u", userEmail: "a@b", snapshot: invoice });
     expect(await store.eventsSince("mock", "2026-11-10")).toEqual([
       { invoiceId: 2, action: "rejected", comment: "Cena", recipient: null, userEmail: "a@b", createdAt: "2026-11-18T08:00:00.000Z" },
       { invoiceId: 4, action: "sent", comment: null, recipient: "r@b", userEmail: "a@b", createdAt: "2026-11-19T08:00:00.000Z" },
     ]);
+    expect((await store.eventsSince("production", "2026-11-10")).map((e) => e.invoiceId)).toEqual([3, 4]);
   });
 
   it("deletes only the test events", async () => {
@@ -58,6 +60,6 @@ describe("efaktura memory store", () => {
 
   it("offers no way to change or remove a real event", () => {
     const store = createMemoryEfakturaStore();
-    expect(Object.keys(store).sort()).toEqual(["addEvent", "deleteMockEvents", "eventsSince", "getSettings", "saveSettings"]);
+    expect(Object.keys(store).sort()).toEqual(["addEvent", "addEvents", "deleteMockEvents", "eventsSince", "getSettings", "saveSettings"]);
   });
 });

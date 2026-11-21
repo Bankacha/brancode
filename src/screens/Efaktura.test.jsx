@@ -294,7 +294,8 @@ describe("Efaktura", () => {
   });
 
   it("sends up to 50 invoices in one request, so they come as one PDF", async () => {
-    const many = Array.from({ length: 55 }, (_, i) => inv(i + 1, { status: "Approved", receivedAt: at(1, 7), send: unsent }));
+    // received over 55 days; sent oldest first, so the first mail holds the oldest 50
+    const many = Array.from({ length: 55 }, (_, i) => inv(i + 1, { status: "Approved", receivedAt: at(i % 55, 7), send: unsent }));
     const api = serve({ list: many });
     setup();
     await screen.findByRole("button", { name: /^Prihvaćene/ });
@@ -303,6 +304,7 @@ describe("Efaktura", () => {
     fireEvent.click(within(dialog("Poslati 55 faktura?")).getByRole("button", { name: "Pošalji" }));
     await screen.findByText("Poslato 55 faktura na radnja@primer.test");
     expect(api.send.mock.calls.map(([payload]) => payload.invoiceIds.length)).toEqual([50, 5]);
+    expect([...api.send.mock.calls[1][0].invoiceIds].sort((a, b) => a - b)).toEqual([1, 2, 3, 4, 5]);
   });
 
   it("shows every invoice under Sve, with its status and no checkboxes", async () => {

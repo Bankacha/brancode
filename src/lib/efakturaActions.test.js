@@ -71,10 +71,18 @@ const fakeSef = (invoices, overrides = {}) => {
 const setup = ({ mode = "mock", acceptEnabled = true, sef, sendMail } = {}) => {
   const store = createMemoryEfakturaStore({ now: () => NOW });
   const recorded = [];
+  const writes = [];
   const add = store.addEvent;
   store.addEvent = async (event) => {
     recorded.push(event);
+    writes.push(1);
     return add(event);
+  };
+  const addAll = store.addEvents;
+  store.addEvents = async (events) => {
+    recorded.push(...events);
+    writes.push(events.length);
+    return addAll(events);
   };
   const mails = [];
   const ctx = {
@@ -95,7 +103,7 @@ const setup = ({ mode = "mock", acceptEnabled = true, sef, sendMail } = {}) => {
     now: () => NOW,
   };
   const run = (action, payload = {}) => runEfakturaAction(action, payload, ctx);
-  return { ctx, store, recorded, mails, run };
+  return { ctx, store, recorded, writes, mails, run };
 };
 
 const connect = (run, apiKey = KEY) => run("save-settings", { shopName: "Radnja Kod Brata", pib: "101234567", apiKey });
@@ -515,6 +523,30 @@ describe("send", () => {
     expect(recorded.map((e) => e.invoiceId)).toEqual([1, 3]);
   });
 
+  it("records a mail's invoices in one write, so a cut-off can't leave some unrecorded", async () => {
+    const { run, writes, recorded } = await ready([inv(1, "Approved"), inv(2, "Approved"), inv(3, "Approved")]);
+    writes.length = 0;
+    await run("send", { invoiceIds: [1, 2, 3] });
+    expect(writes).toEqual([3]);
+    expect(recorded.filter((e) => e.action === "sent")).toHaveLength(3);
+  });
+
+  it("gives SEF a deadline for the PDFs", async () => {
+    const seen = [];
+    const { run } = await ready([inv(1, "Approved")], {
+      sef: {
+        pdfMany: async (ids, options) => {
+          seen.push(options?.until);
+          const doc = await PDFDocument.create();
+          doc.addPage([101, 200]);
+          return new Map([[1, await doc.save()]]);
+        },
+      },
+    });
+    await run("send", { invoiceIds: [1] });
+    expect(seen).toEqual([NOW.getTime() + 150_000]);
+  });
+
   it("attaches on its own a PDF that could not be merged", async () => {
     const pdf = async (id) => {
       if (id !== 2) {
@@ -652,9 +684,10 @@ describe("pdf-check (temporary)", () => {
     await connect(run);
     const res = await run("pdf-check", { invoiceIds: [1, 2] });
     expect(res.status).toBe(200);
-    expect(res.json.results.map((r) => [r.id, r.pages, r.dropped])).toEqual([
-      [1, [{ sef: false, title: false, id: false }], []],
-      [2, [{ sef: false, title: false, id: false }], []],
+    const blank = { sef: false, title: false, id: false, labels: 0, footer: false };
+    expect(res.json.results.map((r) => [r.id, r.encrypted, r.pages, r.dropped])).toEqual([
+      [1, false, [blank], []],
+      [2, false, [blank], []],
     ]);
     expect((await setup().run("pdf-check", { invoiceIds: [1] })).json.error).toBe("not-real-sef");
   });

@@ -151,14 +151,29 @@ export const createSefClient = ({ baseUrl, apiKey, fetch = globalThis.fetch, sle
 
     // id → PDF bytes or the SefError for that invoice. All are asked once,
     // then, after each wait, only those SEF was still making: one wait for
-    // the lot, not one per invoice. A refused key stops everything.
-    pdfMany: async (invoiceIds) => {
+    // the lot, not one per invoice. A refused key stops everything. With
+    // `until` (a time from `now`), nothing is asked or awaited past it: what
+    // is left is pdf-not-ready.
+    pdfMany: async (invoiceIds, { until = Infinity } = {}) => {
       const got = new Map();
+      const notReady = (ids) => {
+        for (const invoiceId of ids) got.set(invoiceId, new SefError("pdf-not-ready", 200));
+      };
       let waiting = [...invoiceIds];
       for (let attempt = 0; waiting.length > 0; attempt += 1) {
-        if (attempt > 0) await sleep(PDF_RETRY_WAITS_MS[attempt - 1]);
+        if (attempt > 0) {
+          if (now() + PDF_RETRY_WAITS_MS[attempt - 1] >= until) {
+            notReady(waiting);
+            break;
+          }
+          await sleep(PDF_RETRY_WAITS_MS[attempt - 1]);
+        }
         const still = [];
-        for (const invoiceId of waiting) {
+        for (const [k, invoiceId] of waiting.entries()) {
+          if (now() >= until) {
+            notReady(waiting.slice(k));
+            break;
+          }
           try {
             const bytes = new Uint8Array(await (await request("/api/publicApi/purchase-invoice/pdf", { query: { invoiceId } })).arrayBuffer());
             if (isPdf(bytes)) got.set(invoiceId, bytes);
@@ -168,8 +183,8 @@ export const createSefClient = ({ baseUrl, apiKey, fetch = globalThis.fetch, sle
             got.set(invoiceId, err);
           }
         }
-        waiting = still;
-        if (attempt >= PDF_RETRY_WAITS_MS.length) for (const invoiceId of waiting.splice(0)) got.set(invoiceId, new SefError("pdf-not-ready", 200));
+        waiting = still.filter((invoiceId) => !got.has(invoiceId));
+        if (attempt >= PDF_RETRY_WAITS_MS.length) notReady(waiting.splice(0));
       }
       return got;
     },
