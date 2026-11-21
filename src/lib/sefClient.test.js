@@ -178,6 +178,27 @@ describe("createSefClient", () => {
     ]);
   });
 
+  it("waits for SEF to make a PDF it did not have yet", async () => {
+    // SEF answers 200 with this message instead of the file the first time
+    const started = { message: "Extended PDF file creation has been initiated for invoice Id 7." };
+    const pdfBytes = new Uint8Array([37, 80, 68, 70, 45, 49]);
+    const c = clock();
+    const { fetch, calls } = fakeFetch({ body: started }, { body: started }, { body: pdfBytes });
+    expect(await client(fetch, c).pdf(7)).toEqual(pdfBytes);
+    expect(calls).toHaveLength(3);
+    expect(c.sleeps.filter((ms) => ms >= 2000)).toEqual([2000, 3000]);
+  });
+
+  it("gives up with pdf-not-ready when SEF still has no PDF", async () => {
+    const started = { message: `Extended PDF file creation has been initiated for invoice Id 7. ${KEY}` };
+    const { fetch, calls } = fakeFetch({ body: started }, { body: started }, { body: started }, { body: started });
+    const error = await client(fetch).pdf(7).catch((e) => e);
+    expect(error).toBeInstanceOf(SefError);
+    expect(error.code).toBe("pdf-not-ready");
+    expect(JSON.stringify(error)).not.toContain(KEY);
+    expect(calls).toHaveLength(4);
+  });
+
   it("never puts the key in an error", async () => {
     const thrown = fakeFetch(new Error(`boom https://x?ApiKey=${KEY}`));
     const echoed = fakeFetch({ status: 400, body: `bad key ${KEY}` });

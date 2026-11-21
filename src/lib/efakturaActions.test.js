@@ -245,6 +245,31 @@ describe("list", () => {
     expect(json.invoices.find((i) => i.status === "New").send).toBeNull();
   });
 
+  it("counts every accepted invoice as handled before, until something is done through the app", async () => {
+    // 0.15.2 and 0.15.4 connected the shop with a short list: without this,
+    // 694 old invoices waited for sending, all ticked
+    const invoices = [inv(1, "New")];
+    const sef = fakeSef(invoices);
+    const { run, store } = setup({ mode: "production", sef });
+    await connect(run);
+    invoices.push(inv(2, "Approved"));
+    const { json } = await run("list");
+    expect(json.invoices.find((i) => i.id === 2).send.state).toBe("before");
+    expect((await store.getSettings("production")).baselineIds).toEqual([2]);
+  });
+
+  it("keeps the baseline once something was done through the app", async () => {
+    const invoices = [inv(1, "New")];
+    const sef = fakeSef(invoices);
+    const { run, store } = setup({ mode: "production", sef });
+    await connect(run);
+    await run("accept", { invoiceIds: [1] });
+    invoices.push(inv(3, "Approved"));
+    const { json } = await run("list");
+    expect(json.invoices.find((i) => i.id === 3).send.state).toBe("unsent");
+    expect((await store.getSettings("production")).baselineIds).toEqual([]);
+  });
+
   it("marks a sent invoice with when and where it went", async () => {
     const sef = fakeSef([inv(1, "Approved")]);
     const { run, ctx } = setup({ mode: "production", sef });
