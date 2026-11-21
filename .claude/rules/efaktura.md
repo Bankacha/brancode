@@ -28,17 +28,17 @@ Spec: `docs/superpowers/specs/2026-11-17-brancode-e-faktura-design.md`; plan `do
   - `efaktura_settings`: one row per mode.
   - `efaktura_events`: the history, append-only by triggers (rows and `TRUNCATE`); only test rows can be deleted, by „Vrati probne fakture“. Each row keeps the invoice as it was, due date included, for a later „Označi kao plaćeno“.
   - `eventsSince` reads every 1000-row page.
-- **SEF limits:** 3 calls a second per key, so `sefClient.js` spaces calls by 340 ms within a request and retries a 429 once. Accept and send take at most 50 invoices per request; the screen sends parts of 20 (accept) and 10 (send, which also fetches each PDF), so a request ends well inside the function's limit (`maxDuration` 300 s in `vercel.json`).
+- **SEF limits:** 3 calls a second per key, so `sefClient.js` spaces calls by 400 ms within a request (SEF answered 429 at 340) and retries a 429 once. Accept and send take at most 50 invoices per request; the screen sends parts of 20 (accept) and 10 (send, which also fetches each PDF), so a request ends well inside the function's limit (`maxDuration` 300 s in `vercel.json`).
 - **Accepting counts only what SEF confirms:** `success: true`, or the invoice's status read back when the answer is unclear. Otherwise the outcome is `failed` or `unconfirmed`, never "accepted". An invoice no longer waiting is `already` with its status and no history row: before the call, or when SEF answers no (`success: false` or a 4xx) and the status read back shows someone decided meanwhile. Only an unclear answer (timeout, 5xx) followed by the target status counts as done. The screen calls `already` „accepted“ only when the status is Approved.
-- **„Nije poslato“** is every accepted invoice with no `sent` row, except those already accepted when the key was first saved in that mode (`baseline_ids`, shown as „Pre povezivanja“). A replaced key keeps the connection day and the baseline. An invoice is recorded as sent only after Resend took its mail.
+- **„Nije poslato“** is every accepted invoice with no `sent` row, except those already accepted when the key was first saved in that mode (`baseline_ids`, shown as „Pre povezivanja“). A replaced key keeps the connection day and the baseline, except an empty baseline with no history in that mode, which the next save takes again (0.15.2 connected the shop with an empty list). An invoice is recorded as sent only after Resend took its mail.
 - **Mail:** one PDF per invoice (`pdfFilename`: „Dobavljač – broj.pdf“), up to 25 MB per mail (more goes in numbered mails), to `EMAIL_TO` for now. `send_to` waits for a mail domain: Resend's test sender delivers only to the account owner. The test mode puts „[PROBA]“ in the subject.
 - **Window:** invoices received in the last 60 days (`WINDOW_DAYS`); the response deadline is 15 days (`RESPONSE_DAYS`, from expert sources), highlighted from 3, and a re-notified invoice shows „Podsetnik stigao · odgovori odmah“.
 - **Temporary `probe` action (0.15.3):** the real SEF answered the overview with an empty list for the shop. `probe` asks the list in several shapes (dates, statuses, `ids`, `changes`) with the saved key, and twice with a made-up key, and returns only HTTP statuses, counts, field names and statuses. Remove it (and `sefClient.probe`) once the list works.
-- **Check on real data before `SEF_ACCEPT=on`:**
-  - which date `overview`'s `dateFrom`/`dateTo` filter on;
-  - whether it needs `status` (the client falls back to one call per status on 400);
+- **Learned from the real SEF (21.11.2026, `probe`):** the answers use capitalised field names (`InvoiceId`, `Status`, `PurchaseInvoiceIds`; the swagger says camelCase), so every read goes through `field()` in `sefClient.js`, which takes either. `overview` needs no `status` (60 days gave 380 invoices: 30 New, 350 Approved). A wrong key gets 401 with an empty body. The `changes` call answers 400 to a date-only `date`.
+- **Still to check on real data before `SEF_ACCEPT=on`:**
+  - whether `Status` comes as a name ("Approved") and not a number (`probe` reports `statusType`);
   - whether `amount` includes VAT;
-  - what a wrong key returns;
+  - whether `acceptRejectPurchaseInvoice` answers `Success` as well;
   - what accepting an already-accepted invoice returns;
   - the 15 + 5-day deadline.
 - **`npm run dev` serves `/api/efaktura`** through `scripts/efakturaDevApi.mjs` (Vite plugin, dev only): always the test SEF, the store in memory (`efakturaMemoryStore.js`), mails only logged as `[e-Faktura dev] …`, the session still checked against Supabase. The other `api/` functions still run only on Vercel.

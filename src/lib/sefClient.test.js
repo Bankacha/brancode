@@ -63,14 +63,14 @@ describe("createSefClient", () => {
     expect(calls[0].url).not.toContain(KEY);
   });
 
-  it("waits at least 340 ms between calls", async () => {
+  it("waits at least 400 ms between calls (SEF answered 429 at 340)", async () => {
     const c = clock();
     const { fetch } = fakeFetch({ body: "{}" }, { body: "{}" }, { body: "{}" });
     const sef = client(fetch, c);
     await sef.checkKey();
     await sef.checkKey();
     await sef.checkKey();
-    expect(c.sleeps).toEqual([340, 340]);
+    expect(c.sleeps).toEqual([400, 400]);
   });
 
   it("retries once after 429", async () => {
@@ -165,6 +165,14 @@ describe("createSefClient", () => {
     ]);
   });
 
+  it("reads SEF's real answers, whose fields start with a capital letter", async () => {
+    const { fetch } = fakeFetch({ body: { Success: true, Message: null } }, { body: { Success: false, Message: "Već obrađena" } }, { body: { InvoiceId: 7, Status: "Approved" } });
+    const sef = client(fetch);
+    expect(await sef.acceptReject({ invoiceId: 7, accepted: true, comment: "" })).toEqual({ success: true, message: null });
+    expect(await sef.acceptReject({ invoiceId: 7, accepted: true, comment: "" })).toEqual({ success: false, message: "Već obrađena" });
+    expect(await sef.invoiceStatus(7)).toBe("Approved");
+  });
+
   it("reads one invoice's status and its PDF", async () => {
     const pdfBytes = new Uint8Array([37, 80, 68, 70]);
     const { fetch, calls } = fakeFetch({ body: { invoiceId: 7, status: "Approved" } }, { body: pdfBytes });
@@ -208,6 +216,12 @@ describe("normalizeInvoice", () => {
     });
   });
 
+  it("maps the overview fields as SEF really sends them: capitalised", () => {
+    const pascal = Object.fromEntries(Object.entries(dto(7)).map(([name, value]) => [name[0].toUpperCase() + name.slice(1), value]));
+    expect(normalizeInvoice(pascal)).toEqual(normalizeInvoice(dto(7)));
+    expect(normalizeInvoice(pascal).id).toBe(7);
+  });
+
   it("drops a row without an invoice id", () => {
     expect(normalizeInvoice(dto(undefined))).toBeNull();
     expect(normalizeInvoice(dto("x"))).toBeNull();
@@ -247,7 +261,7 @@ describe("probe (temporary: why the real SEF lists nothing)", () => {
     const results = await client(fetch).probe(range);
     const byName = Object.fromEntries(results.map((r) => [r.name, r]));
     expect(byName["overview iso"]).toEqual({ name: "overview iso", httpStatus: 200, contentType: "application/json", kind: "array", count: 0 });
-    expect(byName["overview Approved"]).toMatchObject({ kind: "array", count: 2, statuses: { Approved: 2 } });
+    expect(byName["overview Approved"]).toMatchObject({ kind: "array", count: 2, statuses: { Approved: 2 }, statusType: "string" });
     expect(byName["overview Approved"].firstKeys).toContain("invoiceId");
     expect(byName["ids iso"]).toMatchObject({ kind: "object", keys: ["purchaseInvoiceIds"], arrays: { purchaseInvoiceIds: 2 } });
     expect(byName["verzija"]).toMatchObject({ kind: "text", length: 6 });

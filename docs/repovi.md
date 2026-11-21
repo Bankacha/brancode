@@ -2,7 +2,7 @@
 
 Jedno mesto za sitnice koje su pregledi koda našli, a nisu popravljene pre puštanja, i za stvari koje čekaju odluku ili proveru u radnji. Kad se nešto sredi, briše se odavde (istorija ostaje u git-u). Svako novo puštanje dopisuje svoje repove ovde, ne samo u izveštaj.
 
-Stanje: 21.11.2026, posle 0.15.3 (e-Faktura na pravom SEF-u vraća praznu listu; 0.15.3 donosi privremenu proveru šta SEF odgovara). Ostale su sitnice iz pregleda 0.12.2–0.14.0 i ono što čeka tebe ili proveru u radnji. Prvo idu koraci za e-Fakturu, redom.
+Stanje: 21.11.2026, posle 0.15.4 (e-Faktura čita pravi SEF: polja u odgovoru SEF-a idu velikim slovom). Ostale su sitnice iz pregleda 0.12.2–0.14.0 i ono što čeka tebe ili proveru u radnji. Prvo idu koraci za e-Fakturu, redom.
 
 ## Sitnice iz pregleda 0.12.2 (za sledeće sređivanje)
 
@@ -28,7 +28,8 @@ Stanje: 21.11.2026, posle 0.15.3 (e-Faktura na pravom SEF-u vraća praznu listu;
 
 5. **Pravi SEF, samo čitanje:** `SEF_ENV` = `production` **samo za Production**, pa **Redeploy** poslednjeg Production deploy-a (bez njega promenljiva ne važi). Preview deploy-evi i tako uvek ostaju na probnom SEF-u. Znak da je uspelo: na ekranu e-Fakture nema trake „Probni režim“ i aplikacija ponovo traži naziv, PIB i ključ (pravi i probni režim imaju odvojena podešavanja). Tada brat unese pravi ključ. Uporedi listu sa SEF-om: iste fakture iz poslednjih 60 dana, iznos (sa PDV-om ili bez), datumi prijema i valute, rok od 15 dana, PDF, slanje jedne već prihvaćene fakture (mejl bez „[PROBA]“). Ako lista ne liči na SEF ili javi grešku, javi mi pre sledećeg koraka.
 6. **Prihvatanje:** tek kad se lista slaže, `SEF_ACCEPT=on` **samo za Production** (Redeploy). Prvo pravo prihvatanje neka bude faktura koju bi brat i inače prihvatio, pa proveri na SEF-u da je prihvaćena.
-- **Lista je prazna na pravom SEF-u (21.11.):** ključ je prihvaćen, ali SEF na upit za ulazne fakture vraća praznu listu, a fakture postoje. U 0.15.3 je privremena akcija `probe` (`sefClient.probe`), koja pita SEF na nekoliko načina i vraća samo brojeve. Kad se nađe uzrok, popraviti upit i ukloniti `probe`.
+- **Posle 0.15.4, jednom:** e-Faktura → podešavanja → „Proveri i sačuvaj“ (ključ ne treba ponovo). Tako aplikacija ponovo zapamti šta je bilo prihvaćeno pre povezivanja, jer je u 0.15.2 lista stigla prazna. Posle toga, na kartici Prihvaćene, stare fakture treba da su pod „Pre povezivanja“, a ne „Nije poslato“.
+- **Privremena provera `probe`** (0.15.3) ostaje dok se ne potvrdi da `Status` stiže kao naziv i da prihvatanje radi; onda je ukloniti.
 - **Podsetnik, dogovoreno:** dvostepena prijava (2FA) bar za naloge koji vide e-Fakturu (oni iz `EFAKTURA_USERS`), jer ti nalozi mogu da prihvataju fakture na SEF-u.
 
 

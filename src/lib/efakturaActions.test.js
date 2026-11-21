@@ -150,6 +150,33 @@ describe("status and settings", () => {
     expect(settings).toMatchObject({ connectedAt: NOW.toISOString(), baselineIds: [2], keyLast4: "9999" });
   });
 
+  it("takes the baseline again when the first one came out empty and nothing happened since", async () => {
+    // 0.15.2 read SEF's capitalised fields as nothing: the shop connected
+    // with an empty list, so every accepted invoice looked unsent
+    const invoices = [];
+    const sef = fakeSef(invoices);
+    const { run, store, ctx } = setup({ mode: "production", sef });
+    await connect(run);
+    invoices.push(inv(2, "Approved"), inv(3, "New"));
+    ctx.now = () => new Date("2026-11-21T15:00:00Z");
+    // "Proveri i sačuvaj" without typing the key again
+    const saved = await run("save-settings", { shopName: "Radnja Kod Brata", pib: "101234567" });
+    expect(saved.status).toBe(200);
+    expect(await store.getSettings("production")).toMatchObject({ connectedAt: "2026-11-21T15:00:00.000Z", baselineIds: [2], keyLast4: "1234" });
+  });
+
+  it("keeps an empty baseline once the app has history", async () => {
+    const invoices = [inv(1, "New")];
+    const sef = fakeSef(invoices);
+    const { run, store, ctx } = setup({ mode: "production", sef });
+    await connect(run);
+    await run("accept", { invoiceIds: [1] });
+    invoices.push(inv(2, "Approved"));
+    await connect(run, "NOVI-kljuc-9999");
+    expect(await store.getSettings("production")).toMatchObject({ connectedAt: NOW.toISOString(), baselineIds: [] });
+    expect(ctx.mode).toBe("production");
+  });
+
   it("tries a replacement key on the invoice list before saving it", async () => {
     const { run, store, ctx } = setup({ mode: "production", sef: fakeSef([]) });
     await connect(run);
