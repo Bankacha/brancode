@@ -122,6 +122,16 @@ describe("describePages (temporary check on real invoices)", () => {
     expect(JSON.stringify(described)).not.toContain("3412213429");
   });
 
+  it("shows the start of a page it keeps that is neither an invoice page nor recognised", async () => {
+    const tail = `Ukupni iznosi zbir neto iznosa ${footer}`;
+    const described = await describePages(await textPdf(visual(1), specStart, specMore, tail));
+    expect(described.dropped).toEqual([1, 2]);
+    expect(described.pages[3].head.startsWith("Ukupni iznosi zbir neto iznosa")).toBe(true);
+    expect(described.pages[3].chars).toBeGreaterThan(20);
+    expect(described.pages[0].head).toBeUndefined();
+    expect(described.pages[1].head).toBeUndefined();
+  });
+
   it("says when the text can't be read", async () => {
     expect(await describePages(new Uint8Array([1, 2, 3]))).toEqual({ encrypted: false, pages: null, dropped: [] });
   });

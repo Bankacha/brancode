@@ -2,7 +2,7 @@
 
 Jedno mesto za sitnice koje su pregledi koda našli, a nisu popravljene pre puštanja, i za stvari koje čekaju odluku ili proveru u radnji. Kad se nešto sredi, briše se odavde (istorija ostaje u git-u). Svako novo puštanje dopisuje svoje repove ovde, ne samo u izveštaj.
 
-Stanje: 21.11.2026, posle 0.16.0 (e-Faktura: prihvaćene fakture stižu u jednom PDF-u za štampu, bez strana „Strukturirani format…“). Ostale su sitnice iz pregleda 0.12.2–0.14.0 i ono što čeka tebe ili proveru u radnji. Prvo idu koraci za e-Fakturu, redom.
+Stanje: 21.11.2026, posle 0.16.1 (e-Faktura: jedan PDF za štampu; provera strana na 100 faktura: nijedna strana fakture ne otpada, kod 20 ostaje poslednja strana specifikacije, koju još proveravam). Ostale su sitnice iz pregleda 0.12.2–0.16.0 i ono što čeka tebe ili proveru u radnji. Prvo idu koraci za e-Fakturu, redom.
 
 ## Sitnice iz pregleda 0.12.2 (za sledeće sređivanje)
 
@@ -33,7 +33,7 @@ Stanje: 21.11.2026, posle 0.16.0 (e-Faktura: prihvaćene fakture stižu u jednom
 
 6. **Prihvatanje:** lista se slaže, pa: `SEF_ACCEPT=on` **samo za Production** (Redeploy). Prvo pravo prihvatanje neka bude faktura koju bi brat i inače prihvatio, pa proveri na SEF-u da je prihvaćena.
 - **Prvi zajednički PDF (0.16.0):** pri sledećem slanju pogledaj PDF iz mejla: svaka faktura cela, bez strana „Strukturirani format…“. Ako nešto fali ili višak ostane, javi mi koja faktura.
-- **Privremena provera `pdf-check`** (0.16.0): ostaje dok se pravilo za izbacivanje strana ne proveri na stotinak faktura sa SEF-a; onda je ukloniti.
+- **Privremena provera `pdf-check`** (0.16.0, u 0.16.1 javlja i početak strane koju pravilo ne prepoznaje): na 100 faktura od 77 dobavljača nijedna strana fakture nije otpala, a kod 20 ostaje poslednja strana sa identifikatorom i podnožjem, bez polja specifikacije. Kad se vidi šta je na njoj, doterati `specPages` i ukloniti proveru.
 - **Podsetnik, dogovoreno:** dvostepena prijava (2FA) bar za naloge koji vide e-Fakturu (oni iz `EFAKTURA_USERS`), jer ti nalozi mogu da prihvataju fakture na SEF-u.
 
 

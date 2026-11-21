@@ -684,7 +684,7 @@ describe("pdf-check (temporary)", () => {
     await connect(run);
     const res = await run("pdf-check", { invoiceIds: [1, 2] });
     expect(res.status).toBe(200);
-    const blank = { sef: false, title: false, id: false, labels: 0, footer: false };
+    const blank = { sef: false, title: false, id: false, labels: 0, footer: false, chars: 0, head: "" };
     expect(res.json.results.map((r) => [r.id, r.encrypted, r.pages, r.dropped])).toEqual([
       [1, false, [blank], []],
       [2, false, [blank], []],
