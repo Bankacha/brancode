@@ -42,6 +42,19 @@ describe("specPages", () => {
     expect(specPages([visual(1), otherId])).toEqual([]);
   });
 
+  it("drops the structured format's last page, only SEF's payment QR code", () => {
+    // seen on 20 of 100 real invoices (21.11.2026)
+    expect(specPages([visual(1), specStart, specMore, `NBS IPS QR ${footer}`])).toEqual([1, 2, 3]);
+    expect(specPages([visual(1), specStart, `umanjenje na cenu artikla: 14,17 bruto cena artikla: 61,61 NBS IPS QR ${footer}`])).toEqual([1, 2]);
+  });
+
+  it("keeps a page that only mentions the QR code among other text, and one with nothing but the footer", () => {
+    const note = `OTPREMNICA br. 55 Kovilovo, vozač Petar Petrović, primio Marko Marković, roba preuzeta bez oštećenja, palete vraćene, plaćanje po NBS IPS QR ${footer}`;
+    expect(specPages([visual(1), specStart, note])).toEqual([1]);
+    // a scanned attachment SEF stamped: no text but the footer
+    expect(specPages([visual(1), specStart, footer])).toEqual([1]);
+  });
+
   it("drops only the unbroken run of structured-format pages, stopping at the first that isn't one", () => {
     // a supplier's delivery note stamped by SEF with the same footer
     const stamped = `OTPREMNICA br. 55 Kovilovo, vozač Petar ${footer}`;
