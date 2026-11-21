@@ -68,6 +68,23 @@ function Group({ title, action, children }) {
 // /e-faktura: incoming invoices from SEF (through api/efaktura.js). Waiting
 // ones are accepted many at a time; accepted ones go out together in one mail
 // (to the shop for now, to the accountant once there is a mail domain).
+// A long address in a narrow window: smaller type, and if it still doesn't
+// fit it breaks after the "@", not inside a word.
+function MailAddress({ address }) {
+  const at = address.indexOf("@");
+  return (
+    <span className="my-0.5 block text-[14px] font-semibold text-ink wrap-anywhere">
+      {at < 0 ? address : (
+        <>
+          {address.slice(0, at + 1)}
+          <wbr />
+          {address.slice(at + 1)}
+        </>
+      )}
+    </span>
+  );
+}
+
 export default function Efaktura() {
   const navigate = useNavigate();
   const toast = useToast();
@@ -415,8 +432,14 @@ export default function Efaktura() {
       />
       <ConfirmDialog
         open={sendDialog.isOpen && asked.length > 0}
-        title={`Poslati ${fakturu(asked.length)} na ${status?.sendTo ?? ""}?`}
-        text="Svaka faktura ide kao poseban PDF u jednom mejlu."
+        title={`Poslati ${fakturu(asked.length)}?`}
+        text={
+          <>
+            Na adresu
+            <MailAddress address={status?.sendTo ?? ""} />
+            Svaka faktura ide kao poseban PDF u jednom mejlu.
+          </>
+        }
         confirmLabel="Pošalji"
         busy={busy}
         onConfirm={send}

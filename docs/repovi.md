@@ -2,7 +2,7 @@
 
 Jedno mesto za sitnice koje su pregledi koda našli, a nisu popravljene pre puštanja, i za stvari koje čekaju odluku ili proveru u radnji. Kad se nešto sredi, briše se odavde (istorija ostaje u git-u). Svako novo puštanje dopisuje svoje repove ovde, ne samo u izveštaj.
 
-Stanje: 19.11.2026, posle 0.15.1 (prijava otvara početnu stranu; e-Faktura iz 0.15.0, za sada na probnom SEF-u). Ostale su sitnice iz pregleda 0.12.2–0.14.0 i ono što čeka tebe ili proveru u radnji. Prvo idu koraci za e-Fakturu, redom.
+Stanje: 21.11.2026, posle 0.15.2 (e-Faktura: tolerantnija podešavanja na Vercel-u, adresa u prozoru za slanje se lepo prelama). Ostale su sitnice iz pregleda 0.12.2–0.14.0 i ono što čeka tebe ili proveru u radnji. Prvo idu koraci za e-Fakturu, redom.
 
 ## Sitnice iz pregleda 0.12.2 (za sledeće sređivanje)
 
@@ -24,15 +24,9 @@ Stanje: 19.11.2026, posle 0.15.1 (prijava otvara početnu stranu; e-Faktura iz 0
 
 ## Treba tvoja odluka, podešavanje ili provera u radnji
 
-**e-Faktura (0.15.0), redom.** Dok se ne urade prva dva koraka, odeljak e-Faktura na produkciji kaže „e-Faktura nije podešena na serveru.“
+**e-Faktura, redom.** Urađeno (21.11.): tabele u bazi, `EFAKTURA_SECRET`, `EFAKTURA_USERS`, isključena registracija, proba u probnom režimu na produkciji. Ostaje:
 
-1. **Tabele u bazi:** Supabase → SQL Editor → New query → nalepi ceo `supabase/migrations/20261119_efaktura.sql` → Run.
-2. **Vercel → Settings → Environment Variables** (Production i Preview), pa Redeploy:
-   - `EFAKTURA_SECRET`: vrednost iz komande `openssl rand -base64 32` u Terminalu. Ne deli je i ne menjaj je posle: sa novom vrednošću sačuvani ključ više ne može da se otvori, pa se unosi ponovo.
-   - `EFAKTURA_USERS`: mejlovi naloga radnje koji smeju u e-Fakturu, odvojeni zarezom (npr. tvoj i bratov). Na pravom SEF-u bez ovoga e-Faktura ne radi ni za koga. Mejl tih naloga mora biti potvrđen. Nalozi napravljeni u Supabase-u sa „Auto Confirm User“ već jesu; proveri u Authentication → Users.
-3. **Supabase → Authentication → Sign In / Providers:** proveri da je „Allow new users to sign up“ isključeno. Aplikacija nema registraciju, ali Supabase je po difoltu dozvoljava preko javnog ključa. Ovo važi za celu aplikaciju, ne samo za e-Fakturu.
-4. **Proba na telefonu (probni režim):** e-Faktura → Poveži, bilo koji tekst kao ključ (ne pravi ključ), naziv i PIB, pa prihvatanje nekoliko faktura, odbijanje jedne, slanje (mejl „[PROBA] Prihvaćene fakture – …“ stiže na mejl radnje), „Vrati probne fakture“.
-5. **Pravi SEF, samo čitanje:** postavi `SEF_ENV=production` **samo za Production** (Redeploy; preview deploy-evi i tako uvek ostaju na probnom SEF-u), pa brat u aplikaciji unese pravi ključ, naziv i PIB. Uporedi listu sa SEF-om: iste fakture, iznos (sa PDV-om ili bez), datumi prijema i valute, rok od 15 dana. Ako lista ne liči na SEF ili javi grešku, javi mi pre sledećeg koraka.
+5. **Pravi SEF, samo čitanje:** `SEF_ENV` = `production` **samo za Production**, pa **Redeploy** poslednjeg Production deploy-a (bez njega promenljiva ne važi). Preview deploy-evi i tako uvek ostaju na probnom SEF-u. Znak da je uspelo: na ekranu e-Fakture nema trake „Probni režim“ i aplikacija ponovo traži naziv, PIB i ključ (pravi i probni režim imaju odvojena podešavanja). Tada brat unese pravi ključ. Uporedi listu sa SEF-om: iste fakture iz poslednjih 60 dana, iznos (sa PDV-om ili bez), datumi prijema i valute, rok od 15 dana, PDF, slanje jedne već prihvaćene fakture (mejl bez „[PROBA]“). Ako lista ne liči na SEF ili javi grešku, javi mi pre sledećeg koraka.
 6. **Prihvatanje:** tek kad se lista slaže, `SEF_ACCEPT=on` **samo za Production** (Redeploy). Prvo pravo prihvatanje neka bude faktura koju bi brat i inače prihvatio, pa proveri na SEF-u da je prihvaćena.
 
 

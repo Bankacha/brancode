@@ -32,10 +32,10 @@ function Panel({ title, text, confirmLabel, cancelLabel, busy, onConfirm, onClos
     <div className="fixed inset-0 z-[60] flex items-center justify-center px-8">
       <button type="button" aria-label="Zatvori" className="absolute inset-0 cursor-default bg-scrim/80" onClick={busy ? undefined : onClose} />
       <div role="dialog" aria-modal="true" aria-labelledby="confirm-title" className="relative flex w-full max-w-[340px] flex-col gap-4 rounded-card bg-bg p-5">
-        <h2 id="confirm-title" className="text-center font-display text-[22px] font-extrabold text-ink">
+        <h2 id="confirm-title" className="text-center font-display text-[22px] font-extrabold text-ink wrap-break-word">
           {title}
         </h2>
-        {text && <p className="text-center text-[15px] text-ink-2">{text}</p>}
+        {text && <p className="text-center text-[15px] text-ink-2 wrap-break-word">{text}</p>}
         <div className="flex flex-col gap-2">
           <Button variant="accent" autoFocus disabled={busy} onClick={confirm} className="w-full">
             {confirmLabel}
