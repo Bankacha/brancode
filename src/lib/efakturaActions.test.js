@@ -554,3 +554,26 @@ describe("latestDecisions", () => {
     );
   });
 });
+
+describe("probe (temporary)", () => {
+  it("reports what SEF answers to the list in several shapes, with the saved key and a made-up one", async () => {
+    const keys = [];
+    const probe = vi.fn(async (range, options) => [{ name: options?.short ? "kratko" : "sve", count: 0, from: range.dateFrom.toISOString() }]);
+    const sef = fakeSef([], { probe });
+    const { run, ctx } = setup({ mode: "production", sef });
+    ctx.sefFor = (apiKey) => (keys.push(apiKey), sef.api);
+    await connect(run);
+    const res = await run("probe");
+    expect(res.status).toBe(200);
+    expect(res.json.results).toEqual([{ name: "sve", count: 0, from: "2026-09-20T00:00:00.000Z" }]);
+    expect(res.json.madeUpKey).toEqual([{ name: "kratko", count: 0, from: "2026-09-20T00:00:00.000Z" }]);
+    expect(keys.at(-2)).toBe(KEY);
+    expect(keys.at(-1)).not.toBe(KEY);
+    expect(JSON.stringify(res)).not.toContain(KEY);
+  });
+
+  it("is only for a real SEF with a saved key", async () => {
+    expect((await setup().run("probe")).json).toEqual({ ok: false, error: "not-real-sef" });
+    expect((await setup({ mode: "production", sef: fakeSef([]) }).run("probe")).json).toEqual({ ok: false, error: "not-connected" });
+  });
+});
