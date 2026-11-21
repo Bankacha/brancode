@@ -55,6 +55,7 @@ Stanje: 21.11.2026, posle 0.16.0 (e-Faktura: prihvaćene fakture stižu u jednom
 ## Ideje za kasnije (nije dogovoreno)
 
 - **e-Faktura, „Označi kao plaćeno“** (dogovor od 19.11., posle 0.15.0): u tabeli prihvaćenih se po želji vodi plaćanje, a jutarnji mejl upozorava na fakture kojima ističe valuta (npr. za 48 sati). Za plaćene se više ne šalje. Datum valute se već čuva u istoriji.
+- **e-Faktura, poluprazne strane fakture u PDF-u za štampu** (21.11.): SEF-ov prikaz fakture ponekad prelije na stranu koja ima samo zaglavlje i jednu rečenicu (npr. „Dan nastanka PDV obaveze je datum prometa“). Pripada fakturi, pa ostaje. Ako takvih bude mnogo, smisliti bezbedno pravilo.
 - **e-Faktura, uloge:** vlasnik/admin prihvata i odbija, ostali rade manje osetljive stvari. Za sada su svi nalozi iz `EFAKTURA_USERS` isti.
 - **Lager (stanje artikala) iz faktura** (razgovor 19.11., odluka: ne sada). Ideja je bila stanje = popis + ulaz sa faktura − izlaz. Izlaz bi se računao „od popisa do popisa“ ili iz izvoza prodaje sa kase, uz nabavne cene i zaradu. Ne sada, jer dobar deo robe (voće, povrće sa pijace) ne dolazi preko e-Faktura, pa stanje iz faktura ne bi bilo tačno. Ako se ikad vratimo: prvo na pravim fakturama videti koliko dobavljača šalje barkod i u kojim jedinicama (karton ili komad).
 - **e-Faktura, slanje knjigovođi:** polje „Fakture šalji na“ se otključava kad aplikacija dobije svoj domen u Resend-u (probna adresa isporučuje samo vlasniku naloga).
