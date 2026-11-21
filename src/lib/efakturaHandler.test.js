@@ -15,8 +15,15 @@ describe("modeFromEnv", () => {
   it("is mock unless production or demo is set", () => {
     expect(modeFromEnv({ SEF_ENV: "production" })).toBe("production");
     expect(modeFromEnv({ SEF_ENV: "demo" })).toBe("demo");
-    expect(modeFromEnv({ SEF_ENV: "Production" })).toBe("mock");
+    expect(modeFromEnv({ SEF_ENV: "prod" })).toBe("mock");
     expect(modeFromEnv({})).toBe("mock");
+  });
+
+  it("reads SEF_ENV as typed on Vercel: any case, spaces or quotes around it", () => {
+    expect(modeFromEnv({ SEF_ENV: "Production" })).toBe("production");
+    expect(modeFromEnv({ SEF_ENV: " production\n" })).toBe("production");
+    expect(modeFromEnv({ SEF_ENV: '"production"' })).toBe("production");
+    expect(modeFromEnv({ SEF_ENV: "'DEMO'" })).toBe("demo");
   });
 
   it("keeps preview deploys on the test SEF whatever SEF_ENV says", () => {
@@ -34,6 +41,11 @@ describe("contextFromEnv", () => {
     expect(contextFromEnv({ SEF_ENV: "demo", EFAKTURA_SECRET: SECRET, EFAKTURA_USERS: "brat@primer.test", SEF_ACCEPT: "yes" }, deps()).acceptEnabled).toBe(false);
   });
 
+  it("reads SEF_ACCEPT in any case, with spaces or quotes around it", () => {
+    const env = { SEF_ENV: "production", EFAKTURA_SECRET: SECRET, EFAKTURA_USERS: "brat@primer.test" };
+    for (const SEF_ACCEPT of ["ON", " on ", '"on"']) expect(contextFromEnv({ ...env, SEF_ACCEPT }, deps()).acceptEnabled).toBe(true);
+  });
+
   it("needs EFAKTURA_SECRET in every mode, so a real key is never sealed with the public test secret", () => {
     for (const SEF_ENV of ["production", "demo", undefined]) {
       expect(contextFromEnv({ SEF_ENV }, deps())).toEqual({ error: "not-configured" });
@@ -47,6 +59,17 @@ describe("contextFromEnv", () => {
     expect(contextFromEnv({ ...env, EFAKTURA_USERS: " , " }, deps())).toEqual({ error: "not-configured" });
     expect(contextFromEnv({ ...env, EFAKTURA_USERS: "neko@drugi.test" }, deps())).toEqual({ error: "not-allowed" });
     expect(contextFromEnv({ ...env, EFAKTURA_USERS: "radnja@primer.test, Brat@Primer.test" }, deps()).mode).toBe("production");
+  });
+
+  it("reads EFAKTURA_USERS split by commas, semicolons, spaces or lines, quotes around it ignored", () => {
+    const env = { SEF_ENV: "production", EFAKTURA_SECRET: SECRET };
+    for (const EFAKTURA_USERS of ['"radnja@primer.test, brat@primer.test"', "radnja@primer.test; brat@primer.test", "radnja@primer.test brat@primer.test", "radnja@primer.test\nbrat@primer.test"]) {
+      expect(contextFromEnv({ ...env, EFAKTURA_USERS }, deps()).mode).toBe("production");
+    }
+    const irish = { ...deps(), user: { id: "u3", email: "o'brien@primer.test", emailConfirmed: true } };
+    expect(contextFromEnv({ ...env, EFAKTURA_USERS: "'o'brien@primer.test'" }, irish).mode).toBe("production");
+    // a near miss is still a miss
+    expect(contextFromEnv({ ...env, EFAKTURA_USERS: "brat@primer.tes, rat@primer.test" }, deps())).toEqual({ error: "not-allowed" });
   });
 
   it("counts an account on the list only once its e-mail is confirmed", () => {

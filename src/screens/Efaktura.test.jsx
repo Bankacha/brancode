@@ -256,7 +256,9 @@ describe("Efaktura", () => {
     expect(within(region("Poslato")).getByText("Poslato 18.11. na radnja@primer.test")).toBeTruthy();
     expect(region("Pre povezivanja")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Pošalji (2)" }));
-    fireEvent.click(within(dialog("Poslati 2 fakture na radnja@primer.test?")).getByRole("button", { name: "Pošalji" }));
+    // the address sits under the title, where a long one can wrap
+    expect(within(dialog("Poslati 2 fakture?")).getByText("radnja@primer.test")).toBeTruthy();
+    fireEvent.click(within(dialog("Poslati 2 fakture?")).getByRole("button", { name: "Pošalji" }));
     await screen.findByText("Poslate 2 fakture na radnja@primer.test");
     expect([...api.send.mock.calls[0][0].invoiceIds].sort()).toEqual([5, 6]);
   });
@@ -276,7 +278,7 @@ describe("Efaktura", () => {
     await loaded();
     fireEvent.click(tab("Prihvaćene"));
     fireEvent.click(screen.getByRole("button", { name: "Pošalji (2)" }));
-    fireEvent.click(within(dialog("Poslati 2 fakture na radnja@primer.test?")).getByRole("button", { name: "Pošalji" }));
+    fireEvent.click(within(dialog("Poslati 2 fakture?")).getByRole("button", { name: "Pošalji" }));
     await screen.findByText("Poslato 1 od 2. Dobavljač 6 – 6/2026 nije poslata, pokušaj ponovo.");
   });
 
@@ -286,7 +288,7 @@ describe("Efaktura", () => {
     await loaded();
     fireEvent.click(tab("Prihvaćene"));
     fireEvent.click(screen.getByRole("button", { name: "Pošalji (2)" }));
-    fireEvent.click(within(dialog("Poslati 2 fakture na radnja@primer.test?")).getByRole("button", { name: "Pošalji" }));
+    fireEvent.click(within(dialog("Poslati 2 fakture?")).getByRole("button", { name: "Pošalji" }));
     await screen.findByText("Poslato 1 od 2. Dobavljač 6 – 6/2026 više nije prihvaćena na SEF-u.");
   });
 
@@ -297,7 +299,7 @@ describe("Efaktura", () => {
     await screen.findByRole("button", { name: /^Prihvaćene/ });
     fireEvent.click(tab("Prihvaćene"));
     fireEvent.click(screen.getByRole("button", { name: "Pošalji (12)" }));
-    fireEvent.click(within(dialog("Poslati 12 faktura na radnja@primer.test?")).getByRole("button", { name: "Pošalji" }));
+    fireEvent.click(within(dialog("Poslati 12 faktura?")).getByRole("button", { name: "Pošalji" }));
     await screen.findByText("Poslato 12 faktura na radnja@primer.test");
     expect(api.send.mock.calls.map(([payload]) => payload.invoiceIds.length)).toEqual([10, 2]);
   });

@@ -23,19 +23,30 @@ import { belgradeToday } from "./promoCheck.js";
 // it is refused for SEF modes.
 export const MOCK_SECRET = "hbB4zcvRESPWKplf2H4NBgxjhC77XAnAyY3pY23jhcE=";
 
+// A switch's value as typed on Vercel: case, spaces and quotes around it don't count.
+const envWord = (value) =>
+  (value ?? "")
+    .trim()
+    .replace(/^["']+|["']+$/g, "")
+    .trim()
+    .toLowerCase();
+
 // Preview deploys (any branch, same database) always get the test SEF, even
 // if SEF_ENV was set for every environment on Vercel.
 export const modeFromEnv = (env) => {
   if (env.VERCEL_ENV && env.VERCEL_ENV !== "production") return "mock";
-  return env.SEF_ENV === "production" || env.SEF_ENV === "demo" ? env.SEF_ENV : "mock";
+  const sefEnv = envWord(env.SEF_ENV);
+  return sefEnv === "production" || sefEnv === "demo" ? sefEnv : "mock";
 };
 
 const usableSecret = (secret) => typeof secret === "string" && Buffer.from(secret, "base64").length === 32;
 
+// Commas, semicolons, spaces or new lines between the addresses; quotes around
+// them ignored (an apostrophe inside an address stays).
 const emailList = (text) =>
   (text ?? "")
-    .split(",")
-    .map((email) => email.trim().toLowerCase())
+    .split(/[\s,;]+/)
+    .map(envWord)
     .filter(Boolean);
 
 export const contextFromEnv = (env, { store, sendMail, user, now = () => new Date() }) => {
@@ -61,7 +72,7 @@ export const contextFromEnv = (env, { store, sendMail, user, now = () => new Dat
       : (apiKey) => createSefClient({ baseUrl: SEF_BASE_URLS[mode], apiKey });
   return {
     mode,
-    acceptEnabled: mode === "mock" || env.SEF_ACCEPT === "on",
+    acceptEnabled: mode === "mock" || envWord(env.SEF_ACCEPT) === "on",
     secret,
     store,
     sefFor,
