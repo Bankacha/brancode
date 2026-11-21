@@ -1,7 +1,7 @@
 // Server only (it holds the SEF API key). The real SEF (e-Faktura) public API
 // for incoming invoices: https://efaktura.mfin.gov.rs/swagger/public_v1/swagger.json.
 // SEF allows 3 calls a second per key, so calls from one request are spaced
-// by minGapMs and a 429 is retried once. No CORS on SEF: phones never call it.
+// by minGapMs (400 ms: SEF answered 429 at 340) and a 429 is retried once. No CORS on SEF: phones never call it.
 // Errors carry only a code, the HTTP status and a short scrubbed body; never
 // the key, a URL or the underlying error (whose text may hold either).
 
@@ -31,22 +31,28 @@ const numberOrNull = (value) => {
   return Number.isFinite(n) ? n : null;
 };
 
+// SEF's swagger names the fields in camelCase (invoiceId), but the real SEF
+// answers with capitals (InvoiceId, Status, Success): read either.
+const field = (body, name) => body?.[name] ?? body?.[name[0].toUpperCase() + name.slice(1)];
+
 // One PurchaseInvoiceOverviewDto as the app's Invoice; null without a usable id.
 export const normalizeInvoice = (dto) => {
-  const id = Number(dto?.invoiceId);
+  const id = Number(field(dto, "invoiceId"));
   if (!Number.isInteger(id) || id <= 0) return null;
+  const status = field(dto, "status");
+  const dueDate = field(dto, "dueDate");
   return {
     id,
-    number: dto.documentNumber ?? "",
-    supplier: dto.supplierName ?? "",
-    supplierPib: dto.supplierVatRegistrationNumber ?? dto.supplierRegistrationNumber ?? null,
-    amount: numberOrNull(dto.amount) ?? 0,
-    amountWithoutVat: numberOrNull(dto.sumWithoutVat),
-    vat: numberOrNull(dto.vatAmount),
-    currency: dto.currency || "RSD",
-    status: KNOWN_STATUSES.includes(dto.status) ? dto.status : "Unknown",
-    receivedAt: dto.sentDate ?? null,
-    dueDate: typeof dto.dueDate === "string" && dto.dueDate.length >= 10 ? dto.dueDate.slice(0, 10) : null,
+    number: field(dto, "documentNumber") ?? "",
+    supplier: field(dto, "supplierName") ?? "",
+    supplierPib: field(dto, "supplierVatRegistrationNumber") ?? field(dto, "supplierRegistrationNumber") ?? null,
+    amount: numberOrNull(field(dto, "amount")) ?? 0,
+    amountWithoutVat: numberOrNull(field(dto, "sumWithoutVat")),
+    vat: numberOrNull(field(dto, "vatAmount")),
+    currency: field(dto, "currency") || "RSD",
+    status: KNOWN_STATUSES.includes(status) ? status : "Unknown",
+    receivedAt: field(dto, "sentDate") ?? null,
+    dueDate: typeof dueDate === "string" && dueDate.length >= 10 ? dueDate.slice(0, 10) : null,
     send: null,
     decision: null,
   };
@@ -54,7 +60,7 @@ export const normalizeInvoice = (dto) => {
 
 const realSleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-export const createSefClient = ({ baseUrl, apiKey, fetch = globalThis.fetch, sleep = realSleep, now = Date.now, minGapMs = 340, timeoutMs = 20000 }) => {
+export const createSefClient = ({ baseUrl, apiKey, fetch = globalThis.fetch, sleep = realSleep, now = Date.now, minGapMs = 400, timeoutMs = 20000 }) => {
   let lastCallAt = -Infinity;
   const scrub = (text) => (apiKey ? text.split(apiKey).join("***") : text).slice(0, 200);
 
@@ -128,12 +134,14 @@ export const createSefClient = ({ baseUrl, apiKey, fetch = globalThis.fetch, sle
       const body = await readJson(
         await request("/api/publicApi/purchase-invoice/acceptRejectPurchaseInvoice", { method: "POST", json: { invoiceId, accepted, comment } })
       );
-      return { success: body?.success === true, message: typeof body?.message === "string" ? body.message : null };
+      const message = field(body, "message");
+      return { success: field(body, "success") === true, message: typeof message === "string" ? message : null };
     },
 
     invoiceStatus: async (invoiceId) => {
       const body = await readJson(await request("/api/publicApi/purchase-invoice", { query: { invoiceId } }));
-      return typeof body?.status === "string" ? body.status : "Unknown";
+      const status = field(body, "status");
+      return typeof status === "string" ? status : "Unknown";
     },
 
     pdf: async (invoiceId) => new Uint8Array(await (await request("/api/publicApi/purchase-invoice/pdf", { query: { invoiceId } })).arrayBuffer()),
@@ -172,8 +180,11 @@ export const createSefClient = ({ baseUrl, apiKey, fetch = globalThis.fetch, sle
         if (Array.isArray(body)) {
           if (body.length === 0) return { kind: "array", count: 0 };
           const statuses = {};
-          for (const item of body) statuses[String(item?.status ?? "?")] = (statuses[String(item?.status ?? "?")] ?? 0) + 1;
-          return { kind: "array", count: body.length, firstKeys: Object.keys(body[0] ?? {}).slice(0, 30), statuses };
+          for (const item of body) {
+            const status = String(field(item, "status") ?? "?");
+            statuses[status] = (statuses[status] ?? 0) + 1;
+          }
+          return { kind: "array", count: body.length, firstKeys: Object.keys(body[0] ?? {}).slice(0, 30), statuses, statusType: typeof field(body[0], "status") };
         }
         if (body && typeof body === "object") {
           const arrays = {};

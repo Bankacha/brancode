@@ -79,19 +79,26 @@ const saveSettings = async ({ shopName, pib, apiKey }, ctx) => {
   if (!key && !isConnected(current)) return fail(400, "missing-key");
 
   const fields = { shopName: name, pib: taxId, updatedBy: ctx.user.email };
+  let invoices = null;
   if (key) {
     const sef = ctx.sefFor(key);
     await sef.checkKey();
     // The invoice list surely needs a valid key (the version call may not):
     // a mistyped replacement must not overwrite the working key.
-    const invoices = await sef.overview(windowOf(ctx).range);
+    invoices = await sef.overview(windowOf(ctx).range);
     const sealed = encryptApiKey(key, ctx.secret);
     Object.assign(fields, { keyCiphertext: sealed.ciphertext, keyIv: sealed.iv, keyTag: sealed.tag, keyLast4: keyLast4(key) });
-    if (!current?.connectedAt) {
-      // what is already accepted now was printed and carried: never offered for sending
-      fields.connectedAt = ctx.now().toISOString();
-      fields.baselineIds = invoices.filter((invoice) => invoice.status === "Approved").map((invoice) => invoice.id);
-    }
+  }
+  // A first baseline that came out empty, with nothing done through the app
+  // since, is taken again on the next save (key or not): 0.15.2 read SEF's
+  // capitalised answer as an empty list, so the shop connected with none of
+  // its accepted invoices.
+  const retake = Boolean(current?.connectedAt) && (current.baselineIds ?? []).length === 0 && (await ctx.store.eventsSince(ctx.mode, "2000-01-01")).length === 0;
+  if (!current?.connectedAt || retake) {
+    invoices ??= await openSef(current, ctx).overview(windowOf(ctx).range);
+    // what is already accepted now was printed and carried: never offered for sending
+    fields.connectedAt = ctx.now().toISOString();
+    fields.baselineIds = invoices.filter((invoice) => invoice.status === "Approved").map((invoice) => invoice.id);
   }
   return ok(statusJson(await ctx.store.saveSettings(ctx.mode, fields), ctx));
 };
