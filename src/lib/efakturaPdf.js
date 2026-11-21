@@ -31,15 +31,26 @@ const SPEC_LABELS = [
   "identifikatorstavke:",
   "fakturisanakolicina:",
   "netoiznos:",
+  "umanjenjenacenuartikla:",
+  "brutocenaartikla:",
 ];
 const specLabels = (page) => SPEC_LABELS.filter((label) => page.includes(label)).length;
+// The format's last page is often just SEF's payment QR code ("NBS IPS QR")
+// over the footer, now and then with a field or two above it (20 of 100
+// real invoices, 21.11.2026): short, and ending in "NBS IPS QR" right before
+// the footer.
+const isQrPage = (page) => {
+  const at = page.search(/generisaosistem[eе]?faktura/);
+  const body = at >= 0 ? page.slice(0, at) : page;
+  return body.endsWith("nbsipsqr") && body.length <= 70;
+};
 
 // Indexes of the structured-format pages in one invoice's page texts. Only
 // what is certain: the first page opens with SEF's header and carries the
 // identifier; the format starts on a later page with its title and that
 // identifier; it goes on only while each next page carries the identifier,
-// is not an invoice page and holds at least two of SEF's field labels, and
-// stops at the first page that doesn't. Anything else (unreadable text, a
+// is not an invoice page and holds at least two of SEF's field labels or is
+// the QR-code page, and stops at the first page that doesn't. Anything else (unreadable text, a
 // supplier's attachment, even one SEF stamped) stays: better a page too many
 // than a missing part of an invoice.
 export const specPages = (texts) => {
@@ -52,7 +63,7 @@ export const specPages = (texts) => {
   const dropped = [start];
   for (let i = start + 1; i < pages.length; i += 1) {
     const page = pages[i];
-    if (!page.includes(id) || SEF_HEADER.test(page) || specLabels(page) < 2) break;
+    if (!page.includes(id) || SEF_HEADER.test(page) || (specLabels(page) < 2 && !isQrPage(page))) break;
     dropped.push(i);
   }
   return dropped;
