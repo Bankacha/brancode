@@ -137,5 +137,62 @@ export const createSefClient = ({ baseUrl, apiKey, fetch = globalThis.fetch, sle
     },
 
     pdf: async (invoiceId) => new Uint8Array(await (await request("/api/publicApi/purchase-invoice/pdf", { query: { invoiceId } })).arrayBuffer()),
+
+    // Temporary (0.15.3): the real SEF listed nothing for the shop. Asks the
+    // list in several shapes and reports, per shape, only the HTTP status and
+    // the answer's shape: counts, field names, statuses, never invoice data
+    // or the key. `short` asks just the two calls worth trying with a made-up key.
+    probe: async ({ dateFrom, dateTo }, { short = false } = {}) => {
+      const iso = { dateFrom: dateFrom.toISOString(), dateTo: dateTo.toISOString() };
+      const day = (d) => d.toISOString().slice(0, 10);
+      const plain = (d) => d.toISOString().slice(0, 19);
+      const OVERVIEW = "/api/publicApi/purchase-invoice/overview";
+      const IDS = "/api/publicApi/purchase-invoice/ids";
+      const variants = [
+        ["overview iso", OVERVIEW, "GET", iso],
+        ["overview bez parametara", OVERVIEW, "GET", {}],
+        ["overview samo datum", OVERVIEW, "GET", { dateFrom: day(dateFrom), dateTo: day(dateTo) }],
+        ["overview bez Z", OVERVIEW, "GET", { dateFrom: plain(dateFrom), dateTo: plain(dateTo) }],
+        ["overview New", OVERVIEW, "GET", { ...iso, status: "New" }],
+        ["overview Seen", OVERVIEW, "GET", { ...iso, status: "Seen" }],
+        ["overview Approved", OVERVIEW, "GET", { ...iso, status: "Approved" }],
+        ["ids iso", IDS, "POST", iso],
+        ["ids Approved", IDS, "POST", { ...iso, status: "Approved" }],
+        ["changes danas", "/api/publicApi/purchase-invoice/changes", "POST", { date: day(dateTo) }],
+        ["verzija", "/api/publicApi/getEfakturaVersion", "GET", {}],
+      ].filter(([name]) => !short || name === "overview iso" || name === "verzija");
+
+      const shape = (text) => {
+        let body;
+        try {
+          body = JSON.parse(text);
+        } catch {
+          return { kind: "text", length: text.length, head: scrub(text).slice(0, 80) };
+        }
+        if (Array.isArray(body)) {
+          if (body.length === 0) return { kind: "array", count: 0 };
+          const statuses = {};
+          for (const item of body) statuses[String(item?.status ?? "?")] = (statuses[String(item?.status ?? "?")] ?? 0) + 1;
+          return { kind: "array", count: body.length, firstKeys: Object.keys(body[0] ?? {}).slice(0, 30), statuses };
+        }
+        if (body && typeof body === "object") {
+          const arrays = {};
+          for (const [name, value] of Object.entries(body)) if (Array.isArray(value)) arrays[name] = value.length;
+          return { kind: "object", keys: Object.keys(body).slice(0, 30), arrays };
+        }
+        return { kind: typeof body, length: String(body).length };
+      };
+
+      const results = [];
+      for (const [name, path, method, query] of variants) {
+        try {
+          const res = await send(path, { method, query });
+          results.push({ name, httpStatus: res.status, contentType: res.headers.get("content-type"), ...shape(await res.text().catch(() => "")) });
+        } catch (e) {
+          results.push({ name, error: e?.code ?? "error" });
+        }
+      }
+      return results;
+    },
   };
 };

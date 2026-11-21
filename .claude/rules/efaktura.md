@@ -33,6 +33,7 @@ Spec: `docs/superpowers/specs/2026-11-17-brancode-e-faktura-design.md`; plan `do
 - **„Nije poslato“** is every accepted invoice with no `sent` row, except those already accepted when the key was first saved in that mode (`baseline_ids`, shown as „Pre povezivanja“). A replaced key keeps the connection day and the baseline. An invoice is recorded as sent only after Resend took its mail.
 - **Mail:** one PDF per invoice (`pdfFilename`: „Dobavljač – broj.pdf“), up to 25 MB per mail (more goes in numbered mails), to `EMAIL_TO` for now. `send_to` waits for a mail domain: Resend's test sender delivers only to the account owner. The test mode puts „[PROBA]“ in the subject.
 - **Window:** invoices received in the last 60 days (`WINDOW_DAYS`); the response deadline is 15 days (`RESPONSE_DAYS`, from expert sources), highlighted from 3, and a re-notified invoice shows „Podsetnik stigao · odgovori odmah“.
+- **Temporary `probe` action (0.15.3):** the real SEF answered the overview with an empty list for the shop. `probe` asks the list in several shapes (dates, statuses, `ids`, `changes`) with the saved key, and twice with a made-up key, and returns only HTTP statuses, counts, field names and statuses. Remove it (and `sefClient.probe`) once the list works.
 - **Check on real data before `SEF_ACCEPT=on`:**
   - which date `overview`'s `dateFrom`/`dateTo` filter on;
   - whether it needs `status` (the client falls back to one call per status on 400);

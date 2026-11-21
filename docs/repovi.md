@@ -2,7 +2,7 @@
 
 Jedno mesto za sitnice koje su pregledi koda našli, a nisu popravljene pre puštanja, i za stvari koje čekaju odluku ili proveru u radnji. Kad se nešto sredi, briše se odavde (istorija ostaje u git-u). Svako novo puštanje dopisuje svoje repove ovde, ne samo u izveštaj.
 
-Stanje: 21.11.2026, posle 0.15.2 (e-Faktura: tolerantnija podešavanja na Vercel-u, adresa u prozoru za slanje se lepo prelama). Ostale su sitnice iz pregleda 0.12.2–0.14.0 i ono što čeka tebe ili proveru u radnji. Prvo idu koraci za e-Fakturu, redom.
+Stanje: 21.11.2026, posle 0.15.3 (e-Faktura na pravom SEF-u vraća praznu listu; 0.15.3 donosi privremenu proveru šta SEF odgovara). Ostale su sitnice iz pregleda 0.12.2–0.14.0 i ono što čeka tebe ili proveru u radnji. Prvo idu koraci za e-Fakturu, redom.
 
 ## Sitnice iz pregleda 0.12.2 (za sledeće sređivanje)
 
@@ -28,6 +28,8 @@ Stanje: 21.11.2026, posle 0.15.2 (e-Faktura: tolerantnija podešavanja na Vercel
 
 5. **Pravi SEF, samo čitanje:** `SEF_ENV` = `production` **samo za Production**, pa **Redeploy** poslednjeg Production deploy-a (bez njega promenljiva ne važi). Preview deploy-evi i tako uvek ostaju na probnom SEF-u. Znak da je uspelo: na ekranu e-Fakture nema trake „Probni režim“ i aplikacija ponovo traži naziv, PIB i ključ (pravi i probni režim imaju odvojena podešavanja). Tada brat unese pravi ključ. Uporedi listu sa SEF-om: iste fakture iz poslednjih 60 dana, iznos (sa PDV-om ili bez), datumi prijema i valute, rok od 15 dana, PDF, slanje jedne već prihvaćene fakture (mejl bez „[PROBA]“). Ako lista ne liči na SEF ili javi grešku, javi mi pre sledećeg koraka.
 6. **Prihvatanje:** tek kad se lista slaže, `SEF_ACCEPT=on` **samo za Production** (Redeploy). Prvo pravo prihvatanje neka bude faktura koju bi brat i inače prihvatio, pa proveri na SEF-u da je prihvaćena.
+- **Lista je prazna na pravom SEF-u (21.11.):** ključ je prihvaćen, ali SEF na upit za ulazne fakture vraća praznu listu, a fakture postoje. U 0.15.3 je privremena akcija `probe` (`sefClient.probe`), koja pita SEF na nekoliko načina i vraća samo brojeve. Kad se nađe uzrok, popraviti upit i ukloniti `probe`.
+- **Podsetnik, dogovoreno:** dvostepena prijava (2FA) bar za naloge koji vide e-Fakturu (oni iz `EFAKTURA_USERS`), jer ti nalozi mogu da prihvataju fakture na SEF-u.
 
 
 - **Lifletske cene se nisu vratile posle isteka akcije** (prijavljeno 10.11.): još nije istraženo. Treba prijava u aplikaciju u pregledaču u Claude-u, da se pročita `promo_leaflets` (`prices_restored_at`, `restore_result` po artiklu), i odgovor: da li su stizali mejlovi „Akcija ističe sutra/danas“ i „Redovne cene vraćene“, koji liflet i koji artikal. Mogući uzroci: liflet uvezen pre 0.11.0 ili ponovo uvezen posle njega dok su u bazi već bile akcijske cene (tada „redovna“ cena jeste akcijska), ili jutarnja provera ne radi (sledeća tačka).

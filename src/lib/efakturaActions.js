@@ -262,6 +262,20 @@ const resetMock = async (_, ctx) => {
   return ok();
 };
 
+// Temporary (0.15.3): why the real SEF lists nothing. What SEF answers to the
+// list in several shapes with the saved key, and to two calls with a made-up
+// key (does SEF refuse a wrong key, or answer it with an empty list?).
+// Shapes and counts only; remove once the list works.
+const probe = async (_, ctx) => {
+  if (ctx.mode === "mock") return fail(400, "not-real-sef");
+  const settings = await ctx.store.getSettings(ctx.mode);
+  if (!isConnected(settings)) return fail(409, "not-connected");
+  const { range } = windowOf(ctx);
+  const results = await openSef(settings, ctx).probe(range);
+  const madeUpKey = await ctx.sefFor("neispravan-probni-kljuc-0000").probe(range, { short: true });
+  return ok({ results, madeUpKey });
+};
+
 const ACTIONS = {
   status,
   "save-settings": saveSettings,
@@ -272,6 +286,7 @@ const ACTIONS = {
   reject,
   send,
   "reset-mock": resetMock,
+  probe,
 };
 
 export const runEfakturaAction = async (action, payload, ctx) => {
