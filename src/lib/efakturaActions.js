@@ -1,6 +1,6 @@
 import { decryptApiKey, encryptApiKey, keyLast4 } from "./efakturaCrypto.js";
 import { MAX_MAIL_BYTES, attachmentNames, invoiceMail, mergedFilename, splitBySize } from "./efakturaMail.js";
-import { mergePdfs } from "./efakturaPdf.js";
+import { describePages, mergePdfs } from "./efakturaPdf.js";
 import { PENDING_STATUSES, WINDOW_DAYS, isPending, sendState } from "./efakturaRules.js";
 import { SefError } from "./sefClient.js";
 import { addDays } from "./listFormat.js";
@@ -293,6 +293,24 @@ const resetMock = async (_, ctx) => {
   return ok();
 };
 
+// Temporary (0.16.0): the structured-format rule (efakturaPdf.js) checked
+// on the shop's real invoices: each page's kind and what the printed file
+// would leave out, no text. Remove once checked.
+const pdfCheck = async ({ invoiceIds }, ctx) => {
+  if (ctx.mode === "mock") return fail(400, "not-real-sef");
+  const problem = idsProblem(invoiceIds);
+  if (problem) return fail(400, problem);
+  const settings = await ctx.store.getSettings(ctx.mode);
+  if (!isConnected(settings)) return fail(409, "not-connected");
+  const pdfs = await openSef(settings, ctx).pdfMany(invoiceIds);
+  const results = [];
+  for (const id of invoiceIds) {
+    const pdf = pdfs.get(id);
+    results.push(pdf instanceof Uint8Array ? { id, ...(await describePages(pdf)) } : { id, error: pdf?.code ?? "error" });
+  }
+  return ok({ results });
+};
+
 const ACTIONS = {
   status,
   "save-settings": saveSettings,
@@ -303,6 +321,7 @@ const ACTIONS = {
   reject,
   send,
   "reset-mock": resetMock,
+  "pdf-check": pdfCheck,
 };
 
 export const runEfakturaAction = async (action, payload, ctx) => {

@@ -644,3 +644,18 @@ describe("latestDecisions", () => {
   });
 });
 
+
+describe("pdf-check (temporary)", () => {
+  it("describes the pages of each invoice's PDF, only on a real SEF", async () => {
+    const sef = fakeSef([inv(1, "Approved"), inv(2, "New")]);
+    const { run } = setup({ mode: "production", sef });
+    await connect(run);
+    const res = await run("pdf-check", { invoiceIds: [1, 2] });
+    expect(res.status).toBe(200);
+    expect(res.json.results.map((r) => [r.id, r.pages, r.dropped])).toEqual([
+      [1, [{ sef: false, title: false, id: false }], []],
+      [2, [{ sef: false, title: false, id: false }], []],
+    ]);
+    expect((await setup().run("pdf-check", { invoiceIds: [1] })).json.error).toBe("not-real-sef");
+  });
+});
