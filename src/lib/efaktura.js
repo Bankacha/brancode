@@ -49,6 +49,7 @@ const TEXTS = {
   "send-failed": "Mejl nije poslat. Pokušaj ponovo.",
   "not-connected": "e-Faktura nije povezana.",
   "not-allowed": "Ovaj nalog nema pristup e-Fakturi.",
+  "pdf-not-ready": "SEF još pravi PDF ove fakture. Probaj ponovo za minut.",
 };
 
 export const efakturaErrorText = (code) => TEXTS[code] ?? "Nešto nije u redu. Pokušaj ponovo.";

@@ -18,6 +18,13 @@ export const SEF_BASE_URLS = {
 // out. So the list is asked by day, in parts of PART_DAYS, up to tomorrow.
 const PART_DAYS = 28;
 const dayOf = (date) => date.toISOString().slice(0, 10);
+
+// SEF makes an invoice's PDF on the first request for it: that request gets
+// 200 with {"message": "Extended PDF file creation has been initiated…"}
+// instead of the file (seen 21.11.2026; a minute later the PDF was there).
+// So a body that isn't a PDF is asked again after these waits.
+const PDF_RETRY_WAITS_MS = [2000, 3000, 5000];
+const isPdf = (bytes) => bytes.length >= 4 && bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46; // %PDF
 // PurchaseInvoiceStatus; anything else is shown as Unknown.
 const KNOWN_STATUSES = ["New", "Seen", "ReNotified", "Deleted", "Approved", "Rejected", "Cancelled", "Storno", "SendingInProgress", "Unknown"];
 
@@ -142,6 +149,13 @@ export const createSefClient = ({ baseUrl, apiKey, fetch = globalThis.fetch, sle
       return typeof status === "string" ? status : "Unknown";
     },
 
-    pdf: async (invoiceId) => new Uint8Array(await (await request("/api/publicApi/purchase-invoice/pdf", { query: { invoiceId } })).arrayBuffer()),
+    pdf: async (invoiceId) => {
+      for (let attempt = 0; ; attempt += 1) {
+        const bytes = new Uint8Array(await (await request("/api/publicApi/purchase-invoice/pdf", { query: { invoiceId } })).arrayBuffer());
+        if (isPdf(bytes)) return bytes;
+        if (attempt >= PDF_RETRY_WAITS_MS.length) throw new SefError("pdf-not-ready", 200);
+        await sleep(PDF_RETRY_WAITS_MS[attempt]);
+      }
+    },
   };
 };

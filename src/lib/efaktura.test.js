@@ -83,6 +83,7 @@ describe("efakturaErrorText", () => {
     expect(efakturaErrorText("send-failed")).toBe("Mejl nije poslat. Pokušaj ponovo.");
     expect(efakturaErrorText("not-connected")).toBe("e-Faktura nije povezana.");
     expect(efakturaErrorText("not-allowed")).toBe("Ovaj nalog nema pristup e-Fakturi.");
+    expect(efakturaErrorText("pdf-not-ready")).toBe("SEF još pravi PDF ove fakture. Probaj ponovo za minut.");
     expect(efakturaErrorText("server-error")).toBe("Nešto nije u redu. Pokušaj ponovo.");
     expect(efakturaErrorText(undefined)).toBe("Nešto nije u redu. Pokušaj ponovo.");
   });

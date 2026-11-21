@@ -111,13 +111,24 @@ const list = async (_, ctx) => {
   if (!isConnected(settings)) return fail(409, "not-connected");
   const { startIso, range } = windowOf(ctx);
   const invoices = await openSef(settings, ctx).overview(range);
+  const events = await ctx.store.eventsSince(ctx.mode, startIso);
   const lastSent = new Map();
   const decisions = new Map();
-  for (const event of await ctx.store.eventsSince(ctx.mode, startIso)) {
+  for (const event of events) {
     if (event.action === "sent") lastSent.set(event.invoiceId, { at: event.createdAt, to: event.recipient });
     else decisions.set(event.invoiceId, { action: event.action, userEmail: event.userEmail, at: event.createdAt, comment: event.comment });
   }
-  const baselineIds = new Set(settings.baselineIds);
+  let baselineIds = new Set(settings.baselineIds);
+  // Until something is done through the app in this mode, whatever SEF shows
+  // accepted was handled the old way (printed and carried): the baseline
+  // follows SEF and freezes with the first accept, reject or send. 0.15.2 and
+  // 0.15.4 connected the shop with a short list, which left 694 old invoices
+  // waiting for sending, all ticked.
+  if (events.length === 0 && (await ctx.store.eventsSince(ctx.mode, "2000-01-01")).length === 0) {
+    const approved = invoices.filter((invoice) => invoice.status === "Approved").map((invoice) => invoice.id);
+    if (approved.length !== baselineIds.size || approved.some((id) => !baselineIds.has(id))) await ctx.store.saveSettings(ctx.mode, { baselineIds: approved });
+    baselineIds = new Set(approved);
+  }
   return ok({
     invoices: invoices.map((invoice) => {
       const state = sendState(invoice, { baselineIds, lastSent });
