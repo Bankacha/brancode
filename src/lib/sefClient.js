@@ -1,17 +1,23 @@
 // Server only (it holds the SEF API key). The real SEF (e-Faktura) public API
 // for incoming invoices: https://efaktura.mfin.gov.rs/swagger/public_v1/swagger.json.
 // SEF allows 3 calls a second per key, so calls from one request are spaced
-// by minGapMs (400 ms: SEF answered 429 at 340) and a 429 is retried once. No CORS on SEF: phones never call it.
+// by minGapMs (400 ms: SEF answered 429 at 340) and a 429 is retried once.
+// No CORS on SEF: phones never call it.
 // Errors carry only a code, the HTTP status and a short scrubbed body; never
 // the key, a URL or the underlying error (whose text may hold either).
+
+import { addDays } from "./listFormat.js";
 
 export const SEF_BASE_URLS = {
   production: "https://efaktura.mfin.gov.rs",
   demo: "https://demoefaktura.mfin.gov.rs",
 };
 
-// The statuses SEF's overview accepts as a filter (PurchaseInvoiceStatusFilter).
-const STATUS_FILTERS = ["New", "Seen", "ReNotified", "Approved", "Rejected", "Storno"];
+// SEF answers one overview call with about a month at most (asked for 60 days
+// on 21.11.2026, it gave 31), and a dateTo with a time left the newest invoices
+// out. So the list is asked by day, in parts of PART_DAYS, up to tomorrow.
+const PART_DAYS = 28;
+const dayOf = (date) => date.toISOString().slice(0, 10);
 // PurchaseInvoiceStatus; anything else is shown as Unknown.
 const KNOWN_STATUSES = ["New", "Seen", "ReNotified", "Deleted", "Approved", "Rejected", "Cancelled", "Storno", "SendingInProgress", "Unknown"];
 
@@ -105,27 +111,19 @@ export const createSefClient = ({ baseUrl, apiKey, fetch = globalThis.fetch, sle
     }
   };
 
-  const overviewOnce = async (query) => {
-    const body = await readJson(await request("/api/publicApi/purchase-invoice/overview", { query }));
-    return (Array.isArray(body) ? body : []).map(normalizeInvoice).filter(Boolean);
-  };
-
   return {
     checkKey: async () => {
       await request("/api/publicApi/getEfakturaVersion");
     },
 
+    // Neighbouring parts share their boundary day; duplicates merge by id.
     overview: async ({ dateFrom, dateTo }) => {
-      const range = { dateFrom: dateFrom.toISOString(), dateTo: dateTo.toISOString() };
-      try {
-        return await overviewOnce(range);
-      } catch (e) {
-        if (!(e instanceof SefError) || e.httpStatus !== 400) throw e;
-      }
-      // SEF wants a status: ask once per status and merge
+      const last = addDays(dayOf(dateTo), 1);
       const byId = new Map();
-      for (const status of STATUS_FILTERS) {
-        for (const invoice of await overviewOnce({ ...range, status })) byId.set(invoice.id, invoice);
+      for (let from = dayOf(dateFrom); from < last; from = addDays(from, PART_DAYS)) {
+        const to = addDays(from, PART_DAYS) < last ? addDays(from, PART_DAYS) : last;
+        const body = await readJson(await request("/api/publicApi/purchase-invoice/overview", { query: { dateFrom: from, dateTo: to } }));
+        for (const invoice of (Array.isArray(body) ? body : []).map(normalizeInvoice).filter(Boolean)) byId.set(invoice.id, invoice);
       }
       return [...byId.values()];
     },
@@ -145,65 +143,5 @@ export const createSefClient = ({ baseUrl, apiKey, fetch = globalThis.fetch, sle
     },
 
     pdf: async (invoiceId) => new Uint8Array(await (await request("/api/publicApi/purchase-invoice/pdf", { query: { invoiceId } })).arrayBuffer()),
-
-    // Temporary (0.15.3): the real SEF listed nothing for the shop. Asks the
-    // list in several shapes and reports, per shape, only the HTTP status and
-    // the answer's shape: counts, field names, statuses, never invoice data
-    // or the key. `short` asks just the two calls worth trying with a made-up key.
-    probe: async ({ dateFrom, dateTo }, { short = false } = {}) => {
-      const iso = { dateFrom: dateFrom.toISOString(), dateTo: dateTo.toISOString() };
-      const day = (d) => d.toISOString().slice(0, 10);
-      const plain = (d) => d.toISOString().slice(0, 19);
-      const OVERVIEW = "/api/publicApi/purchase-invoice/overview";
-      const IDS = "/api/publicApi/purchase-invoice/ids";
-      const variants = [
-        ["overview iso", OVERVIEW, "GET", iso],
-        ["overview bez parametara", OVERVIEW, "GET", {}],
-        ["overview samo datum", OVERVIEW, "GET", { dateFrom: day(dateFrom), dateTo: day(dateTo) }],
-        ["overview bez Z", OVERVIEW, "GET", { dateFrom: plain(dateFrom), dateTo: plain(dateTo) }],
-        ["overview New", OVERVIEW, "GET", { ...iso, status: "New" }],
-        ["overview Seen", OVERVIEW, "GET", { ...iso, status: "Seen" }],
-        ["overview Approved", OVERVIEW, "GET", { ...iso, status: "Approved" }],
-        ["ids iso", IDS, "POST", iso],
-        ["ids Approved", IDS, "POST", { ...iso, status: "Approved" }],
-        ["changes danas", "/api/publicApi/purchase-invoice/changes", "POST", { date: day(dateTo) }],
-        ["verzija", "/api/publicApi/getEfakturaVersion", "GET", {}],
-      ].filter(([name]) => !short || name === "overview iso" || name === "verzija");
-
-      const shape = (text) => {
-        let body;
-        try {
-          body = JSON.parse(text);
-        } catch {
-          return { kind: "text", length: text.length, head: scrub(text).slice(0, 80) };
-        }
-        if (Array.isArray(body)) {
-          if (body.length === 0) return { kind: "array", count: 0 };
-          const statuses = {};
-          for (const item of body) {
-            const status = String(field(item, "status") ?? "?");
-            statuses[status] = (statuses[status] ?? 0) + 1;
-          }
-          return { kind: "array", count: body.length, firstKeys: Object.keys(body[0] ?? {}).slice(0, 30), statuses, statusType: typeof field(body[0], "status") };
-        }
-        if (body && typeof body === "object") {
-          const arrays = {};
-          for (const [name, value] of Object.entries(body)) if (Array.isArray(value)) arrays[name] = value.length;
-          return { kind: "object", keys: Object.keys(body).slice(0, 30), arrays };
-        }
-        return { kind: typeof body, length: String(body).length };
-      };
-
-      const results = [];
-      for (const [name, path, method, query] of variants) {
-        try {
-          const res = await send(path, { method, query });
-          results.push({ name, httpStatus: res.status, contentType: res.headers.get("content-type"), ...shape(await res.text().catch(() => "")) });
-        } catch (e) {
-          results.push({ name, error: e?.code ?? "error" });
-        }
-      }
-      return results;
-    },
   };
 };

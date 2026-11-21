@@ -111,35 +111,28 @@ describe("createSefClient", () => {
     expect(error.detail).toHaveLength(200);
   });
 
-  it("asks for the overview of a date range", async () => {
-    const { fetch, calls } = fakeFetch({ body: [dto(1), dto(2, { status: "Approved" })] });
-    const from = new Date("2026-09-20T00:00:00Z");
-    const to = new Date("2026-11-19T10:00:00Z");
-    const invoices = await client(fetch).overview({ dateFrom: from, dateTo: to });
-    const url = new URL(calls[0].url);
-    expect(url.pathname).toBe("/api/publicApi/purchase-invoice/overview");
-    expect(url.searchParams.get("dateFrom")).toBe(from.toISOString());
-    expect(url.searchParams.get("dateTo")).toBe(to.toISOString());
-    expect(url.searchParams.has("status")).toBe(false);
+  it("asks the overview by day, in parts of 28 days, up to tomorrow, and merges by id", async () => {
+    // SEF answers one call with about a month at most, and a timed dateTo
+    // left the newest invoices out
+    const { fetch, calls } = fakeFetch({ body: [dto(1)] }, { body: [dto(2, { status: "Approved" }), dto(1)] }, { body: [dto(3)] });
+    const invoices = await client(fetch).overview({ dateFrom: new Date("2026-09-20T00:00:00Z"), dateTo: new Date("2026-11-19T10:00:00Z") });
+    expect(calls.map((c) => new URL(c.url).pathname)).toEqual(Array(3).fill("/api/publicApi/purchase-invoice/overview"));
+    expect(calls.map((c) => Object.fromEntries(new URL(c.url).searchParams))).toEqual([
+      { dateFrom: "2026-09-20", dateTo: "2026-10-18" },
+      { dateFrom: "2026-10-18", dateTo: "2026-11-15" },
+      { dateFrom: "2026-11-15", dateTo: "2026-11-20" },
+    ]);
     expect(invoices.map((i) => [i.id, i.status])).toEqual([
       [1, "New"],
       [2, "Approved"],
+      [3, "New"],
     ]);
   });
 
-  it("falls back to one overview call per status on 400 and merges by id", async () => {
-    const { fetch, calls } = fakeFetch(
-      { status: 400, body: "status is required" },
-      { body: [dto(1)] },
-      { body: [dto(2, { status: "Seen" })] },
-      { body: [] },
-      { body: [dto(3, { status: "Approved" }), dto(1)] },
-      { body: [] },
-      { body: [] }
-    );
-    const invoices = await client(fetch).overview({ dateFrom: new Date("2026-09-20"), dateTo: new Date("2026-11-19") });
-    expect(calls.slice(1).map((c) => new URL(c.url).searchParams.get("status"))).toEqual(["New", "Seen", "ReNotified", "Approved", "Rejected", "Storno"]);
-    expect(invoices.map((i) => i.id).sort()).toEqual([1, 2, 3]);
+  it("asks a short range in one call", async () => {
+    const { fetch, calls } = fakeFetch({ body: [dto(1)] });
+    await client(fetch).overview({ dateFrom: new Date("2026-11-18T00:00:00Z"), dateTo: new Date("2026-11-19T23:30:00Z") });
+    expect(calls.map((c) => Object.fromEntries(new URL(c.url).searchParams))).toEqual([{ dateFrom: "2026-11-18", dateTo: "2026-11-20" }]);
   });
 
   it("posts accept and reject with the invoice id and comment", async () => {
@@ -234,68 +227,3 @@ describe("normalizeInvoice", () => {
   });
 });
 
-describe("probe (temporary: why the real SEF lists nothing)", () => {
-  // answers by the request, not by order: the variants are SEF's to judge
-  const routedFetch = (route) => {
-    const calls = [];
-    const fetch = async (url, init = {}) => {
-      const u = new URL(String(url));
-      calls.push({ path: u.pathname, query: Object.fromEntries(u.searchParams), method: init.method ?? "GET", key: init.headers?.ApiKey });
-      const { status = 200, body = "", type = "application/json" } = route(u, init);
-      return new Response(typeof body === "string" ? body : JSON.stringify(body), { status, headers: { "content-type": type } });
-    };
-    return { fetch, calls };
-  };
-  const range = { dateFrom: new Date("2026-09-22T00:00:00Z"), dateTo: new Date("2026-11-21T14:00:00Z") };
-
-  it("asks the list in several shapes and reports only counts, keys and statuses", async () => {
-    const { fetch, calls } = routedFetch((u) => {
-      if (u.pathname.endsWith("/overview")) {
-        const status = u.searchParams.get("status");
-        return { body: status === "Approved" ? [dto(7, { status: "Approved" }), dto(8, { status: "Approved" })] : [] };
-      }
-      if (u.pathname.endsWith("/ids")) return { body: { purchaseInvoiceIds: [7, 8] } };
-      if (u.pathname.endsWith("/changes")) return { body: [] };
-      return { body: "3.10.0", type: "text/plain" };
-    });
-    const results = await client(fetch).probe(range);
-    const byName = Object.fromEntries(results.map((r) => [r.name, r]));
-    expect(byName["overview iso"]).toEqual({ name: "overview iso", httpStatus: 200, contentType: "application/json", kind: "array", count: 0 });
-    expect(byName["overview Approved"]).toMatchObject({ kind: "array", count: 2, statuses: { Approved: 2 }, statusType: "string" });
-    expect(byName["overview Approved"].firstKeys).toContain("invoiceId");
-    expect(byName["ids iso"]).toMatchObject({ kind: "object", keys: ["purchaseInvoiceIds"], arrays: { purchaseInvoiceIds: 2 } });
-    expect(byName["verzija"]).toMatchObject({ kind: "text", length: 6 });
-    expect(results.map((r) => r.name)).toEqual([
-      "overview iso",
-      "overview bez parametara",
-      "overview samo datum",
-      "overview bez Z",
-      "overview New",
-      "overview Seen",
-      "overview Approved",
-      "ids iso",
-      "ids Approved",
-      "changes danas",
-      "verzija",
-    ]);
-    expect(calls.find((c) => c.path.endsWith("/ids")).method).toBe("POST");
-    expect(calls.find((c) => c.path.endsWith("/changes")).query).toEqual({ date: "2026-11-21" });
-    const dateOnly = calls[2].query;
-    expect(dateOnly).toEqual({ dateFrom: "2026-09-22", dateTo: "2026-11-21" });
-    expect(calls[3].query).toEqual({ dateFrom: "2026-09-22T00:00:00", dateTo: "2026-11-21T14:00:00" });
-  });
-
-  it("never puts the key in what it reports", async () => {
-    const { fetch } = routedFetch(() => ({ status: 401, body: `bad key ${KEY}`, type: "text/plain" }));
-    const results = await client(fetch).probe(range);
-    expect(JSON.stringify(results)).not.toContain(KEY);
-    expect(results[0]).toMatchObject({ httpStatus: 401, kind: "text" });
-  });
-
-  it("asks only the cheap calls with a made-up key", async () => {
-    const { fetch, calls } = routedFetch(() => ({ body: [] }));
-    const results = await client(fetch).probe(range, { short: true });
-    expect(results.map((r) => r.name)).toEqual(["overview iso", "verzija"]);
-    expect(calls).toHaveLength(2);
-  });
-});
