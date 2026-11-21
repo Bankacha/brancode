@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { MAX_MAIL_BYTES, attachmentNames, invoiceMail, splitBySize } from "./efakturaMail.js";
+import { MAX_MAIL_BYTES, attachmentNames, invoiceMail, mergedFilename, splitBySize } from "./efakturaMail.js";
 
 const invoice = (id, fields = {}) => ({
   id,
@@ -28,7 +28,7 @@ describe("invoiceMail", () => {
       [
         "Poštovani,",
         "",
-        "u prilogu su prihvaćene ulazne fakture prodavnice Radnja Kod Brata (PIB 101234567), ukupno 2.",
+        "u prilogu su prihvaćene ulazne fakture prodavnice Radnja Kod Brata (PIB 101234567), ukupno 2, u jednom PDF-u, redom kojim su primljene:",
         "",
         "Pekara Klasje d.o.o. – 12/2026 – 1.200,00 din",
         "Mlečni put d.o.o. – 13/2026 – 1.234,50 din",
@@ -47,7 +47,14 @@ describe("invoiceMail", () => {
   it("numbers the mails when the invoices need more than one", () => {
     const mail = invoiceMail({ shopName: "R", pib: "101234567", invoices: [two[0]], todayIso: "2026-11-19", mock: false, part: { index: 1, count: 2 } });
     expect(mail.subject).toBe("Prihvaćene fakture – R – 19.11.2026. (1/2)");
-    expect(mail.text).toContain("ukupno 1.");
+    expect(mail.text).toContain("ukupno 1, u jednom PDF-u");
+  });
+});
+
+describe("mergedFilename", () => {
+  it("names the one PDF to print by the day, numbered when there are more mails", () => {
+    expect(mergedFilename("2026-11-21")).toBe("Prihvaćene fakture – 21.11.2026.pdf");
+    expect(mergedFilename("2026-11-21", { index: 2, count: 3 })).toBe("Prihvaćene fakture – 21.11.2026 (2 od 3).pdf");
   });
 });
 

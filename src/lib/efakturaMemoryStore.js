@@ -18,9 +18,20 @@ const EMPTY_SETTINGS = {
 
 const copy = (settings) => settings && { ...settings, baselineIds: [...settings.baselineIds] };
 
+const rowOf = (now) => ({ mode, invoiceId, action, comment, recipient, userEmail }) => ({
+  mode,
+  invoiceId,
+  action,
+  comment: comment ?? null,
+  recipient: recipient ?? null,
+  userEmail: userEmail ?? null,
+  createdAt: now().toISOString(),
+});
+
 export const createMemoryEfakturaStore = ({ now = () => new Date() } = {}) => {
   const settings = new Map();
   let events = [];
+  const row = rowOf(now);
 
   return {
     getSettings: async (mode) => copy(settings.get(mode) ?? null),
@@ -31,8 +42,12 @@ export const createMemoryEfakturaStore = ({ now = () => new Date() } = {}) => {
       return copy(next);
     },
 
-    addEvent: async ({ mode, invoiceId, action, comment, recipient, userEmail }) => {
-      events.push({ mode, invoiceId, action, comment: comment ?? null, recipient: recipient ?? null, userEmail: userEmail ?? null, createdAt: now().toISOString() });
+    addEvent: async (event) => {
+      events.push(row(event));
+    },
+
+    addEvents: async (list) => {
+      events.push(...list.map(row));
     },
 
     eventsSince: async (mode, sinceIso) => {

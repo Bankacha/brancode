@@ -118,7 +118,7 @@ export const createSefClient = ({ baseUrl, apiKey, fetch = globalThis.fetch, sle
     }
   };
 
-  return {
+  const client = {
     checkKey: async () => {
       await request("/api/publicApi/getEfakturaVersion");
     },
@@ -149,13 +149,51 @@ export const createSefClient = ({ baseUrl, apiKey, fetch = globalThis.fetch, sle
       return typeof status === "string" ? status : "Unknown";
     },
 
-    pdf: async (invoiceId) => {
-      for (let attempt = 0; ; attempt += 1) {
-        const bytes = new Uint8Array(await (await request("/api/publicApi/purchase-invoice/pdf", { query: { invoiceId } })).arrayBuffer());
-        if (isPdf(bytes)) return bytes;
-        if (attempt >= PDF_RETRY_WAITS_MS.length) throw new SefError("pdf-not-ready", 200);
-        await sleep(PDF_RETRY_WAITS_MS[attempt]);
+    // id → PDF bytes or the SefError for that invoice. All are asked once,
+    // then, after each wait, only those SEF was still making: one wait for
+    // the lot, not one per invoice. A refused key stops everything. With
+    // `until` (a time from `now`), nothing is asked or awaited past it: what
+    // is left is pdf-not-ready.
+    pdfMany: async (invoiceIds, { until = Infinity } = {}) => {
+      const got = new Map();
+      const notReady = (ids) => {
+        for (const invoiceId of ids) got.set(invoiceId, new SefError("pdf-not-ready", 200));
+      };
+      let waiting = [...invoiceIds];
+      for (let attempt = 0; waiting.length > 0; attempt += 1) {
+        if (attempt > 0) {
+          if (now() + PDF_RETRY_WAITS_MS[attempt - 1] >= until) {
+            notReady(waiting);
+            break;
+          }
+          await sleep(PDF_RETRY_WAITS_MS[attempt - 1]);
+        }
+        const still = [];
+        for (const [k, invoiceId] of waiting.entries()) {
+          if (now() >= until) {
+            notReady(waiting.slice(k));
+            break;
+          }
+          try {
+            const bytes = new Uint8Array(await (await request("/api/publicApi/purchase-invoice/pdf", { query: { invoiceId } })).arrayBuffer());
+            if (isPdf(bytes)) got.set(invoiceId, bytes);
+            else still.push(invoiceId);
+          } catch (err) {
+            if (err?.code === "key-rejected") throw err;
+            got.set(invoiceId, err);
+          }
+        }
+        waiting = still.filter((invoiceId) => !got.has(invoiceId));
+        if (attempt >= PDF_RETRY_WAITS_MS.length) notReady(waiting.splice(0));
       }
+      return got;
+    },
+
+    pdf: async (invoiceId) => {
+      const result = (await client.pdfMany([invoiceId])).get(invoiceId);
+      if (result instanceof Error) throw result;
+      return result;
     },
   };
+  return client;
 };

@@ -2,7 +2,7 @@
 
 Jedno mesto za sitnice koje su pregledi koda našli, a nisu popravljene pre puštanja, i za stvari koje čekaju odluku ili proveru u radnji. Kad se nešto sredi, briše se odavde (istorija ostaje u git-u). Svako novo puštanje dopisuje svoje repove ovde, ne samo u izveštaj.
 
-Stanje: 21.11.2026, posle 0.15.6 (e-Faktura: PDF koji SEF tek pravi se čeka, a „Pre povezivanja“ prati SEF dok se kroz aplikaciju ništa ne uradi). Ostale su sitnice iz pregleda 0.12.2–0.14.0 i ono što čeka tebe ili proveru u radnji. Prvo idu koraci za e-Fakturu, redom.
+Stanje: 21.11.2026, posle 0.16.0 (e-Faktura: prihvaćene fakture stižu u jednom PDF-u za štampu, bez strana „Strukturirani format…“). Ostale su sitnice iz pregleda 0.12.2–0.14.0 i ono što čeka tebe ili proveru u radnji. Prvo idu koraci za e-Fakturu, redom.
 
 ## Sitnice iz pregleda 0.12.2 (za sledeće sređivanje)
 
@@ -22,11 +22,18 @@ Stanje: 21.11.2026, posle 0.15.6 (e-Faktura: PDF koji SEF tek pravi se čeka, a 
 1. Naziv sa trebovanja ide u red baze koji je pretraga našla. Za jedan od oko 170 parova gde u bazi postoje i 12-cifreni i 13-cifreni kod istog artikla, otkucan 12-cifreni kod nađe stari red, pa skeniranje pakovanja (13 cifara) i dalje pokaže stari naziv. Ista nedoslednost postoji i za cene; parovi se ne spajaju automatski (vidi pravila za barkodove).
 2. Svaka različita frižider cena je u Excel-u slika od oko 20 KB (ista cena se upisuje jednom). Mejl prima do oko 4 MB, pa jedan mejl staje oko 150 različitih frižider cena (u Mix-u zajedno sa raf barkodovima). Preko toga aplikacija kaže da je fajl prevelik i nudi preuzimanje. Ako to postane čest slučaj: manja rezolucija slike ili slika samo oko cifara.
 
+## Sitnice iz pregleda 0.16.0 (za sledeće sređivanje)
+
+- Kad se šalje više od 50 faktura, stižu dva mejla sa istim nazivom priloga („Prihvaćene fakture – datum.pdf“), jer se delovi numerišu samo unutar jednog zahteva. Starije su u prvom mejlu.
+- Ako se veza telefona prekine dok server još šalje (zaključan telefon usred slanja 50 faktura), aplikacija javi „Nema veze“, a mejl ipak ode. Ponovno slanje odmah posle toga može da pošalje iste fakture još jednom. Posle osvežavanja liste stanje je tačno.
+
 ## Treba tvoja odluka, podešavanje ili provera u radnji
 
 **e-Faktura, redom.** Urađeno (21.11.): tabele u bazi, `EFAKTURA_SECRET`, `EFAKTURA_USERS`, isključena registracija, proba u probnom režimu, pravi SEF (`SEF_ENV`) i poređenje liste sa SEF-om. Ostaje:
 
 6. **Prihvatanje:** lista se slaže, pa: `SEF_ACCEPT=on` **samo za Production** (Redeploy). Prvo pravo prihvatanje neka bude faktura koju bi brat i inače prihvatio, pa proveri na SEF-u da je prihvaćena.
+- **Prvi zajednički PDF (0.16.0):** pri sledećem slanju pogledaj PDF iz mejla: svaka faktura cela, bez strana „Strukturirani format…“. Ako nešto fali ili višak ostane, javi mi koja faktura.
+- **Privremena provera `pdf-check`** (0.16.0): ostaje dok se pravilo za izbacivanje strana ne proveri na stotinak faktura sa SEF-a; onda je ukloniti.
 - **Podsetnik, dogovoreno:** dvostepena prijava (2FA) bar za naloge koji vide e-Fakturu (oni iz `EFAKTURA_USERS`), jer ti nalozi mogu da prihvataju fakture na SEF-u.
 
 
@@ -53,6 +60,7 @@ Stanje: 21.11.2026, posle 0.15.6 (e-Faktura: PDF koji SEF tek pravi se čeka, a 
 ## Ideje za kasnije (nije dogovoreno)
 
 - **e-Faktura, „Označi kao plaćeno“** (dogovor od 19.11., posle 0.15.0): u tabeli prihvaćenih se po želji vodi plaćanje, a jutarnji mejl upozorava na fakture kojima ističe valuta (npr. za 48 sati). Za plaćene se više ne šalje. Datum valute se već čuva u istoriji.
+- **e-Faktura, poluprazne strane fakture u PDF-u za štampu** (21.11.): SEF-ov prikaz fakture ponekad prelije na stranu koja ima samo zaglavlje i jednu rečenicu (npr. „Dan nastanka PDV obaveze je datum prometa“). Pripada fakturi, pa ostaje. Ako takvih bude mnogo, smisliti bezbedno pravilo.
 - **e-Faktura, uloge:** vlasnik/admin prihvata i odbija, ostali rade manje osetljive stvari. Za sada su svi nalozi iz `EFAKTURA_USERS` isti.
 - **Lager (stanje artikala) iz faktura** (razgovor 19.11., odluka: ne sada). Ideja je bila stanje = popis + ulaz sa faktura − izlaz. Izlaz bi se računao „od popisa do popisa“ ili iz izvoza prodaje sa kase, uz nabavne cene i zaradu. Ne sada, jer dobar deo robe (voće, povrće sa pijace) ne dolazi preko e-Faktura, pa stanje iz faktura ne bi bilo tačno. Ako se ikad vratimo: prvo na pravim fakturama videti koliko dobavljača šalje barkod i u kojim jedinicama (karton ili komad).
 - **e-Faktura, slanje knjigovođi:** polje „Fakture šalji na“ se otključava kad aplikacija dobije svoj domen u Resend-u (probna adresa isporučuje samo vlasniku naloga).

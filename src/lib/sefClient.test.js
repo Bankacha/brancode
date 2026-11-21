@@ -189,6 +189,43 @@ describe("createSefClient", () => {
     expect(c.sleeps.filter((ms) => ms >= 2000)).toEqual([2000, 3000]);
   });
 
+  it("asks several PDFs first, then again only those SEF was still making", async () => {
+    // one wait for all of them, not one per invoice
+    const started = { message: "Extended PDF file creation has been initiated for invoice Id 2." };
+    const pdfBytes = (n) => new Uint8Array([37, 80, 68, 70, n]);
+    const c = clock();
+    const { fetch, calls } = fakeFetch({ body: pdfBytes(1) }, { body: started }, { body: pdfBytes(3) }, { body: pdfBytes(2) });
+    const got = await client(fetch, c).pdfMany([1, 2, 3]);
+    expect(calls.map((call) => new URL(call.url).searchParams.get("invoiceId"))).toEqual(["1", "2", "3", "2"]);
+    expect([...got.keys()].sort()).toEqual([1, 2, 3]);
+    expect(got.get(2)).toEqual(pdfBytes(2));
+    expect(c.sleeps.filter((ms) => ms >= 2000)).toEqual([2000]);
+  });
+
+  it("gives each PDF it could not get its error, and stops on a refused key", async () => {
+    const started = { message: "Extended PDF file creation has been initiated." };
+    const { fetch } = fakeFetch({ status: 503, body: "down" }, { body: started }, { body: started }, { body: started }, { body: started });
+    const got = await client(fetch).pdfMany([1, 2]);
+    expect(got.get(1)).toMatchObject({ code: "sef-unavailable" });
+    expect(got.get(2)).toMatchObject({ code: "pdf-not-ready" });
+    const refused = fakeFetch({ status: 401, body: "" });
+    await expect(client(refused.fetch).pdfMany([1])).rejects.toMatchObject({ code: "key-rejected" });
+  });
+
+  it("stops waiting for PDFs at the deadline, so the mail still has time to go", async () => {
+    const started = { message: "Extended PDF file creation has been initiated." };
+    const c = clock();
+    const { fetch, calls } = fakeFetch({ body: started }, { body: started });
+    const got = await client(fetch, c).pdfMany([1, 2], { until: c.now() + 1500 });
+    expect(calls).toHaveLength(2);
+    expect([...got.values()].map((e) => e.code)).toEqual(["pdf-not-ready", "pdf-not-ready"]);
+    expect(c.sleeps.filter((ms) => ms >= 2000)).toEqual([]);
+    const late = fakeFetch();
+    const none = await client(late.fetch, c).pdfMany([3], { until: c.now() - 1 });
+    expect(late.calls).toHaveLength(0);
+    expect(none.get(3).code).toBe("pdf-not-ready");
+  });
+
   it("gives up with pdf-not-ready when SEF still has no PDF", async () => {
     const started = { message: `Extended PDF file creation has been initiated for invoice Id 7. ${KEY}` };
     const { fetch, calls } = fakeFetch({ body: started }, { body: started }, { body: started }, { body: started });

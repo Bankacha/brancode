@@ -1,7 +1,7 @@
 {
   "name": "shelf-price-scanner",
   "private": true,
-  "version": "0.15.6",
+  "version": "0.16.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -23,6 +23,7 @@
     "exceljs": "^4.4.0",
     "jsbarcode": "^3.12.3",
     "lucide-react": "^0.383.0",
+    "pdf-lib": "1.17.1",
     "pdfjs-dist": "^6.3.289",
     "pdfmake": "0.3.11",
     "react": "^18.2.0",

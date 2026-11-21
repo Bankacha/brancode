@@ -1,5 +1,6 @@
 import { decryptApiKey, encryptApiKey, keyLast4 } from "./efakturaCrypto.js";
-import { MAX_MAIL_BYTES, attachmentNames, invoiceMail, splitBySize } from "./efakturaMail.js";
+import { MAX_MAIL_BYTES, attachmentNames, invoiceMail, mergedFilename, splitBySize } from "./efakturaMail.js";
+import { describePages, mergePdfs } from "./efakturaPdf.js";
 import { PENDING_STATUSES, WINDOW_DAYS, isPending, sendState } from "./efakturaRules.js";
 import { SefError } from "./sefClient.js";
 import { addDays } from "./listFormat.js";
@@ -16,6 +17,7 @@ const MAX_IDS = 50;
 const MAX_COMMENT = 500;
 const MAX_SHOP_NAME = 100;
 const MAX_PDF_BYTES = 4.4 * 1024 * 1024; // Vercel answers at most 4.5 MB
+const PDF_BUDGET_MS = 150_000; // of the function's 300 s, for SEF's PDFs
 const PENDING = new Set(PENDING_STATUSES);
 
 const ok = (json = {}) => ({ status: 200, json: { ok: true, ...json } });
@@ -55,6 +57,16 @@ export const latestDecisions = (events) => {
   const decisions = new Map();
   for (const event of events) if (event.action !== "sent") decisions.set(event.invoiceId, event.action);
   return decisions;
+};
+
+// A mail's invoices, written in one insert, so a function cut off midway
+// can't leave some of them looking unsent (and printed twice).
+const recordAll = async (ctx, events) => {
+  try {
+    await ctx.store.addEvents(events.map((event) => ({ mode: ctx.mode, userId: ctx.user.id, userEmail: ctx.user.email, ...event })));
+  } catch (err) {
+    console.error("efaktura", "history", err?.code ?? err?.name ?? "error");
+  }
 };
 
 const record = async (ctx, event) => {
@@ -231,21 +243,29 @@ const send = async ({ invoiceIds }, ctx) => {
   const sef = openSef(settings, ctx);
   const byId = new Map((await sef.overview(windowOf(ctx).range)).map((invoice) => [invoice.id, invoice]));
   const outcome = new Map();
-  const ready = [];
+  const sendable = [];
   for (const id of invoiceIds) {
     const invoice = byId.get(id);
-    if (invoice?.status !== "Approved") {
-      outcome.set(id, "not-sendable");
-      continue;
-    }
-    try {
-      ready.push({ invoice, bytes: await sef.pdf(id) });
-    } catch (err) {
-      if (err?.code === "key-rejected") return fail(502, "key-rejected");
-      console.error("efaktura", "send-pdf", err?.code ?? err?.name ?? "error");
-      outcome.set(id, "failed");
+    if (invoice?.status === "Approved") sendable.push(invoice);
+    else outcome.set(id, "not-sendable");
+  }
+  // all PDFs at once: SEF makes the missing ones while we wait for the lot,
+  // but only so long, to leave time for the merge, the mail and the history
+  const pdfs = await sef.pdfMany(
+    sendable.map((invoice) => invoice.id),
+    { until: ctx.now().getTime() + PDF_BUDGET_MS }
+  );
+  const ready = [];
+  for (const invoice of sendable) {
+    const pdf = pdfs.get(invoice.id);
+    if (pdf instanceof Uint8Array) ready.push({ invoice, bytes: pdf });
+    else {
+      console.error("efaktura", "send-pdf", pdf?.code ?? pdf?.name ?? "error");
+      outcome.set(invoice.id, "failed");
     }
   }
+  // printed in the order they came in, oldest first
+  ready.sort((a, b) => (a.invoice.receivedAt ?? "\uffff").localeCompare(b.invoice.receivedAt ?? "\uffff") || a.invoice.id - b.invoice.id);
 
   const to = settings.sendTo ?? ctx.shopEmail;
   const names = attachmentNames(ready.map((r) => r.invoice));
@@ -253,20 +273,33 @@ const send = async ({ invoiceIds }, ctx) => {
     ready.map((r) => r.bytes.length),
     MAX_MAIL_BYTES
   );
+  const todayIso = belgradeToday(ctx.now());
   for (const [index, part] of mails.entries()) {
     const invoices = part.map((i) => ready[i].invoice);
-    const mail = invoiceMail({ shopName: settings.shopName, pib: settings.pib, invoices, todayIso: belgradeToday(ctx.now()), mock: ctx.mode === "mock", part: { index: index + 1, count: mails.length } });
+    const numbering = { index: index + 1, count: mails.length };
+    const mail = invoiceMail({ shopName: settings.shopName, pib: settings.pib, invoices, todayIso, mock: ctx.mode === "mock", part: numbering });
+    // one file to print; a PDF pdf-lib can't read goes on its own, not lost,
+    // and if merging breaks altogether, every PDF goes on its own
+    const merged = await mergePdfs(part.map((i) => ready[i].bytes)).catch((err) => {
+      console.error("efaktura", "send-merge", err?.name ?? "error");
+      return { bytes: null, failed: part.map((_, k) => k) };
+    });
+    const attachments = [
+      ...(merged.bytes ? [{ filename: mergedFilename(todayIso, numbering), content: merged.bytes }] : []),
+      ...merged.failed.map((k) => ({ filename: names[part[k]], content: ready[part[k]].bytes })),
+    ];
     try {
-      await ctx.sendMail({ to, ...mail, attachments: part.map((i) => ({ filename: names[i], content: ready[i].bytes })) });
+      await ctx.sendMail({ to, ...mail, attachments });
     } catch (err) {
       console.error("efaktura", "send-mail", err?.code ?? err?.name ?? "error");
       for (const invoice of invoices) outcome.set(invoice.id, "failed");
       continue;
     }
-    for (const invoice of invoices) {
-      await record(ctx, { invoiceId: invoice.id, action: "sent", recipient: to, snapshot: invoice });
-      outcome.set(invoice.id, "sent");
-    }
+    await recordAll(
+      ctx,
+      invoices.map((invoice) => ({ invoiceId: invoice.id, action: "sent", recipient: to, snapshot: invoice }))
+    );
+    for (const invoice of invoices) outcome.set(invoice.id, "sent");
   }
 
   const results = invoiceIds.map((id) => ({ id, outcome: outcome.get(id) }));
@@ -280,6 +313,24 @@ const resetMock = async (_, ctx) => {
   return ok();
 };
 
+// Temporary (0.16.0): the structured-format rule (efakturaPdf.js) checked
+// on the shop's real invoices: each page's kind and what the printed file
+// would leave out, no text. Remove once checked.
+const pdfCheck = async ({ invoiceIds }, ctx) => {
+  if (ctx.mode === "mock") return fail(400, "not-real-sef");
+  const problem = idsProblem(invoiceIds);
+  if (problem) return fail(400, problem);
+  const settings = await ctx.store.getSettings(ctx.mode);
+  if (!isConnected(settings)) return fail(409, "not-connected");
+  const pdfs = await openSef(settings, ctx).pdfMany(invoiceIds);
+  const results = [];
+  for (const id of invoiceIds) {
+    const pdf = pdfs.get(id);
+    results.push(pdf instanceof Uint8Array ? { id, ...(await describePages(pdf)) } : { id, error: pdf?.code ?? "error" });
+  }
+  return ok({ results });
+};
+
 const ACTIONS = {
   status,
   "save-settings": saveSettings,
@@ -290,6 +341,7 @@ const ACTIONS = {
   reject,
   send,
   "reset-mock": resetMock,
+  "pdf-check": pdfCheck,
 };
 
 export const runEfakturaAction = async (action, payload, ctx) => {

@@ -99,7 +99,7 @@ export const createSefMock = ({ apiKey, todayIso, decisions }) => {
     return dto;
   };
 
-  return {
+  const mock = {
     checkKey: async () => {
       if (apiKey === "neispravan") throw new SefError("key-rejected", 401);
     },
@@ -134,7 +134,20 @@ export const createSefMock = ({ apiKey, todayIso, decisions }) => {
         `Ukupno: ${formatPrice(dto.amount)} RSD`,
       ]);
     },
+
+    pdfMany: async (invoiceIds) => {
+      const got = new Map();
+      for (const invoiceId of invoiceIds) {
+        try {
+          got.set(invoiceId, await mock.pdf(invoiceId));
+        } catch (err) {
+          got.set(invoiceId, err);
+        }
+      }
+      return got;
+    },
   };
+  return mock;
 };
 
 const ASCII = { č: "c", ć: "c", š: "s", ž: "z", đ: "dj", Č: "C", Ć: "C", Š: "S", Ž: "Z", Đ: "Dj", "–": "-", "—": "-" };

@@ -140,7 +140,7 @@ Ovo nije provereno na pravom telefonu i papiru, pa ostaje za zajednički test. �
 - [ ] Otvori Trebovanje, odjavi se (Meni → Odjavi se) dok si na njemu, pa se prijavi: otvara se početna strana (Cene), ne Trebovanje.
 - [ ] Aplikacija otvorena dok je prijava još važeća ostaje na strani gde je bila.
 
-## 2i. e-Faktura (0.15.0)
+## 2i. e-Faktura (0.15.0, jedan PDF od 0.16.0)
 
 Probni režim (pre `SEF_ENV`), na telefonu:
 
@@ -148,11 +148,12 @@ Probni režim (pre `SEF_ENV`), na telefonu:
 - [ ] Ključ `neispravan` daje „SEF ne prihvata ovaj ključ…“, a bilo koji drugi tekst, naziv i 9 cifara PIB-a daju „Ključ sačuvan · završava se na …“ (polje ključa nestane); „Fakture šalji na“ je zasivljeno, sa mejlom radnje.
 - [ ] „Na čekanju“: grupe Danas, Juče…, rok „još N dana“ (crveno pred kraj), „Izaberi sve“ za dan, traka „Prihvati (N) · ukupno …“, potvrda, poruka „Prihvaćene N fakture“; prihvaćene pređu u „Prihvaćene → Nije poslato“.
 - [ ] Detalj fakture: podaci, „Otvori PDF“ preuzme probni PDF, „Odbij“ traži razlog (bez razloga dugme ne radi), posle odbijanja faktura je u „Sve“ kao „Odbijena“; kod prihvaćene kroz aplikaciju piše „Prihvatio: …“.
-- [ ] „Prihvaćene“: „Nije poslato“ je štiklirano, „Pošalji (N)“ → potvrda sa adresom → mejl „[PROBA] Prihvaćene fakture – …“ stigne na mejl radnje sa po jednim PDF-om po fakturi; fakture pređu u „Poslato“ sa datumom i adresom; jedna iz „Poslato“ može da se pošalje ponovo.
+- [ ] „Prihvaćene“: „Nije poslato“ je štiklirano, „Pošalji (N)“ → potvrda sa adresom → mejl „[PROBA] Prihvaćene fakture – …“ stigne na mejl radnje sa jednim PDF-om „Prihvaćene fakture – datum.pdf“ u kome su sve fakture, od najstarije; fakture pređu u „Poslato“ sa datumom i adresom; jedna iz „Poslato“ može da se pošalje ponovo.
 - [ ] „Vrati probne fakture“ vrati sve kako je bilo.
 - [ ] Bezbednost: u pregledaču (prijavljen) `supabase.from("efaktura_settings").select()` vraća prazno ili grešku, nikad ključ.
 
 Pravi SEF: koraci 5 i 6 iz `docs/repovi.md` (prvo samo čitanje, pa prihvatanje).
+- [ ] Na pravom SEF-u (0.16.0): u PDF-u iz mejla svaka faktura ima svoje strane (zaglavlje „Generisao sistem eFaktura…“), a nema strana „Strukturirani format elektronske fakture…“; nijedna strana fakture (stavke, rekapitulacija, napomena) ne fali. „Otvori PDF“ i dalje daje ceo originalni PDF sa SEF-a.
 
 ## 2h. Frižider cena kao slika, naziv u bazu (0.14.0)
 
