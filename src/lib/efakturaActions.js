@@ -89,11 +89,11 @@ const saveSettings = async ({ shopName, pib, apiKey }, ctx) => {
     const sealed = encryptApiKey(key, ctx.secret);
     Object.assign(fields, { keyCiphertext: sealed.ciphertext, keyIv: sealed.iv, keyTag: sealed.tag, keyLast4: keyLast4(key) });
   }
-  // A first baseline that came out empty, with nothing done through the app
-  // since, is taken again on the next save (key or not): 0.15.2 read SEF's
-  // capitalised answer as an empty list, so the shop connected with none of
-  // its accepted invoices.
-  const retake = Boolean(current?.connectedAt) && (current.baselineIds ?? []).length === 0 && (await ctx.store.eventsSince(ctx.mode, "2000-01-01")).length === 0;
+  // Until something is done through the app (no history in this mode), every
+  // save takes the baseline again, key or not: 0.15.2 read SEF's answer as an
+  // empty list and 0.15.4 saw only its last month, so the shop connected with
+  // a short list of what was already accepted.
+  const retake = Boolean(current?.connectedAt) && (await ctx.store.eventsSince(ctx.mode, "2000-01-01")).length === 0;
   if (!current?.connectedAt || retake) {
     invoices ??= await openSef(current, ctx).overview(windowOf(ctx).range);
     // what is already accepted now was printed and carried: never offered for sending
@@ -269,20 +269,6 @@ const resetMock = async (_, ctx) => {
   return ok();
 };
 
-// Temporary (0.15.3): why the real SEF lists nothing. What SEF answers to the
-// list in several shapes with the saved key, and to two calls with a made-up
-// key (does SEF refuse a wrong key, or answer it with an empty list?).
-// Shapes and counts only; remove once the list works.
-const probe = async (_, ctx) => {
-  if (ctx.mode === "mock") return fail(400, "not-real-sef");
-  const settings = await ctx.store.getSettings(ctx.mode);
-  if (!isConnected(settings)) return fail(409, "not-connected");
-  const { range } = windowOf(ctx);
-  const results = await openSef(settings, ctx).probe(range);
-  const madeUpKey = await ctx.sefFor("neispravan-probni-kljuc-0000").probe(range, { short: true });
-  return ok({ results, madeUpKey });
-};
-
 const ACTIONS = {
   status,
   "save-settings": saveSettings,
@@ -293,7 +279,6 @@ const ACTIONS = {
   reject,
   send,
   "reset-mock": resetMock,
-  probe,
 };
 
 export const runEfakturaAction = async (action, payload, ctx) => {

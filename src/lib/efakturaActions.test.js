@@ -138,11 +138,12 @@ describe("status and settings", () => {
     expect(settings.updatedBy).toBe("brat@primer.test");
   });
 
-  it("keeps the connection day and baseline when the key is replaced", async () => {
-    const invoices = [inv(2, "Approved")];
+  it("keeps the connection day and baseline when the key is replaced, once the app has been used", async () => {
+    const invoices = [inv(2, "Approved"), inv(3, "New")];
     const sef = fakeSef(invoices);
     const { run, store, ctx } = setup({ mode: "production", sef });
     await connect(run);
+    await run("accept", { invoiceIds: [3] });
     invoices.push(inv(5, "Approved"));
     ctx.now = () => new Date("2026-11-20T09:00:00Z");
     await connect(run, "NOVI-kljuc-9999");
@@ -150,10 +151,10 @@ describe("status and settings", () => {
     expect(settings).toMatchObject({ connectedAt: NOW.toISOString(), baselineIds: [2], keyLast4: "9999" });
   });
 
-  it("takes the baseline again when the first one came out empty and nothing happened since", async () => {
-    // 0.15.2 read SEF's capitalised fields as nothing: the shop connected
-    // with an empty list, so every accepted invoice looked unsent
-    const invoices = [];
+  it("takes the baseline again on the next save while nothing was done through the app", async () => {
+    // 0.15.2 read SEF's capitalised fields as nothing and 0.15.4 saw only a
+    // month: the shop connected with a short list of what was already accepted
+    const invoices = [inv(1, "Approved")];
     const sef = fakeSef(invoices);
     const { run, store, ctx } = setup({ mode: "production", sef });
     await connect(run);
@@ -162,7 +163,7 @@ describe("status and settings", () => {
     // "Proveri i sačuvaj" without typing the key again
     const saved = await run("save-settings", { shopName: "Radnja Kod Brata", pib: "101234567" });
     expect(saved.status).toBe(200);
-    expect(await store.getSettings("production")).toMatchObject({ connectedAt: "2026-11-21T15:00:00.000Z", baselineIds: [2], keyLast4: "1234" });
+    expect(await store.getSettings("production")).toMatchObject({ connectedAt: "2026-11-21T15:00:00.000Z", baselineIds: [1, 2], keyLast4: "1234" });
   });
 
   it("keeps an empty baseline once the app has history", async () => {
@@ -582,25 +583,3 @@ describe("latestDecisions", () => {
   });
 });
 
-describe("probe (temporary)", () => {
-  it("reports what SEF answers to the list in several shapes, with the saved key and a made-up one", async () => {
-    const keys = [];
-    const probe = vi.fn(async (range, options) => [{ name: options?.short ? "kratko" : "sve", count: 0, from: range.dateFrom.toISOString() }]);
-    const sef = fakeSef([], { probe });
-    const { run, ctx } = setup({ mode: "production", sef });
-    ctx.sefFor = (apiKey) => (keys.push(apiKey), sef.api);
-    await connect(run);
-    const res = await run("probe");
-    expect(res.status).toBe(200);
-    expect(res.json.results).toEqual([{ name: "sve", count: 0, from: "2026-09-20T00:00:00.000Z" }]);
-    expect(res.json.madeUpKey).toEqual([{ name: "kratko", count: 0, from: "2026-09-20T00:00:00.000Z" }]);
-    expect(keys.at(-2)).toBe(KEY);
-    expect(keys.at(-1)).not.toBe(KEY);
-    expect(JSON.stringify(res)).not.toContain(KEY);
-  });
-
-  it("is only for a real SEF with a saved key", async () => {
-    expect((await setup().run("probe")).json).toEqual({ ok: false, error: "not-real-sef" });
-    expect((await setup({ mode: "production", sef: fakeSef([]) }).run("probe")).json).toEqual({ ok: false, error: "not-connected" });
-  });
-});
