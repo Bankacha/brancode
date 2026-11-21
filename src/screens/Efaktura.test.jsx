@@ -258,6 +258,7 @@ describe("Efaktura", () => {
     fireEvent.click(screen.getByRole("button", { name: "Pošalji (2)" }));
     // the address sits under the title, where a long one can wrap
     expect(within(dialog("Poslati 2 fakture?")).getByText("radnja@primer.test")).toBeTruthy();
+    expect(within(dialog("Poslati 2 fakture?")).getByText(/u jednom PDF-u/)).toBeTruthy();
     fireEvent.click(within(dialog("Poslati 2 fakture?")).getByRole("button", { name: "Pošalji" }));
     await screen.findByText("Poslate 2 fakture na radnja@primer.test");
     expect([...api.send.mock.calls[0][0].invoiceIds].sort()).toEqual([5, 6]);
@@ -292,16 +293,16 @@ describe("Efaktura", () => {
     await screen.findByText("Poslato 1 od 2. Dobavljač 6 – 6/2026 više nije prihvaćena na SEF-u.");
   });
 
-  it("sends a long selection in parts of 10", async () => {
-    const many = Array.from({ length: 12 }, (_, i) => inv(i + 1, { status: "Approved", receivedAt: at(1, 7), send: unsent }));
+  it("sends up to 50 invoices in one request, so they come as one PDF", async () => {
+    const many = Array.from({ length: 55 }, (_, i) => inv(i + 1, { status: "Approved", receivedAt: at(1, 7), send: unsent }));
     const api = serve({ list: many });
     setup();
     await screen.findByRole("button", { name: /^Prihvaćene/ });
     fireEvent.click(tab("Prihvaćene"));
-    fireEvent.click(screen.getByRole("button", { name: "Pošalji (12)" }));
-    fireEvent.click(within(dialog("Poslati 12 faktura?")).getByRole("button", { name: "Pošalji" }));
-    await screen.findByText("Poslato 12 faktura na radnja@primer.test");
-    expect(api.send.mock.calls.map(([payload]) => payload.invoiceIds.length)).toEqual([10, 2]);
+    fireEvent.click(screen.getByRole("button", { name: "Pošalji (55)" }));
+    fireEvent.click(within(dialog("Poslati 55 faktura?")).getByRole("button", { name: "Pošalji" }));
+    await screen.findByText("Poslato 55 faktura na radnja@primer.test");
+    expect(api.send.mock.calls.map(([payload]) => payload.invoiceIds.length)).toEqual([50, 5]);
   });
 
   it("shows every invoice under Sve, with its status and no checkboxes", async () => {

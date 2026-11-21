@@ -2,7 +2,7 @@ import { formatAmount, pdfFilename } from "./efakturaRules.js";
 import { formatDate } from "./listFormat.js";
 
 // Server only: the mail that carries accepted invoices to the shop (later, to
-// the accountant), one PDF per invoice. Resend takes up to 40 MB per mail
+// the accountant), all in one PDF to print at once. Resend takes up to 40 MB per mail
 // with the attachments in base64, so 25 MB of PDFs leaves room for that.
 
 export const MAX_MAIL_BYTES = 25 * 1024 * 1024;
@@ -12,13 +12,17 @@ export const invoiceMail = ({ shopName, pib, invoices, todayIso, mock, part = { 
   text: [
     "Poštovani,",
     "",
-    `u prilogu su prihvaćene ulazne fakture prodavnice ${shopName} (PIB ${pib}), ukupno ${invoices.length}.`,
+    `u prilogu su prihvaćene ulazne fakture prodavnice ${shopName} (PIB ${pib}), ukupno ${invoices.length}, u jednom PDF-u, redom kojim su primljene:`,
     "",
     ...invoices.map((invoice) => `${invoice.supplier} – ${invoice.number} – ${formatAmount(invoice.amount, invoice.currency)}`),
     "",
     "Srdačan pozdrav",
   ].join("\n"),
 });
+
+// The one PDF with every invoice of a mail, to print at once.
+export const mergedFilename = (todayIso, part = { index: 1, count: 1 }) =>
+  `Prihvaćene fakture – ${formatDate(todayIso)}${part.count > 1 ? ` (${part.index} od ${part.count})` : ""}.pdf`;
 
 // One file name per invoice; a repeated name gets " (2)", " (3)" so no
 // attachment hides another.

@@ -32,7 +32,7 @@ const SEND_GROUPS = [
 // calls (3 a second) and sending also fetches a PDF, so parts stay small
 // enough to finish well inside the function's time limit.
 const ACCEPT_PART = 20;
-const SEND_PART = 10;
+const SEND_PART = 50; // one request, one mail, one PDF to print
 const EMPTY = {
   pending: "Nema faktura na čekanju.",
   accepted: "Nema prihvaćenih faktura u poslednjih 60 dana.",
@@ -437,7 +437,7 @@ export default function Efaktura() {
           <>
             Na adresu
             <MailAddress address={status?.sendTo ?? ""} />
-            Svaka faktura ide kao poseban PDF u jednom mejlu.
+            Sve fakture stižu u jednom PDF-u, spremne za štampu.
           </>
         }
         confirmLabel="Pošalji"

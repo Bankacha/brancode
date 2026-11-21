@@ -5,6 +5,7 @@ import { createMemoryEfakturaStore } from "./efakturaMemoryStore.js";
 import { createSefMock, mockInvoiceDtos } from "./sefMock.js";
 import { SefError } from "./sefClient.js";
 import { MAX_MAIL_BYTES } from "./efakturaMail.js";
+import { PDFDocument } from "pdf-lib";
 
 const NOW = new Date("2026-11-19T09:00:00Z");
 const TODAY = "2026-11-19";
@@ -42,9 +43,25 @@ const fakeSef = (invoices, overrides = {}) => {
       calls.push(["invoiceStatus", id]);
       return "Approved";
     },
+    // a real one-page PDF, as wide as 100 + its id, so a merge shows the order
     pdf: async (id) => {
       calls.push(["pdf", id]);
-      return new Uint8Array([37, 80, 68, 70, id % 256]);
+      const doc = await PDFDocument.create();
+      doc.addPage([100 + id, 200]);
+      return doc.save();
+    },
+    // like SEF's client: each id gets its PDF or its error
+    pdfMany: async (ids) => {
+      const got = new Map();
+      for (const id of ids) {
+        try {
+          got.set(id, await api.pdf(id));
+        } catch (err) {
+          if (err?.code === "key-rejected") throw err;
+          got.set(id, err);
+        }
+      }
+      return got;
     },
   };
   for (const [name, fn] of Object.entries(overrides)) api[name] = fn;
@@ -455,19 +472,21 @@ describe("send", () => {
     return { ...env, sef };
   };
 
-  it("sends one mail with every PDF to the shop and records each", async () => {
-    const { run, mails, recorded } = await ready([inv(1, "Approved"), inv(2, "Approved")]);
+  it("sends one mail with one PDF of every invoice, oldest first, to print at once, and records each", async () => {
+    const { run, mails, recorded } = await ready([inv(1, "Approved", { receivedAt: "2026-11-18T08:00:00Z" }), inv(2, "Approved", { receivedAt: "2026-11-10T08:00:00Z" })]);
     const res = await run("send", { invoiceIds: [1, 2] });
     expect(res).toEqual({ status: 200, json: { ok: true, recipient: "radnja@primer.test", results: [{ id: 1, outcome: "sent" }, { id: 2, outcome: "sent" }] } });
     expect(mails).toHaveLength(1);
     expect(mails[0].to).toBe("radnja@primer.test");
     expect(mails[0].subject).toBe("Prihvaćene fakture – Radnja Kod Brata – 19.11.2026.");
-    expect(mails[0].text).toContain("(PIB 101234567), ukupno 2.");
-    expect(mails[0].attachments.map((a) => a.filename)).toEqual(["Dobavljač 1 – 1-2026.pdf", "Dobavljač 2 – 2-2026.pdf"]);
-    expect(mails[0].attachments[0].content).toBeInstanceOf(Uint8Array);
+    expect(mails[0].text).toContain("(PIB 101234567), ukupno 2, u jednom PDF-u");
+    expect(mails[0].text.indexOf("Dobavljač 2")).toBeLessThan(mails[0].text.indexOf("Dobavljač 1"));
+    expect(mails[0].attachments.map((a) => a.filename)).toEqual(["Prihvaćene fakture – 19.11.2026.pdf"]);
+    const merged = await PDFDocument.load(mails[0].attachments[0].content);
+    expect(merged.getPages().map((page) => page.getWidth())).toEqual([102, 101]);
     expect(recorded.map((e) => [e.invoiceId, e.action, e.recipient])).toEqual([
-      [1, "sent", "radnja@primer.test"],
       [2, "sent", "radnja@primer.test"],
+      [1, "sent", "radnja@primer.test"],
     ]);
   });
 
@@ -496,6 +515,22 @@ describe("send", () => {
     expect(recorded.map((e) => e.invoiceId)).toEqual([1, 3]);
   });
 
+  it("attaches on its own a PDF that could not be merged", async () => {
+    const pdf = async (id) => {
+      if (id !== 2) {
+        const doc = await PDFDocument.create();
+        doc.addPage([100 + id, 200]);
+        return doc.save();
+      }
+      return new Uint8Array([37, 80, 68, 70, 0]); // starts like a PDF, isn't one
+    };
+    const { run, mails } = await ready([inv(1, "Approved"), inv(2, "Approved"), inv(3, "Approved")], { sef: { pdf } });
+    const res = await run("send", { invoiceIds: [1, 2, 3] });
+    expect(res.json.results.map((r) => r.outcome)).toEqual(["sent", "sent", "sent"]);
+    expect(mails[0].attachments.map((a) => a.filename)).toEqual(["Prihvaćene fakture – 19.11.2026.pdf", "Dobavljač 2 – 2-2026.pdf"]);
+    expect((await PDFDocument.load(mails[0].attachments[0].content)).getPageCount()).toBe(2);
+  });
+
   it("records nothing when the mail fails", async () => {
     const sendMail = async () => {
       throw new Error("resend down");
@@ -513,6 +548,7 @@ describe("send", () => {
       "Prihvaćene fakture – Radnja Kod Brata – 19.11.2026. (1/2)",
       "Prihvaćene fakture – Radnja Kod Brata – 19.11.2026. (2/2)",
     ]);
+    expect(mails.map((m) => m.attachments.length)).toEqual([1, 1]);
     expect(recorded).toHaveLength(2);
   });
 

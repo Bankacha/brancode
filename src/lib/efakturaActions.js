@@ -1,5 +1,6 @@
 import { decryptApiKey, encryptApiKey, keyLast4 } from "./efakturaCrypto.js";
-import { MAX_MAIL_BYTES, attachmentNames, invoiceMail, splitBySize } from "./efakturaMail.js";
+import { MAX_MAIL_BYTES, attachmentNames, invoiceMail, mergedFilename, splitBySize } from "./efakturaMail.js";
+import { mergePdfs } from "./efakturaPdf.js";
 import { PENDING_STATUSES, WINDOW_DAYS, isPending, sendState } from "./efakturaRules.js";
 import { SefError } from "./sefClient.js";
 import { addDays } from "./listFormat.js";
@@ -231,21 +232,25 @@ const send = async ({ invoiceIds }, ctx) => {
   const sef = openSef(settings, ctx);
   const byId = new Map((await sef.overview(windowOf(ctx).range)).map((invoice) => [invoice.id, invoice]));
   const outcome = new Map();
-  const ready = [];
+  const sendable = [];
   for (const id of invoiceIds) {
     const invoice = byId.get(id);
-    if (invoice?.status !== "Approved") {
-      outcome.set(id, "not-sendable");
-      continue;
-    }
-    try {
-      ready.push({ invoice, bytes: await sef.pdf(id) });
-    } catch (err) {
-      if (err?.code === "key-rejected") return fail(502, "key-rejected");
-      console.error("efaktura", "send-pdf", err?.code ?? err?.name ?? "error");
-      outcome.set(id, "failed");
+    if (invoice?.status === "Approved") sendable.push(invoice);
+    else outcome.set(id, "not-sendable");
+  }
+  // all PDFs at once: SEF makes the missing ones while we wait for the lot
+  const pdfs = await sef.pdfMany(sendable.map((invoice) => invoice.id));
+  const ready = [];
+  for (const invoice of sendable) {
+    const pdf = pdfs.get(invoice.id);
+    if (pdf instanceof Uint8Array) ready.push({ invoice, bytes: pdf });
+    else {
+      console.error("efaktura", "send-pdf", pdf?.code ?? pdf?.name ?? "error");
+      outcome.set(invoice.id, "failed");
     }
   }
+  // printed in the order they came in, oldest first
+  ready.sort((a, b) => (a.invoice.receivedAt ?? "\uffff").localeCompare(b.invoice.receivedAt ?? "\uffff") || a.invoice.id - b.invoice.id);
 
   const to = settings.sendTo ?? ctx.shopEmail;
   const names = attachmentNames(ready.map((r) => r.invoice));
@@ -253,11 +258,19 @@ const send = async ({ invoiceIds }, ctx) => {
     ready.map((r) => r.bytes.length),
     MAX_MAIL_BYTES
   );
+  const todayIso = belgradeToday(ctx.now());
   for (const [index, part] of mails.entries()) {
     const invoices = part.map((i) => ready[i].invoice);
-    const mail = invoiceMail({ shopName: settings.shopName, pib: settings.pib, invoices, todayIso: belgradeToday(ctx.now()), mock: ctx.mode === "mock", part: { index: index + 1, count: mails.length } });
+    const numbering = { index: index + 1, count: mails.length };
+    const mail = invoiceMail({ shopName: settings.shopName, pib: settings.pib, invoices, todayIso, mock: ctx.mode === "mock", part: numbering });
+    // one file to print; a PDF pdf-lib can't read goes on its own, not lost
+    const merged = await mergePdfs(part.map((i) => ready[i].bytes));
+    const attachments = [
+      ...(merged.bytes ? [{ filename: mergedFilename(todayIso, numbering), content: merged.bytes }] : []),
+      ...merged.failed.map((k) => ({ filename: names[part[k]], content: ready[part[k]].bytes })),
+    ];
     try {
-      await ctx.sendMail({ to, ...mail, attachments: part.map((i) => ({ filename: names[i], content: ready[i].bytes })) });
+      await ctx.sendMail({ to, ...mail, attachments });
     } catch (err) {
       console.error("efaktura", "send-mail", err?.code ?? err?.name ?? "error");
       for (const invoice of invoices) outcome.set(invoice.id, "failed");
