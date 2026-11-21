@@ -89,7 +89,8 @@ const pageTexts = async (file) => {
 };
 
 // Temporary (0.16.0), for the check on the shop's real invoices: each page's
-// kind and which pages specPages would leave out, without any of the text.
+// kind and which pages specPages would leave out; text only from a kept page
+// the rule can't place (neither an invoice page nor a dropped one), its start.
 export const describePages = async (file) => {
   const encrypted = await PDFDocument.load(file).then(
     () => false,
@@ -99,10 +100,16 @@ export const describePages = async (file) => {
   if (!texts) return { encrypted, pages: null, dropped: [] };
   const pages = texts.map(compact);
   const id = pages[0]?.match(IDENTIFIER)?.[1];
+  const dropped = specPages(texts);
   return {
     encrypted,
-    pages: pages.map((page) => ({ sef: SEF_HEADER.test(page), title: page.startsWith(SPEC_TITLE), id: Boolean(id) && page.includes(id), labels: specLabels(page), footer: SEF_FOOTER.test(page) })),
-    dropped: specPages(texts),
+    pages: pages.map((page, i) => {
+      const kind = { sef: SEF_HEADER.test(page), title: page.startsWith(SPEC_TITLE), id: Boolean(id) && page.includes(id), labels: specLabels(page), footer: SEF_FOOTER.test(page) };
+      // a kept page the rule can't place: its start, to see what it is
+      if (kind.sef || dropped.includes(i)) return kind;
+      return { ...kind, chars: page.length, head: texts[i].replace(/\s+/g, " ").trim().slice(0, 160) };
+    }),
+    dropped,
   };
 };
 
